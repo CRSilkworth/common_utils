@@ -13,11 +13,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Debug Environment Variables
-        run: |
-          echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}"
-          echo "Repository: $GITHUB_REPOSITORY"
-          echo "Tag: $GITHUB_REF"
+      # - name: Debug Environment Variables
+      #   run: |
+      #     echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}"
+      #     echo "Repository: $GITHUB_REPOSITORY"
+      #     echo "Tag: $GITHUB_REF"
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
