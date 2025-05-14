@@ -1,6 +1,10 @@
 from typing import Text, Dict, Any, Callable
 from utils.misc_utils import failed_output
 import re
+import traceback
+import io
+import contextlib
+from utils.type_utils import is_valid_output
 
 
 def create_function(
@@ -69,3 +73,93 @@ def extract_function_body(function_string: str) -> str:
 
         return "\n".join(stripped_lines).strip()
     return ""
+
+
+def capture_output(func: Callable, *args: Any, **kwargs: Any) -> tuple:
+    """
+    Capture the output and errors of a function execution.
+
+    Args:
+        func (Callable): The function to be executed.
+        *args (Any): Positional arguments for the function.
+        **kwargs (Any): Keyword arguments for the function.
+
+    Returns:
+        tuple: A tuple containing the function result, combined output, stdout, stderr,
+            and a failure flag.
+    """
+    # Create pipes for stdout and stderr
+    stdout_pipe = io.StringIO()
+    stderr_pipe = io.StringIO()
+
+    try:
+        with contextlib.redirect_stdout(stdout_pipe), contextlib.redirect_stderr(
+            stderr_pipe
+        ):
+            result = func(*args, **kwargs)
+        failed = False
+    except Exception:
+        result = None
+        failed = True
+        # Capture the full traceback and write it to stderr_pipe
+        stderr_pipe.write(traceback.format_exc())
+
+    # Collect output and errors
+    stdout_output = stdout_pipe.getvalue().strip()
+    stderr_output = stderr_pipe.getvalue().strip()
+
+    # Remove the non user define function traceback
+    if failed:
+        stderr_output = "\n".join(stderr_output.split("\n")[3:])
+
+    # Combine output and errors
+    combined_output = ""
+    if stdout_output:
+        combined_output += "[stdout] " + "\n[stdout] ".join(stdout_output.split("\n"))
+    if stderr_output:
+        combined_output += "[stderr] " + "\n[stderr] ".join(stderr_output.split("\n"))
+
+    return result, combined_output, stdout_output, stderr_output, failed
+
+
+def run_with_expected_type(
+    func: Callable,
+    decoded_kwargs: Dict[Text, Any],
+    output_type: Any,
+):
+    """
+    Execute a function that returns and put returned value.
+
+    Args:
+        request (RunRequest): The request containing function details
+                              and arguments.
+
+    Returns:
+        Response: A response with the function result and execution details.
+    """
+
+    value, combined_output, stdout_output, stderr_output, failed = capture_output(
+        func=func, **decoded_kwargs
+    )
+    output = {
+        "value": None,
+        "combined_output": combined_output,
+        "stdout_output": stdout_output,
+        "stderr_output": stderr_output,
+        "failed": failed,
+    }
+    if failed:
+        pass
+    elif not is_valid_output(value, output_type=output_type):
+        new_error = (
+            f"\nExpected output type of {output_type}. {value} is of type "
+            f"{type(value).__name__}\n"
+        )
+        output["value"] = None
+        output["failed"] = True
+        output["stderr_output"] += new_error
+        output["combined_output"] += new_error
+    else:
+        output["value"] = value
+
+    return output
