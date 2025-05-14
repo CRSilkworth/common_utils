@@ -9,45 +9,47 @@ permissions:
   contents: write
   id-token: write
 jobs:
-  build:
+  tag:
     runs-on: ubuntu-latest
+    outputs:
+      created: ${{ steps.create_tag.outputs.created }}
+      version: ${{ steps.get_version.outputs.version }}
     steps:
       - uses: actions/checkout@v3
 
-      - name: Extract version from pyproject.toml
+      - name: Extract version
         id: get_version
         run: |
           VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
-          echo "VERSION=$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Check if tag already exists
+      - name: Check if tag exists
         id: check_tag
         run: |
           TAG="v${{ steps.get_version.outputs.version }}"
-          echo "Checking for tag: $TAG"
           if git ls-remote --tags origin "refs/tags/$TAG" | grep "$TAG"; then
-            echo "Tag $TAG already exists"
-            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "exists=true" >> $GITHUB_OUTPUT
           else
-            echo "Tag $TAG does not exist"
-            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Exit if version already released
-        if: steps.check_tag.outputs.exists == 'true'
-        run: |
-          echo "Tag already exists. Skipping release."
-          exit 0
-
-      - name: Create Git Tag
+      - name: Create tag if needed
+        id: create_tag
+        if: steps.check_tag.outputs.exists == 'false'
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
           git tag v${{ steps.get_version.outputs.version }}
           git push origin v${{ steps.get_version.outputs.version }}
+          echo "created=true" >> $GITHUB_OUTPUT
 
-      
+  build:
+    needs: tag
+    if: needs.tag.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
@@ -61,9 +63,7 @@ jobs:
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ steps.get_version.outputs.version }}
+          tag_name: v${{ needs.tag.outputs.version }}
           files: dist/*.whl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        
-        
