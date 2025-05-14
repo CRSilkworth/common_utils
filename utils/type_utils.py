@@ -249,3 +249,30 @@ def _resolve_forwardrefs(tp, globalns):
 
     resolved_args = tuple(_resolve_forwardrefs(arg, globalns) for arg in args)
     return origin[resolved_args]
+
+
+def is_valid_output(value, output_type):
+    if output_type == sqlite3.Connection:
+        return isinstance(value, sqlite3.Connection)
+
+    origin = get_origin(output_type)
+    args = get_args(output_type)
+
+    # Normalize dict type aliases
+    def is_dict_str_figure(typ):
+        return get_origin(typ) in {dict, Dict} and get_args(typ) == (str, go.Figure)
+
+    # Handle Union[Figure, Dict[str, Figure]] robustly
+    if origin is Union:
+        if go.Figure in args and any(is_dict_str_figure(arg) for arg in args):
+            if isinstance(value, go.Figure):
+                return True
+            if isinstance(value, dict):
+                return all(
+                    isinstance(k, str) and isinstance(v, go.Figure)
+                    for k, v in value.items()
+                )
+            return False
+
+    # Fallback
+    return is_allowed_type(value)

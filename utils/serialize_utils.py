@@ -1,8 +1,16 @@
-from typing import Any
+from typing import Union
 import pandas as pd
 import numpy as np
 import json
 import plotly.graph_objects as go
+import sqlite3
+import io
+from utils.db_utils import connect_to_biquery, connect_to_mongo, connect_to_sql
+from utils.misc_utils import failed_output
+from pymongo.mongo_client import MongoClient as PyMongoClient
+from psycopg2.extensions import connection as Psycopg2Connection
+from google.cloud.bigquery import Client as BigQueryClient
+import traceback
 
 
 def encode_obj(obj):
@@ -87,14 +95,74 @@ def decode_obj(obj):
         return obj
 
 
-def serialize(obj: Any):
-    if obj is None:
-        return None
-    return json.dumps(encode_obj(obj))
+def serialize_value(value, output_type):
+    if value is None:
+        return value
+    if output_type == sqlite3.Connection:
+        buffer = io.BytesIO()
+        for line in value.iterdump():
+            buffer.write(f"{line}\n".encode("utf-8"))
+        buffer.seek(0)
+
+        value = buffer.read()
+    return json.dumps(encode_obj(value))
 
 
-def deserialize(encoded_str):
-    if encoded_str is None:
-        return None
-    raw = json.loads(encoded_str)
-    return decode_obj(raw)
+def deserialize_value(value, output_type):
+    value = None if value is None else decode_obj(json.loads(value))
+    if output_type == sqlite3.Connection and value is not None:
+        buffer = io.BytesIO(value)
+        conn = sqlite3.connect(":memory:")
+
+        cursor = conn.cursor()
+
+        # Execute dump to restore database
+        script = buffer.getvalue().decode("utf-8")
+        cursor.executescript(script)
+        value = conn
+    elif (
+        output_type == Union[PyMongoClient, Psycopg2Connection, BigQueryClient]
+        and value is not None
+    ):
+        print(value)
+        if value["db_type"] == "mongo":
+            value = connect_to_mongo(value)
+        elif value["db_type"] == "bigquery":
+            value = connect_to_biquery(value)
+        elif value["db_type"] == "sql":
+            value = connect_to_sql(value)
+        else:
+            raise ValueError(f"Unsupported db type:{value['db_type']}")
+
+    return value
+
+
+def attempt_deserialize(value, value_type):
+    cleanups = []
+    output = {}
+    try:
+        deserialized_dict = deserialize_value(value, value_type)
+    except Exception:
+        message = f"Deserialize failed: {traceback.format_exc()}"
+        output = {"value_setter": failed_output(message)}
+        return None, output, cleanups
+
+    if value_type == Union[PyMongoClient, Psycopg2Connection, BigQueryClient]:
+        deserialized_value = deserialized_dict["connection"]
+        if deserialized_dict.get("cleanup", None):
+            cleanups.append(deserialized_dict["cleanup"])
+    else:
+        deserialized_value = deserialized_dict
+    return deserialized_value, output, cleanups
+
+
+def attempt_serialize(value, value_type):
+    output = {}
+    try:
+        value = serialize_value(
+            value,
+            output_type=value_type,
+        )
+    except Exception:
+        output = failed_output(f"Failed to serialize value: {traceback.format_exc()}")
+    return value, output

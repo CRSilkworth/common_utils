@@ -3,6 +3,16 @@ from typeguard import typechecked
 from utils.type_utils import ElementType
 
 
+def failed_output(message: Text):
+    return {
+        "failed": True,
+        "value": None,
+        "combined_output": message,
+        "stdout_output": message,
+        "stderr_output": message,
+    }
+
+
 @typechecked
 def get_elements_diff(
     new: Optional[List[ElementType]],
