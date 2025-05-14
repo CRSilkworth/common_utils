@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "common_utils"
+version = "0.1.0"
+description = "Shared utilities for app and runner"
+authors = [{name = "Your Name", email = "you@example.com"}]
+dependencies = [
+    "SQLAlchemy<2.1.0",
+    "PyJWT<2.11.0",
+    "Flask<3.2.0",
+    "pymongo<4.13",
+    "google-cloud-bigquery<4.0.0",
+    "sshtunnel<0.5.0",
+    "pandas<2.1.0",
+    "pillow<11.3.0",
+    "PyPDF2<3.1.0",
+    "psycopg2-binary<2.10.0",
+    "plotly<6.0",
+    "typeguard<4.2",
+    "google-cloud-storage<2.20.0",
+    "mongoengine<0.30",
+    "networkx<3.2",
+    "lxml<5.4.0",
+    "requests_oauthlib<2.1.0",
+    "pytest<8.4"
+]
