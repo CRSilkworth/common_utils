@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Any, Optional
 import pandas as pd
 import numpy as np
 import json
@@ -13,7 +13,7 @@ from google.cloud.bigquery import Client as BigQueryClient
 import traceback
 
 
-def encode_obj(obj):
+def encode_obj(obj: Any):
     if isinstance(obj, go.Figure):
         return {"__kind__": "PlotlyFigure", "data": obj.to_dict()}
     if isinstance(obj, pd.DataFrame):
@@ -65,7 +65,7 @@ def encode_obj(obj):
         return obj
 
 
-def decode_obj(obj):
+def decode_obj(obj: Any):
 
     if isinstance(obj, dict):
         kind = obj.get("__kind__")
@@ -95,10 +95,10 @@ def decode_obj(obj):
         return obj
 
 
-def serialize_value(value, output_type):
+def serialize_value(value: Any, value_type: Optional[Any] = None):
     if value is None:
         return value
-    if output_type == sqlite3.Connection:
+    if value_type == sqlite3.Connection:
         buffer = io.BytesIO()
         for line in value.iterdump():
             buffer.write(f"{line}\n".encode("utf-8"))
@@ -108,9 +108,9 @@ def serialize_value(value, output_type):
     return json.dumps(encode_obj(value))
 
 
-def deserialize_value(value, output_type):
+def deserialize_value(value, value_type):
     value = None if value is None else decode_obj(json.loads(value))
-    if output_type == sqlite3.Connection and value is not None:
+    if value_type == sqlite3.Connection and value is not None:
         buffer = io.BytesIO(value)
         conn = sqlite3.connect(":memory:")
 
@@ -121,7 +121,7 @@ def deserialize_value(value, output_type):
         cursor.executescript(script)
         value = conn
     elif (
-        output_type == Union[PyMongoClient, Psycopg2Connection, BigQueryClient]
+        value_type == Union[PyMongoClient, Psycopg2Connection, BigQueryClient]
         and value is not None
     ):
         print(value)
@@ -137,7 +137,7 @@ def deserialize_value(value, output_type):
     return value
 
 
-def attempt_deserialize(value, value_type):
+def attempt_deserialize(value: Any, value_type: Optional[Any] = None):
     cleanups = []
     output = {}
     try:
@@ -156,12 +156,12 @@ def attempt_deserialize(value, value_type):
     return deserialized_value, output, cleanups
 
 
-def attempt_serialize(value, value_type):
+def attempt_serialize(value: Any, value_type: Optional[Any] = None):
     output = {}
     try:
         value = serialize_value(
             value,
-            output_type=value_type,
+            value_type=value_type,
         )
     except Exception:
         output = failed_output(f"Failed to serialize value: {traceback.format_exc()}")
