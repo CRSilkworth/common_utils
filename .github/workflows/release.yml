@@ -83,4 +83,4 @@ jobs:
           destination: silkworks_carbon_public_data_prd/wheels/common_utils
           parent: false
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GCP_CREDENTIALS }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/gcp-key.json
