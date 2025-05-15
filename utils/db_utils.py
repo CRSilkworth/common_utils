@@ -1,9 +1,5 @@
 from typing import Dict, Any, Union, Optional, Text
 
-import sqlalchemy
-from pymongo import MongoClient
-from google.cloud import bigquery
-from google.oauth2 import service_account
 import sshtunnel
 import os
 
@@ -41,6 +37,8 @@ def connect_to_sql(
     ssh_private_key: Optional[Text] = None,
     sql_type: Text = "mysql",
 ):
+    import sqlalchemy
+
     ssh_tunnel = (
         start_ssh_tunnel(
             ssh_host=ssh_host,
@@ -97,6 +95,9 @@ def connect_to_mongo(
     ssh_user: Optional[Text] = None,
     ssh_private_key: Optional[Text] = None,
 ):
+
+    from pymongo import MongoClient
+
     ssh_tunnel = (
         start_ssh_tunnel(
             ssh_host=ssh_host,
@@ -137,6 +138,9 @@ def connect_to_mongo(
 
 
 def connect_to_biquery(gcp_credentials_json: Dict[Text, Any]):
+    from google.cloud import bigquery
+    from google.oauth2 import service_account
+
     credentials = service_account.Credentials.from_service_account_info(
         gcp_credentials_json
     )

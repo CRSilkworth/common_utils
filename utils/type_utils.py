@@ -19,11 +19,8 @@ import builtins
 import typing
 import typing_extensions
 import sqlite3
-from pymongo.mongo_client import MongoClient as PyMongoClient
-from psycopg2.extensions import connection as Psycopg2Connection
-from google.cloud.bigquery import Client as BigQueryClient
+
 import plotly.graph_objects as go
-import pymongo
 
 TextOrint = TypeVar("TextOrint", Text, int)
 Position = Union[Tuple[Optional[int], Optional[int]], List[Optional[int]]]
@@ -168,7 +165,9 @@ def serialize_typehint(t: type) -> str:
     return str(t)
 
 
-def deserialize_typehint(s: str, custom_types: dict = None) -> type:
+def deserialize_typehint(
+    s: str, custom_types: dict = None, with_db: bool = True
+) -> type:
     """Deserialize a string back into a type hint."""
     if not isinstance(s, str):
         raise TypeError(f"Expected a string, got {type(s).__name__}: {s}")
@@ -190,21 +189,6 @@ def deserialize_typehint(s: str, custom_types: dict = None) -> type:
         # SQL/DB
         "sqlite3": sqlite3,
         "sqlite3.Connection": sqlite3.Connection,
-        "pymongo": __import__("pymongo"),
-        "pymongo.mongo_client": pymongo.mongo_client,
-        "pymongo.synchronous.mongo_client": pymongo.mongo_client,
-        "pymongo.mongo_client.MongoClient": PyMongoClient,
-        "pymongo.synchronous.mongo_client.MongoClient": PyMongoClient,
-        "psycopg2": __import__("psycopg2"),
-        # "psycopg2.extensions": psycopg2.extensions,
-        "psycopg2.extensions.connection": Psycopg2Connection,
-        "google": __import__("google"),
-        "google.cloud": __import__("google.cloud", fromlist=["bigquery"]),
-        "google.cloud.bigquery": __import__(
-            "google.cloud.bigquery", fromlist=["client"]
-        ),
-        # "google.cloud.bigquery.client": google.cloud.bigquery.client,
-        "google.cloud.bigquery.client.Client": BigQueryClient,
         "go": go,
         "Figure": go.Figure,
         "plotly": __import__("plotly"),
@@ -214,6 +198,32 @@ def deserialize_typehint(s: str, custom_types: dict = None) -> type:
         ),
         "plotly.graph_objs._figure.Figure": go.Figure,
     }
+
+    if with_db:
+        from pymongo.mongo_client import MongoClient as PyMongoClient
+        from psycopg2.extensions import connection as Psycopg2Connection
+        from google.cloud.bigquery import Client as BigQueryClient
+        import pymongo
+
+        known_types.update(
+            {
+                "pymongo": __import__("pymongo"),
+                "pymongo.mongo_client": pymongo.mongo_client,
+                "pymongo.synchronous.mongo_client": pymongo.mongo_client,
+                "pymongo.mongo_client.MongoClient": PyMongoClient,
+                "pymongo.synchronous.mongo_client.MongoClient": PyMongoClient,
+                "psycopg2": __import__("psycopg2"),
+                # "psycopg2.extensions": psycopg2.extensions,
+                "psycopg2.extensions.connection": Psycopg2Connection,
+                "google": __import__("google"),
+                "google.cloud": __import__("google.cloud", fromlist=["bigquery"]),
+                "google.cloud.bigquery": __import__(
+                    "google.cloud.bigquery", fromlist=["client"]
+                ),
+                # "google.cloud.bigquery.client": google.cloud.bigquery.client,
+                "google.cloud.bigquery.client.Client": BigQueryClient,
+            }
+        )
 
     if custom_types:
         known_types.update(custom_types)
