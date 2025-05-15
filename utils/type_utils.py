@@ -169,6 +169,7 @@ def deserialize_typehint(
     s: str, custom_types: dict = None, with_db: bool = True
 ) -> type:
     """Deserialize a string back into a type hint."""
+
     if not isinstance(s, str):
         raise TypeError(f"Expected a string, got {type(s).__name__}: {s}")
 
@@ -197,6 +198,9 @@ def deserialize_typehint(
             "plotly.graph_objs._figure", fromlist=["Figure"]
         ),
         "plotly.graph_objs._figure.Figure": go.Figure,
+        "utils": __import__("utils"),
+        "utils.type_utils": __import__("utils.type_utils"),
+        "utils.type_utils.PositionDict": PositionDict,
     }
 
     if with_db:
