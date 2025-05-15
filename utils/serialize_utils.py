@@ -5,7 +5,6 @@ import json
 import plotly.graph_objects as go
 import sqlite3
 import io
-from utils.db_utils import connect_to_biquery, connect_to_mongo, connect_to_sql
 from utils.misc_utils import failed_output
 
 import traceback
@@ -123,6 +122,7 @@ def deserialize_value(value, value_type, with_db: bool = True):
         from pymongo.mongo_client import MongoClient as PyMongoClient
         from psycopg2.extensions import connection as Psycopg2Connection
         from google.cloud.bigquery import Client as BigQueryClient
+        from utils.db_utils import connect_to_biquery, connect_to_mongo, connect_to_sql
 
         if (
             value_type == Union[PyMongoClient, Psycopg2Connection, BigQueryClient]
