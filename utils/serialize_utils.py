@@ -161,6 +161,9 @@ def attempt_deserialize(
             deserialized_value = deserialized_dict["connection"]
             if deserialized_dict.get("cleanup", None):
                 cleanups.append(deserialized_dict["cleanup"])
+
+        else:
+            deserialized_value = deserialized_dict
     else:
         deserialized_value = deserialized_dict
     return deserialized_value, output, cleanups
