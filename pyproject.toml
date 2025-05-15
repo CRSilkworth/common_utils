@@ -16,7 +16,6 @@ dependencies = [
     "PyPDF2<3.1.0",
     "plotly<6.0",
     "typeguard<4.2",
-    "google-cloud-storage<2.20.0",
     "mongoengine<0.30",
     "networkx<3.2",
     "lxml<5.4.0",
@@ -33,5 +32,6 @@ db = [
     "psycopg2-binary<2.10.0",
     "pymongo<4.13",
     "google-cloud-bigquery<4.0.0",
+    "google-cloud-storage<2.20.0",
 
 ]

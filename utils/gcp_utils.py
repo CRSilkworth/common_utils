@@ -1,5 +1,4 @@
 from typing import Text, Dict, Any
-from google.cloud import storage
 from datetime import timedelta
 import uuid
 import json
@@ -7,6 +6,8 @@ import json
 
 def generate_signed_url(bucket_name, blob_name, expiration_minutes):
     """Generate a signed URL for accessing a file in GCS."""
+    from google.cloud import storage
+
     storage_client = storage.Client()
     bucket = storage_client.bucket(bucket_name)
     blob = bucket.blob(blob_name)
@@ -22,6 +23,8 @@ def generate_signed_url(bucket_name, blob_name, expiration_minutes):
 
 
 def upload_json_to_gcs(d: Dict[Text, Any], user_id: Text, bucket_name: Text) -> str:
+    from google.cloud import storage
+
     client = storage.Client()
     bucket = client.bucket(bucket_name)
     unique_id = str(uuid.uuid4())
