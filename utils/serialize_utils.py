@@ -92,7 +92,7 @@ def decode_obj(obj: Any):
         return obj
 
 
-def serialize_value(value: Any, value_type: Optional[Any] = None):
+def serialize_value(value: Any, value_type: Optional[Any] = None, with_db: bool = True):
     if value is None:
         return value
     if value_type == sqlite3.Connection:
@@ -146,7 +146,7 @@ def attempt_deserialize(
     cleanups = []
     output = {}
     try:
-        deserialized_dict = deserialize_value(value, value_type)
+        deserialized_dict = deserialize_value(value, value_type, with_db=with_db)
     except Exception:
         message = f"Deserialize failed: {traceback.format_exc()}"
         output = {"value_setter": failed_output(message)}
@@ -166,13 +166,12 @@ def attempt_deserialize(
     return deserialized_value, output, cleanups
 
 
-def attempt_serialize(value: Any, value_type: Optional[Any] = None):
+def attempt_serialize(
+    value: Any, value_type: Optional[Any] = None, with_db: bool = True
+):
     output = {}
     try:
-        value = serialize_value(
-            value,
-            value_type=value_type,
-        )
+        value = serialize_value(value, value_type=value_type, with_db=with_db)
     except Exception:
         output = failed_output(f"Failed to serialize value: {traceback.format_exc()}")
     return value, output
