@@ -72,6 +72,10 @@ jobs:
           files: dist/*.whl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Create GCP credentials file
+        run: echo "${{ secrets.GCP_CREDENTIALS }}" > ${{ runner.temp }}/gcp-key.json
+      
       - name: Upload to GCS
         uses: google-github-actions/upload-cloud-storage@v1
         with:
