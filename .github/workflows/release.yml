@@ -59,8 +59,10 @@ jobs:
         run: |
           pip install build
           python -m build --wheel
-      - name: Debug dist folder contents
-        run: ls -l dist
+      - name: Find wheel file
+        id: wheel
+        run: echo "WHEEL=$(ls dist/*.whl)" >> $GITHUB_OUTPUT
+
 
           
       - name: Upload to GitHub Release
@@ -73,7 +75,7 @@ jobs:
       - name: Upload to GCS
         uses: google-github-actions/upload-cloud-storage@v1
         with:
-          path: dist/*.whl
+          path: ${{ steps.wheel.outputs.WHEEL }}
           destination: silkworks_carbon_public_data_prd/wheels/common_utils
           parent: false
         env:
