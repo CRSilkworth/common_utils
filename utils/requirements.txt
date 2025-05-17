@@ -1,0 +1,10 @@
+PyJWT<2.11.0
+Flask<3.2.0
+sshtunnel<0.5.0
+pandas<2.1.0
+pillow<11.3.0
+PyPDF2<3.1.0
+plotly<6.0
+typeguard<4.2
+networkx<3.2
+lxml<5.4.0
