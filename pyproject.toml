@@ -6,6 +6,15 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["."]
 
+
+[project]
+name = "common_utils"
+version = "0.0.32"
+description = "Shared utilities for app and runner"
+authors = [{name = "Chris", email = "crsilkworth@gmail.com"}]
+
+dependencies = []
+
 [project.optional-dependencies]
 db = [
     "requests_oauthlib<2.1.0",
@@ -17,9 +26,3 @@ db = [
     "mongoengine<0.30",
 
 ]
-
-[project]
-name = "common_utils"
-version = "0.0.31"
-description = "Shared utilities for app and runner"
-authors = [{name = "Chris", email = "crsilkworth@gmail.com"}]
