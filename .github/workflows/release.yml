@@ -28,6 +28,7 @@ jobs:
             END {if (in_proj) print "dependencies = [\n" deps "\n]"}
           ' pyproject.toml > pyproject.new.toml
           mv pyproject.new.toml pyproject.toml
+          cat pyproject.toml
 
       - name: Extract version
         id: get_version
