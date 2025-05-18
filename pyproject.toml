@@ -9,7 +9,7 @@ where = ["."]
 
 [project]
 name = "common_utils"
-version = "0.0.38"
+version = "0.0.39"
 description = "Shared utilities for app and runner"
 authors = [{name = "Chris", email = "crsilkworth@gmail.com"}]
 
@@ -24,16 +24,4 @@ dependencies = [
   "typeguard<4.2",
   "networkx<3.2",
   "lxml<5.4.0",
-]
-
-[project.optional-dependencies]
-db = [
-    "requests_oauthlib<2.1.0",
-    "SQLAlchemy<2.1.0",
-    "psycopg2-binary<2.10.0",
-    "pymongo<4.13",
-    "google-cloud-bigquery<4.0.0",
-    "google-cloud-storage<2.20.0",
-    "mongoengine<0.30",
-
 ]
