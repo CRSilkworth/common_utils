@@ -9,7 +9,7 @@ where = ["."]
 
 [project]
 name = "common_utils"
-version = "0.0.34"
+version = "0.0.35"
 description = "Shared utilities for app and runner"
 authors = [{name = "Chris", email = "crsilkworth@gmail.com"}]
 
