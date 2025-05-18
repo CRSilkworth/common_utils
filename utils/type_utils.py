@@ -55,6 +55,7 @@ Allowed = Union[
     np.generic,
     pd.DataFrame,
     pd.Period,
+    type(None),
 ]
 
 
@@ -128,7 +129,18 @@ def describe_allowed(obj):
 
 def is_allowed_type(obj) -> bool:
     if isinstance(
-        obj, (int, float, bytes, str, np.ndarray, np.generic, pd.DataFrame, pd.Period)
+        obj,
+        (
+            int,
+            float,
+            bytes,
+            str,
+            np.ndarray,
+            np.generic,
+            pd.DataFrame,
+            pd.Period,
+            type(None),
+        ),
     ):
         return True
 
