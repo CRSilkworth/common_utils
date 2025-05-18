@@ -20,7 +20,6 @@ db = [
 
 [project]
 name = "common_utils"
-version = "0.0.30"
+version = "0.0.31"
 description = "Shared utilities for app and runner"
 authors = [{name = "Chris", email = "crsilkworth@gmail.com"}]
-dependencies = []
