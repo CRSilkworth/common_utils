@@ -2,6 +2,8 @@
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+pyproject.toml = true
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -9,7 +11,7 @@ where = ["."]
 
 [project]
 name = "common_utils"
-version = "0.0.35"
+version = "0.0.36"
 description = "Shared utilities for app and runner"
 authors = [{name = "Chris", email = "crsilkworth@gmail.com"}]
 
