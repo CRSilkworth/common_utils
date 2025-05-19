@@ -51,6 +51,8 @@ def encode_obj(obj: Any):
             "dtype": str(obj.dtype),
             "shape": obj.shape,
         }
+    elif isinstance(obj, bytes):
+        return {"__kind__": "bytes", "data": obj.decode("utf-8")}
 
     elif isinstance(obj, (list, tuple)):
         return [encode_obj(v) for v in obj]
@@ -82,6 +84,8 @@ def decode_obj(obj: Any):
             return pd.Index(obj["data"])
         elif kind == "ndarray":
             return np.array(obj["data"], dtype=obj["dtype"])
+        elif kind == "bytes":
+            return obj["data"].encode("utf-8")
         else:
             return {k: decode_obj(v) for k, v in obj.items()}
     elif isinstance(obj, list):
