@@ -213,6 +213,7 @@ def deserialize_typehint(
         "utils": __import__("utils"),
         "utils.type_utils": __import__("utils.type_utils"),
         "utils.type_utils.PositionDict": PositionDict,
+        "NoneType": type(None),
     }
 
     if with_db:
