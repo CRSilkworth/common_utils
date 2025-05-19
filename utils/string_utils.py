@@ -127,7 +127,7 @@ def remove_indent(text: str) -> str:
     return "\n".join(line[common_indent:] if line.lstrip() else "" for line in lines)
 
 
-def remove_imports(text: str) -> str:
+def remove_imports(text: str, only_top_level: bool = False) -> str:
     """
     Removes lines starting with 'import ' from the given text.
 
@@ -137,14 +137,23 @@ def remove_imports(text: str) -> str:
     Returns:
         str: The text with lines starting with 'import ' removed.
     """
-    no_imports = "\n".join(
-        line
-        for line in text.splitlines()
-        if not line.strip().startswith("import ")
-        and not line.strip().startswith("from ")
-    )
+    if only_top_level:
+        no_imports = "\n".join(
+            line
+            for line in text.splitlines()
+            if not line.startswith("import ") and not line.startswith("from ")
+        )
 
-    no_imports = no_imports.strip()
+        no_imports = no_imports.strip()
+    else:
+        no_imports = "\n".join(
+            line
+            for line in text.splitlines()
+            if not line.strip().startswith("import ")
+            and not line.strip().startswith("from ")
+        )
+
+        no_imports = no_imports.strip()
     return no_imports
 
 

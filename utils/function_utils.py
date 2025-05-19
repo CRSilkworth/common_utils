@@ -29,7 +29,7 @@ def create_function(
     try:
         body = extract_function_body(function_string=function_string)
         if not body or body.strip() == "pass":
-            output = failed_output("")
+            output = failed_output("No function defined")
             return None, output
 
         bytecode = compile(function_string, filename="<inline code>", mode="exec")
