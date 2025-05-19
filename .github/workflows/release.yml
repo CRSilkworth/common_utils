@@ -17,8 +17,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      
-
       - name: Extract version
         id: get_version
         run: |
@@ -56,19 +54,6 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-
-      # - name: Inject dependencies into pyproject.toml
-      #   run: |
-      #     deps=$(grep -vE '^\s*#|^\s*$' utils/requirements.txt | sed 's/"/\\"/g' | awk '{print "  \"" $0 "\","}')
-      #     awk -v deps="$deps" '
-      #       BEGIN {in_proj=0}
-      #       /^\[project\]/ {print; in_proj=1; next}
-      #       /^\[/ && in_proj {print "dependencies = [\n" deps "\n]"; in_proj=0}
-      #       {print}
-      #       END {if (in_proj) print "dependencies = [\n" deps "\n]"}
-      #     ' pyproject.toml > pyproject.new.toml
-      #     mv pyproject.new.toml pyproject.toml
-      #     cat pyproject.toml
 
       - name: Build wheel
         run: |
