@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import sqlite3
 import io
 from utils.misc_utils import failed_output
+from dataclasses import is_dataclass, asdict
 
 import traceback
 
@@ -13,6 +14,7 @@ import traceback
 def encode_obj(obj: Any):
     if isinstance(obj, go.Figure):
         return {"__kind__": "PlotlyFigure", "data": obj.to_dict()}
+
     if isinstance(obj, pd.DataFrame):
         df = obj.copy()
         for col in df.columns:
@@ -51,26 +53,36 @@ def encode_obj(obj: Any):
             "dtype": str(obj.dtype),
             "shape": obj.shape,
         }
+
     elif isinstance(obj, bytes):
         return {"__kind__": "bytes", "data": obj.decode("utf-8")}
 
-    elif isinstance(obj, (list, tuple)):
+    elif isinstance(obj, (list, tuple, set)):
         return [encode_obj(v) for v in obj]
 
     elif isinstance(obj, dict):
         return {str(k): encode_obj(v) for k, v in obj.items()}
 
-    else:
+    elif is_dataclass(obj):
+        return {"__kind__": "dataclass", "data": encode_obj(asdict(obj))}
+
+    elif hasattr(obj, "__dict__"):
+        return {"__kind__": obj.__class__.__name__, "data": encode_obj(vars(obj))}
+
+    elif isinstance(obj, (int, float, str, bool)) or obj is None:
         return obj
+
+    else:
+        # Final fallback for non-serializable types
+        return str(obj)
 
 
 def decode_obj(obj: Any):
-
     if isinstance(obj, dict):
         kind = obj.get("__kind__")
         if kind == "PlotlyFigure":
             return go.Figure(obj["data"])
-        if kind == "DataFrame":
+        elif kind == "DataFrame":
             return pd.read_json(obj["data"], orient="split")
         elif kind == "Series":
             return pd.read_json(obj["data"], orient="split", typ="series")
@@ -86,8 +98,16 @@ def decode_obj(obj: Any):
             return np.array(obj["data"], dtype=obj["dtype"])
         elif kind == "bytes":
             return obj["data"].encode("utf-8")
+        elif kind == "dataclass":
+            # If you know the dataclass type, you'd reconstruct it here
+            # This fallback just returns the decoded dict
+            return decode_obj(obj["data"])
+        elif kind is not None:
+            # Assume it's a generic object with __dict__-style data
+            return decode_obj(obj["data"])
         else:
             return {k: decode_obj(v) for k, v in obj.items()}
+
     elif isinstance(obj, list):
         return [decode_obj(v) for v in obj]
     elif isinstance(obj, tuple):
