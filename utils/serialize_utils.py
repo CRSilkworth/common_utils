@@ -13,7 +13,7 @@ import traceback
 
 def encode_obj(obj: Any):
     if isinstance(obj, go.Figure):
-        return {"__kind__": "PlotlyFigure", "data": obj.to_dict()}
+        return {"__kind__": "PlotlyFigure", "data": encode_obj(obj.to_dict())}
 
     if isinstance(obj, pd.DataFrame):
         df = obj.copy()
@@ -81,7 +81,7 @@ def decode_obj(obj: Any):
     if isinstance(obj, dict):
         kind = obj.get("__kind__")
         if kind == "PlotlyFigure":
-            return go.Figure(obj["data"])
+            return go.Figure(decode_obj(obj["data"]))
         elif kind == "DataFrame":
             return pd.read_json(obj["data"], orient="split")
         elif kind == "Series":
