@@ -7,11 +7,18 @@ import sqlite3
 import io
 from utils.misc_utils import failed_output
 from dataclasses import is_dataclass, asdict
-
+import datetime
 import traceback
 
 
 def encode_obj(obj: Any):
+    if is_dataclass(obj):
+        return {
+            "__kind__": "dataclass",
+            "class": obj.__class__.__name__,
+            "data": encode_obj(asdict(obj)),
+        }
+
     if isinstance(obj, go.Figure):
         return {"__kind__": "PlotlyFigure", "data": encode_obj(obj.to_dict())}
 
@@ -43,13 +50,22 @@ def encode_obj(obj: Any):
     elif isinstance(obj, pd.Timestamp):
         return {"__kind__": "Timestamp", "data": obj.isoformat()}
 
+    elif isinstance(obj, datetime.datetime):
+        return {"__kind__": "datetime", "data": obj.isoformat()}
+
+    elif isinstance(obj, datetime.date):
+        return {"__kind__": "date", "data": obj.isoformat()}
+
+    elif isinstance(obj, datetime.time):
+        return {"__kind__": "time", "data": obj.isoformat()}
+
     elif isinstance(obj, pd.Index):
         return {"__kind__": "Index", "data": obj.tolist()}
 
     elif isinstance(obj, np.ndarray):
         return {
             "__kind__": "ndarray",
-            "data": obj.tolist(),
+            "data": [encode_obj(x) for x in obj.tolist()],
             "dtype": str(obj.dtype),
             "shape": obj.shape,
         }
@@ -57,24 +73,14 @@ def encode_obj(obj: Any):
     elif isinstance(obj, bytes):
         return {"__kind__": "bytes", "data": obj.decode("utf-8")}
 
-    elif isinstance(obj, (list, tuple, set)):
+    elif isinstance(obj, (list, tuple)):
         return [encode_obj(v) for v in obj]
 
     elif isinstance(obj, dict):
         return {str(k): encode_obj(v) for k, v in obj.items()}
 
-    elif is_dataclass(obj):
-        return {"__kind__": "dataclass", "data": encode_obj(asdict(obj))}
-
-    elif hasattr(obj, "__dict__"):
-        return {"__kind__": obj.__class__.__name__, "data": encode_obj(vars(obj))}
-
-    elif isinstance(obj, (int, float, str, bool)) or obj is None:
-        return obj
-
     else:
-        # Final fallback for non-serializable types
-        return str(obj)
+        return obj
 
 
 def decode_obj(obj: Any):
@@ -92,19 +98,20 @@ def decode_obj(obj: Any):
             return pd.PeriodIndex(obj["data"], freq=obj["freq"])
         elif kind == "Timestamp":
             return pd.Timestamp(obj["data"])
+        elif kind == "datetime":
+            return datetime.datetime.fromisoformat(obj["data"])
+        elif kind == "date":
+            return datetime.date.fromisoformat(obj["data"])
+        elif kind == "time":
+            return datetime.time.fromisoformat(obj["data"])
         elif kind == "Index":
             return pd.Index(obj["data"])
         elif kind == "ndarray":
-            return np.array(obj["data"], dtype=obj["dtype"])
+            return np.array(
+                [decode_obj(x) for x in obj["data"]], dtype=obj["dtype"]
+            ).reshape(obj["shape"])
         elif kind == "bytes":
             return obj["data"].encode("utf-8")
-        elif kind == "dataclass":
-            # If you know the dataclass type, you'd reconstruct it here
-            # This fallback just returns the decoded dict
-            return decode_obj(obj["data"])
-        elif kind is not None:
-            # Assume it's a generic object with __dict__-style data
-            return decode_obj(obj["data"])
         else:
             return {k: decode_obj(v) for k, v in obj.items()}
 
