@@ -41,7 +41,7 @@ def get_collection(update: Dict[Text, Text]) -> Text:
         Text: The document collection extracted from the update.
     """
     data = loads(update["data"])
-    return str(data["documentKey"]["collection"])
+    return str(data["collection"])
 
 
 def get_operation(update: Dict[Text, Text]) -> Text:
