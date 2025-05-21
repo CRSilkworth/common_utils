@@ -30,6 +30,20 @@ def get_id(update: Dict[Text, Text]) -> Text:
     return str(data["documentKey"]["_id"])
 
 
+def get_collection(update: Dict[Text, Text]) -> Text:
+    """
+    Extract the document collection from an update dictionary.
+
+    Args:
+        update (Dict[Text, Text]): A dictionary containing update data in JSON format.
+
+    Returns:
+        Text: The document collection extracted from the update.
+    """
+    data = loads(update["data"])
+    return str(data["documentKey"]["collection"])
+
+
 def get_operation(update: Dict[Text, Text]) -> Text:
     """
     Extract the operation type from an update dictionary.
