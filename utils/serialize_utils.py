@@ -69,7 +69,8 @@ def encode_obj(obj: Any):
             "dtype": str(obj.dtype),
             "shape": obj.shape,
         }
-
+    elif isinstance(obj, np.generic):
+        return obj.item()
     elif isinstance(obj, bytes):
         return {"__kind__": "bytes", "data": obj.decode("utf-8")}
 
