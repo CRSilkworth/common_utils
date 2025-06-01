@@ -11,18 +11,30 @@ import datetime
 import traceback
 
 
-def encode_obj(obj: Any):
+def encode_obj(obj: Any, with_db: bool = False):
     if is_dataclass(obj):
         return {
             "__kind__": "dataclass",
             "class": obj.__class__.__name__,
-            "data": encode_obj(asdict(obj)),
+            "data": encode_obj(asdict(obj), with_db=with_db),
         }
 
-    if isinstance(obj, go.Figure):
-        return {"__kind__": "PlotlyFigure", "data": encode_obj(obj.to_dict())}
+    if with_db:
+        import torch
 
-    if isinstance(obj, pd.DataFrame):
+        if isinstance(obj, torch.nn.Module):
+            buffer = io.BytesIO()
+            torch.save(obj, buffer)
+            data = encode_obj(buffer.getvalue(), with_db=with_db)
+            return {"__kind__": "TorchModel", "data": data}
+
+    if isinstance(obj, go.Figure):
+        return {
+            "__kind__": "PlotlyFigure",
+            "data": encode_obj(obj.to_dict(), with_db=with_db),
+        }
+
+    elif isinstance(obj, pd.DataFrame):
         df = obj.copy()
         for col in df.columns:
             if isinstance(df[col].dtype, pd.PeriodDtype):
@@ -65,7 +77,7 @@ def encode_obj(obj: Any):
     elif isinstance(obj, np.ndarray):
         return {
             "__kind__": "ndarray",
-            "data": [encode_obj(x) for x in obj.tolist()],
+            "data": [encode_obj(x, with_db=with_db) for x in obj.tolist()],
             "dtype": str(obj.dtype),
             "shape": obj.shape,
         }
@@ -78,17 +90,22 @@ def encode_obj(obj: Any):
         return [encode_obj(v) for v in obj]
 
     elif isinstance(obj, dict):
-        return {str(k): encode_obj(v) for k, v in obj.items()}
+        return {str(k): encode_obj(v, with_db=with_db) for k, v in obj.items()}
 
     else:
         return obj
 
 
-def decode_obj(obj: Any):
+def decode_obj(obj: Any, with_db: bool = False):
     if isinstance(obj, dict):
         kind = obj.get("__kind__")
         if kind == "PlotlyFigure":
-            return go.Figure(decode_obj(obj["data"]))
+            return go.Figure(decode_obj(obj["data"], with_db=with_db))
+        elif kind == "TorchModel":
+            import torch
+
+            buffer = io.BytesIO(decode_obj(obj["data"], with_db=with_db))
+            return torch.load(buffer)
         elif kind == "DataFrame":
             return pd.read_json(obj["data"], orient="split")
         elif kind == "Series":
@@ -109,17 +126,18 @@ def decode_obj(obj: Any):
             return pd.Index(obj["data"])
         elif kind == "ndarray":
             return np.array(
-                [decode_obj(x) for x in obj["data"]], dtype=obj["dtype"]
+                [decode_obj(x, with_db=with_db) for x in obj["data"]],
+                dtype=obj["dtype"],
             ).reshape(obj["shape"])
         elif kind == "bytes":
             return obj["data"].encode("utf-8")
         else:
-            return {k: decode_obj(v) for k, v in obj.items()}
+            return {k: decode_obj(v, with_db=with_db) for k, v in obj.items()}
 
     elif isinstance(obj, list):
-        return [decode_obj(v) for v in obj]
+        return [decode_obj(v, with_db=with_db) for v in obj]
     elif isinstance(obj, tuple):
-        return tuple(decode_obj(v) for v in obj)
+        return tuple(decode_obj(v, with_db=with_db) for v in obj)
     else:
         return obj
 
@@ -134,11 +152,11 @@ def serialize_value(value: Any, value_type: Optional[Any] = None, with_db: bool 
         buffer.seek(0)
 
         value = buffer.read()
-    return json.dumps(encode_obj(value))
+    return json.dumps(encode_obj(value, with_db=with_db))
 
 
 def deserialize_value(value, value_type, with_db: bool = True):
-    value = None if value is None else decode_obj(json.loads(value))
+    value = None if value is None else decode_obj(json.loads(value), with_db=with_db)
     if value_type == sqlite3.Connection and value is not None:
         buffer = io.BytesIO(value)
         conn = sqlite3.connect(":memory:")

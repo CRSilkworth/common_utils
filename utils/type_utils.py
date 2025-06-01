@@ -19,7 +19,6 @@ import builtins
 import typing
 import typing_extensions
 import sqlite3
-
 import plotly.graph_objects as go
 
 TextOrint = TypeVar("TextOrint", Text, int)
@@ -220,6 +219,7 @@ def deserialize_typehint(
         from pymongo.mongo_client import MongoClient as PyMongoClient
         from psycopg2.extensions import connection as Psycopg2Connection
         from google.cloud.bigquery import Client as BigQueryClient
+        import torch
         import pymongo
 
         known_types.update(
@@ -239,6 +239,7 @@ def deserialize_typehint(
                 ),
                 # "google.cloud.bigquery.client": google.cloud.bigquery.client,
                 "google.cloud.bigquery.client.Client": BigQueryClient,
+                "torch.nn.Module": torch.nn.Module,
             }
         )
 
