@@ -240,6 +240,7 @@ def deserialize_typehint(
                 # "google.cloud.bigquery.client": google.cloud.bigquery.client,
                 "google.cloud.bigquery.client.Client": BigQueryClient,
                 "torch.nn.Module": torch.nn.Module,
+                "torch.nn.modules.module.Module": torch.nn.Module,
             }
         )
 
