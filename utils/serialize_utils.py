@@ -11,7 +11,7 @@ import datetime
 import traceback
 
 
-def encode_obj(obj: Any, with_db: bool = False):
+def encode_obj(obj: Any, with_db: bool = True):
     if is_dataclass(obj):
         return {
             "__kind__": "dataclass",
@@ -96,7 +96,7 @@ def encode_obj(obj: Any, with_db: bool = False):
         return obj
 
 
-def decode_obj(obj: Any, with_db: bool = False):
+def decode_obj(obj: Any, with_db: bool = True):
     if isinstance(obj, dict):
         kind = obj.get("__kind__")
         if kind == "PlotlyFigure":

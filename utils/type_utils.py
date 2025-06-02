@@ -152,7 +152,7 @@ def is_allowed_type(obj) -> bool:
     return False
 
 
-def serialize_typehint(t: type) -> str:
+def serialize_typehint(t: type, with_db: bool = True) -> str:
     """Serialize a type hint to a string."""
     if isinstance(t, str):
         return repr(t)
