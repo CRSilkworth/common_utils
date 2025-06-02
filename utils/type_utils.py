@@ -282,9 +282,14 @@ def _resolve_forwardrefs(tp, globalns):
     return origin[resolved_args]
 
 
-def is_valid_output(value, output_type):
+def is_valid_output(value, output_type, with_db: bool = True):
     if output_type == sqlite3.Connection:
         return isinstance(value, sqlite3.Connection)
+    if with_db:
+        import torch
+
+        if output_type == torch.nn.Module:
+            return isinstance(value, torch.nn.Module)
 
     origin = get_origin(output_type)
     args = get_args(output_type)

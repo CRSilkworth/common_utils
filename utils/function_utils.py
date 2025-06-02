@@ -126,6 +126,7 @@ def run_with_expected_type(
     func: Callable,
     decoded_kwargs: Dict[Text, Any],
     output_type: Any,
+    with_db: bool = True,
 ):
     """
     Execute a function that returns and put returned value.
@@ -150,7 +151,7 @@ def run_with_expected_type(
     }
     if failed:
         pass
-    elif not is_valid_output(value, output_type=output_type):
+    elif not is_valid_output(value, output_type=output_type, with_db=with_db):
         new_error = (
             f"\nExpected output type of {output_type}. {value} is of type "
             f"{type(value).__name__}\n"
