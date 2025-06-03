@@ -1,4 +1,4 @@
-from typing import Union, Any, Optional
+from typing import Union, Any, Optional, Dict, Text
 import pandas as pd
 import numpy as np
 import json
@@ -7,26 +7,31 @@ import sqlite3
 import io
 from utils.misc_utils import failed_output
 from dataclasses import is_dataclass, asdict
+from utils.function_utils import run_with_expected_type, create_function
 import datetime
 import traceback
+import base64
 
 
 def encode_obj(obj: Any, with_db: bool = True):
+    if with_db and obj.__class__ is dict and set(obj) == set(["class_def", "model"]):
+        import torch
+
+        state_dict = obj["model"].state_dict()
+        buffer = io.BytesIO()
+        torch.save(state_dict, buffer)
+        state_dict = encode_obj(buffer.getvalue(), with_db=with_db)
+        return {
+            "__kind__": "TorchModel",
+            "data": {"state_dict": state_dict, "class_def": obj["class_def"]},
+        }
+
     if is_dataclass(obj):
         return {
             "__kind__": "dataclass",
             "class": obj.__class__.__name__,
             "data": encode_obj(asdict(obj), with_db=with_db),
         }
-
-    if with_db:
-        import torch
-
-        if isinstance(obj, torch.nn.Module):
-            buffer = io.BytesIO()
-            torch.save(obj, buffer)
-            data = encode_obj(buffer.getvalue(), with_db=with_db)
-            return {"__kind__": "TorchModel", "data": data}
 
     if isinstance(obj, go.Figure):
         return {
@@ -84,7 +89,7 @@ def encode_obj(obj: Any, with_db: bool = True):
     elif isinstance(obj, np.generic):
         return obj.item()
     elif isinstance(obj, bytes):
-        return {"__kind__": "bytes", "data": obj.decode("utf-8")}
+        return {"__kind__": "bytes", "data": base64.b64encode(obj).decode("utf-8")}
 
     elif isinstance(obj, (list, tuple)):
         return [encode_obj(v) for v in obj]
@@ -96,16 +101,39 @@ def encode_obj(obj: Any, with_db: bool = True):
         return obj
 
 
-def decode_obj(obj: Any, with_db: bool = True):
+def decode_obj(
+    obj: Any, with_db: bool = True, known_types: Optional[Dict[Text, Any]] = None
+):
     if isinstance(obj, dict):
         kind = obj.get("__kind__")
         if kind == "PlotlyFigure":
             return go.Figure(decode_obj(obj["data"], with_db=with_db))
-        elif kind == "TorchModel":
+        elif with_db and kind == "TorchModel":
             import torch
 
-            buffer = io.BytesIO(decode_obj(obj["data"], with_db=with_db))
-            return torch.load(buffer)
+            state_dict = io.BytesIO(
+                decode_obj(obj["data"]["state_dict"], with_db=with_db)
+            )
+            globals_dict = known_types if known_types else {}
+            globals_dict["state_dict"] = state_dict
+
+            class_def = obj["data"]["class_def"].replace("\n", "\n  ")
+            function_string = _model_builder_function_string(class_def)
+
+            func, output = create_function(
+                function_name="model_builder",
+                function_string=function_string,
+                allowed_modules=globals_dict,
+            )
+
+            output = run_with_expected_type(
+                func, {}, output_type=torch.nn.Module, with_db=with_db
+            )
+            if output["failed"]:
+                raise ValueError(
+                    f"Failed to decode model object: {output['combined_output']}"
+                )
+            return {"model": output["value"], "class_def": class_def}
         elif kind == "DataFrame":
             return pd.read_json(obj["data"], orient="split")
         elif kind == "Series":
@@ -130,7 +158,7 @@ def decode_obj(obj: Any, with_db: bool = True):
                 dtype=obj["dtype"],
             ).reshape(obj["shape"])
         elif kind == "bytes":
-            return obj["data"].encode("utf-8")
+            return base64.b64decode(obj["data"].encode("utf-8"))
         else:
             return {k: decode_obj(v, with_db=with_db) for k, v in obj.items()}
 
@@ -228,3 +256,15 @@ def attempt_serialize(
     except Exception:
         output = failed_output(f"Failed to serialize value: {traceback.format_exc()}")
     return value, output
+
+
+def _model_builder_function_string(class_def):
+    function_string = f"""
+def model_builder():
+  import torch
+  {class_def}
+  model = Model()
+  model.load_state_dict(torch.load(state_dict))
+  return model
+"""
+    return function_string

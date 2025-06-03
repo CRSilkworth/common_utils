@@ -10,6 +10,7 @@ from typing import (
     get_args,
     get_origin,
     ForwardRef,
+    Any,
 )
 import numpy as np
 import pandas as pd
@@ -176,15 +177,9 @@ def serialize_typehint(t: type, with_db: bool = True) -> str:
     return str(t)
 
 
-def deserialize_typehint(
-    s: str, custom_types: dict = None, with_db: bool = True
-) -> type:
-    """Deserialize a string back into a type hint."""
-
-    if not isinstance(s, str):
-        raise TypeError(f"Expected a string, got {type(s).__name__}: {s}")
-
-    # Create the base eval namespace
+def get_known_types(
+    custom_types: Optional[Dict[Text, Any]] = None, with_db: bool = True
+):
     known_types = {
         # Built-ins
         **vars(builtins),
@@ -230,17 +225,16 @@ def deserialize_typehint(
                 "pymongo.mongo_client.MongoClient": PyMongoClient,
                 "pymongo.synchronous.mongo_client.MongoClient": PyMongoClient,
                 "psycopg2": __import__("psycopg2"),
-                # "psycopg2.extensions": psycopg2.extensions,
                 "psycopg2.extensions.connection": Psycopg2Connection,
                 "google": __import__("google"),
                 "google.cloud": __import__("google.cloud", fromlist=["bigquery"]),
                 "google.cloud.bigquery": __import__(
                     "google.cloud.bigquery", fromlist=["client"]
                 ),
-                # "google.cloud.bigquery.client": google.cloud.bigquery.client,
                 "google.cloud.bigquery.client.Client": BigQueryClient,
                 "torch": torch,
                 "torch.nn": torch.nn,
+                "nn": torch.nn,
                 "torch.nn.Module": torch.nn.Module,
                 "torch.nn.modules.module.Module": torch.nn.Module,
             }
@@ -248,6 +242,18 @@ def deserialize_typehint(
 
     if custom_types:
         known_types.update(custom_types)
+    return known_types
+
+
+def deserialize_typehint(
+    s: str, custom_types: dict = None, with_db: bool = True
+) -> type:
+    """Deserialize a string back into a type hint."""
+
+    if not isinstance(s, str):
+        raise TypeError(f"Expected a string, got {type(s).__name__}: {s}")
+
+    known_types = get_known_types(custom_types=custom_types, with_db=with_db)
 
     if s.startswith("TypeVar(") and s.endswith(")"):
         name = s[len("TypeVar(") : -1]  # noqa: E203
