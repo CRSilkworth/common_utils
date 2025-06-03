@@ -8,7 +8,10 @@ from utils.type_utils import is_valid_output
 
 
 def create_function(
-    function_name: Text, function_string: Text, allowed_modules: Dict[Text, Any]
+    function_name: Text,
+    function_string: Text,
+    allowed_modules: Dict[Text, Any],
+    header_code: Text = "",
 ) -> Callable:
     """
     Compile and return the function specified in `function_name`.
@@ -31,6 +34,8 @@ def create_function(
         if not body or body.strip() == "pass":
             output = failed_output("No function defined")
             return None, output
+
+        function_string = "\n".join([header_code, function_string])
 
         bytecode = compile(function_string, filename="<inline code>", mode="exec")
         exec_result = {}
@@ -63,6 +68,34 @@ def extract_function_body(function_string: str) -> str:
         function_body = match.group(1)
         # Strip the leading indentation (assuming it is uniformly indented)
         lines = function_body.split("\n")
+        stripped_lines = []
+        for line in lines:
+            if line.startswith("\t"):
+                line = line[1:]
+            elif line.startswith("    "):
+                line = line[4:]
+            stripped_lines.append(line)
+
+        return "\n".join(stripped_lines).strip()
+    return ""
+
+
+def extract_class_def_body(class_def: str) -> str:
+    """
+    Extracts the body of the class_def from the given class_def string.
+
+    Args:
+        class_def_string (str): The class_def string from which to extract the body.
+
+    Returns:
+        str: The extracted class_def body.
+    """
+    # Match the class_def definition line and capture the body
+    match = re.search(r"class\s+\w+\(.*\):\n((?:\n|.)*)", class_def)
+    if match:
+        class_def_body = match.group(1)
+        # Strip the leading indentation (assuming it is uniformly indented)
+        lines = class_def_body.split("\n")
         stripped_lines = []
         for line in lines:
             if line.startswith("\t"):
