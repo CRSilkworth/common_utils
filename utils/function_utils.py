@@ -1,5 +1,6 @@
 from typing import Text, Dict, Any, Callable
 from utils.misc_utils import failed_output
+from utils.string_utils import remove_indent
 import re
 import traceback
 import io
@@ -9,6 +10,7 @@ from utils.type_utils import is_valid_output
 
 def create_function(
     function_name: Text,
+    function_header: Text,
     function_string: Text,
     allowed_modules: Dict[Text, Any],
     header_code: Text = "",
@@ -34,8 +36,14 @@ def create_function(
         if not body or body.strip() == "pass":
             output = failed_output("No function defined")
             return None, output
-
-        function_string = "\n".join([header_code, function_string])
+        if header_code:
+            function_string = (
+                function_header
+                + "\n\t"
+                + header_code.replace("\n", "\n\t")
+                + "\n\t"
+                + body.replace("\n", "\n\t")
+            )
 
         bytecode = compile(function_string, filename="<inline code>", mode="exec")
         exec_result = {}
@@ -66,6 +74,7 @@ def extract_function_body(function_string: str) -> str:
     match = re.search(r"def\s+\w+\(.*\):\n((?:\n|.)*)", function_string)
     if match:
         function_body = match.group(1)
+        function_body = remove_indent(function_body)
         # Strip the leading indentation (assuming it is uniformly indented)
         lines = function_body.split("\n")
         stripped_lines = []
@@ -94,6 +103,7 @@ def extract_class_def_body(class_def: str) -> str:
     match = re.search(r"class\s+\w+\(.*\):\n((?:\n|.)*)", class_def)
     if match:
         class_def_body = match.group(1)
+        class_def_body = remove_indent(class_def_body)
         # Strip the leading indentation (assuming it is uniformly indented)
         lines = class_def_body.split("\n")
         stripped_lines = []
