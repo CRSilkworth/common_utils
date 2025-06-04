@@ -10,9 +10,9 @@ from utils.type_utils import is_valid_output
 
 def create_function(
     function_name: Text,
-    function_header: Text,
     function_string: Text,
     allowed_modules: Dict[Text, Any],
+    function_header: Text = "",
     header_code: Text = "",
 ) -> Callable:
     """
