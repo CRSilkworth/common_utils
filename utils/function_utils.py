@@ -6,6 +6,7 @@ import traceback
 import io
 import contextlib
 from utils.type_utils import is_valid_output
+import logging
 
 
 def create_function(
@@ -46,10 +47,6 @@ def create_function(
                 + body.replace("\n", "\n\t")
             )
 
-        print("-" * 10)
-        print(function_string)
-        print("-" * 10)
-
         bytecode = compile(function_string, filename="<inline code>", mode="exec")
         exec_result = {}
         exec(bytecode, allowed_modules, exec_result)
@@ -58,6 +55,7 @@ def create_function(
         if function is None or not callable(function):
             raise ValueError(f"Failed to create python function:\n{function_string}")
     except (ValueError, SyntaxError) as e:
+        logging.warning(traceback.format_exc())
         output = failed_output(
             f"A  error occurred when trying to deserialize the function: {str(e)}"
         )
