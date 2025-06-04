@@ -117,7 +117,7 @@ def decode_obj(
             globals_dict = known_types if known_types else {}
             globals_dict["state_dict"] = state_dict
 
-            class_def = obj["data"]["class_def"].replace("\n", "\n  ")
+            class_def = obj["data"]["class_def"].replace("\n", "\n\t")
             function_string = _model_builder_function_string(class_def)
 
             func, output = create_function(
