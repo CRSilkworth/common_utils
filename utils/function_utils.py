@@ -36,7 +36,8 @@ def create_function(
         if not body or body.strip() == "pass":
             output = failed_output("No function defined")
             return None, output
-        if header_code:
+
+        if header_code or function_header:
             function_string = (
                 function_header
                 + "\n\t"
@@ -44,6 +45,10 @@ def create_function(
                 + "\n\t"
                 + body.replace("\n", "\n\t")
             )
+
+        print("-" * 10)
+        print(function_string)
+        print("-" * 10)
 
         bytecode = compile(function_string, filename="<inline code>", mode="exec")
         exec_result = {}
