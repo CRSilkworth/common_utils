@@ -204,7 +204,7 @@ def deserialize_value(value, value_type, with_db: bool = True):
 
         if (
             value_type == Union[PyMongoClient, Psycopg2Connection, BigQueryClient]
-            and value is not None
+            and value
         ):
             if value["db_type"] == "mongo":
                 value = connect_to_mongo(value)
@@ -231,6 +231,9 @@ def attempt_deserialize(
         message = f"Deserialize failed: {traceback.format_exc()}"
         output = failed_output(message)
         return None, output, cleanups
+
+    if not deserialized_dict:
+        return deserialized_dict, output, cleanups
 
     if with_db:
         from pymongo.mongo_client import MongoClient as PyMongoClient
