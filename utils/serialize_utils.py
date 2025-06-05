@@ -227,7 +227,7 @@ def attempt_deserialize(
         deserialized_dict = deserialize_value(value, value_type, with_db=with_db)
     except Exception:
         message = f"Deserialize failed: {traceback.format_exc()}"
-        output = {"value_setter": failed_output(message)}
+        output = failed_output(message)
         return None, output, cleanups
 
     if with_db:

@@ -63,16 +63,38 @@ def hash_schema(schema):
     return hashlib.md5(str(schema).encode()).hexdigest()
 
 
-def describe_json_schema(obj, definitions=None, path=""):
+def describe_json_schema(obj, definitions=None, path="", with_db: bool = True):
     if definitions is None:
         definitions = {}
+
+    if with_db:
+        import torch
+
+        if isinstance(obj, torch.nn.Module):
+            import inspect
+
+            try:
+                sig = inspect.signature(obj.__class__.__init__)
+                args_info = {
+                    k: str(v.annotation) if v.annotation != inspect._empty else "Any"
+                    for k, v in sig.parameters.items()
+                    if k != "self"
+                }
+            except Exception:
+                args_info = {}
+
+            schema = {
+                "type": "torch.nn.Module",
+                "class": obj.__class__.__name__,
+                "args": args_info,
+            }
 
     if isinstance(obj, dict):
         properties = {}
         required = []
         for k, v in obj.items():
             sub_schema, definitions = describe_json_schema(
-                v, definitions, path + "/" + k
+                v, definitions, path + "/" + k, with_db=with_db
             )
             properties[k] = sub_schema
             required.append(k)
@@ -81,7 +103,7 @@ def describe_json_schema(obj, definitions=None, path=""):
     elif isinstance(obj, list):
         if obj:
             items_schema, definitions = describe_json_schema(
-                obj[0], definitions, path + "/items"
+                obj[0], definitions, path + "/items", with_db=with_db
             )
             schema = {"type": "array", "items": items_schema}
         else:
@@ -108,6 +130,7 @@ def describe_json_schema(obj, definitions=None, path=""):
         schema = {"type": "string"}
     elif obj is None:
         schema = {"type": "null"}
+
     else:
         schema = {"type": "unknown"}
 
@@ -118,8 +141,8 @@ def describe_json_schema(obj, definitions=None, path=""):
     return {"$ref": f"#/definitions/{key}"}, definitions
 
 
-def describe_allowed(obj):
-    schema, definitions = describe_json_schema(obj)
+def describe_allowed(obj, with_db: bool = True):
+    schema, definitions = describe_json_schema(obj, with_db=with_db)
     return {
         "$schema": "http://json-schema.org/draft-07/schema#",
         **schema,
