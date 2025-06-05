@@ -212,6 +212,8 @@ def deserialize_value(value, value_type, with_db: bool = True):
                 value = connect_to_biquery(value)
             elif value["db_type"] == "sql":
                 value = connect_to_sql(value)
+            elif value["db_type"] == "":
+                value = None
             else:
                 raise ValueError(f"Unsupported db type:{value['db_type']}")
 
