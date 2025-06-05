@@ -29,13 +29,11 @@ def create_function(
     function = None
 
     if not function_name:
-        output = failed_output("No function defined")
         return function, output
 
     try:
         body = extract_function_body(function_string=function_string)
-        if not body or body.strip() == "pass":
-            output = failed_output("No function defined")
+        if not body.strip() or body.strip() == "pass":
             return None, output
 
         if header_code or function_header:
@@ -75,15 +73,10 @@ def extract_function_body(function_string: str) -> str:
     """
     # Match the function definition line and capture the body
     match = re.search(r"def\s+\w+\(.*?\):\n((?:\s+.+\n?)*)", function_string, re.DOTALL)
-    logging.warning("-" * 20)
-    logging.warning(match)
-    logging.warning("-" * 20)
 
     if match:
         function_body = match.group(1)
-        logging.warning((1, function_body))
         function_body = remove_indent(function_body)
-        logging.warning((2, function_body))
         # Strip the leading indentation (assuming it is uniformly indented)
         lines = function_body.split("\n")
         stripped_lines = []
@@ -93,7 +86,6 @@ def extract_function_body(function_string: str) -> str:
             elif line.startswith("    "):
                 line = line[4:]
             stripped_lines.append(line)
-        logging.warning((3, stripped_lines))
         return "\n".join(stripped_lines).strip()
     return ""
 
