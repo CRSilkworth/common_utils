@@ -29,12 +29,14 @@ def create_function(
     function = None
 
     if not function_name:
+        logging.warning("name")
         output = failed_output("No function defined")
         return function, output
 
     try:
         body = extract_function_body(function_string=function_string)
         if not body or body.strip() == "pass":
+            logging.warning("body")
             output = failed_output("No function defined")
             return None, output
 
