@@ -17,10 +17,13 @@ def encode_obj(obj: Any, with_db: bool = True):
     if with_db and obj.__class__ is dict and set(obj) == set(["class_def", "model"]):
         import torch
 
-        state_dict = obj["model"].state_dict()
-        buffer = io.BytesIO()
-        torch.save(state_dict, buffer)
-        state_dict = encode_obj(buffer.getvalue(), with_db=with_db)
+        if obj["model"] is not None:
+            state_dict = obj["model"].state_dict()
+            buffer = io.BytesIO()
+            torch.save(state_dict, buffer)
+            state_dict = encode_obj(buffer.getvalue(), with_db=with_db)
+        else:
+            state_dict = None
         return {
             "__kind__": "TorchModel",
             "data": {"state_dict": state_dict, "class_def": obj["class_def"]},
