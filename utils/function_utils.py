@@ -25,7 +25,13 @@ def create_function(
     Raises:
         ValueError: If the function cannot be created or is not callable.
     """
-    output = {}
+    output = {
+        "failed": False,
+        "value": None,
+        "combined_output": "",
+        "stdout_output": "",
+        "stderr_output": "",
+    }
     function = None
 
     if not function_name:
