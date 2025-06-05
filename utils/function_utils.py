@@ -75,6 +75,9 @@ def extract_function_body(function_string: str) -> str:
     """
     # Match the function definition line and capture the body
     match = re.search(r"def\s+\w+\(.*?\):\n((?:\s+.+\n?)*)", function_string, re.DOTALL)
+    logging.warning("-" * 20)
+    logging.warning(match)
+    logging.warning("-" * 20)
 
     if match:
         function_body = match.group(1)
