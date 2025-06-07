@@ -192,6 +192,39 @@ def extract_function_body(function_string: str) -> str:
         return ""
 
 
+def extract_class_def_body(class_string: str) -> str:
+    """
+    Extracts the body of the class from the given class string.
+
+    Args:
+        class_string (str): The class string from which to extract the body.
+
+    Returns:
+        str: The extracted class body.
+    """
+    try:
+        # Parse the class string into an AST
+        tree = ast.parse(class_string)
+    except SyntaxError as e:
+        print(traceback.format_exc())
+        raise ParseException("Failed to parse class string: {}".format(e.args[0]))
+
+    # Extract the class node
+    class_node = tree.body[0]
+
+    # Ensure that it is a class definition
+    if isinstance(class_node, ast.ClassDef):
+        # Convert the class body into a string
+        try:
+            body = "\n".join(ast.unparse(stmt) for stmt in class_node.body)
+        except Exception as e:
+            print(traceback.format_exc())
+            raise ParseException("Failed to extract class body: {}".format(e.args[0]))
+        return body
+    else:
+        return ""
+
+
 def remove_outer_def(body_string):
     """
     Extracts and returns the body of a function that returns another function.
