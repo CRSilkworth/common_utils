@@ -186,18 +186,18 @@ def extract_function_body(function_string: str) -> str:
     if not isinstance(func_node, ast.FunctionDef):
         raise ParseException("Provided string is not a function definition.")
 
-    first_stmt = func_node.body[0]
-    last_stmt = func_node.body[-1]
+    # Get line numbers for body (1-based indexing)
+    start_lineno = func_node.body[0].lineno
+    end_lineno = func_node.body[-1].end_lineno
 
-    # Get exact start and end positions
-    start_pos = atok.get_text_range(first_stmt)[0]
-    end_pos = atok.get_text_range(last_stmt)[1]
+    # Split full string into lines
+    lines = function_string.splitlines()
 
-    # Extract the body slice (preserves all indentation)
-    body_text = function_string[start_pos:end_pos]
+    # Slice only the body lines (adjust for 0-based indexing)
+    body_lines = lines[start_lineno - 1 : end_lineno]
 
-    # Dedent based on common leading whitespace
-    return textwrap.dedent(body_text)
+    # Remove common leading indentation
+    return textwrap.dedent("\n".join(body_lines))
 
 
 def extract_class_def_body(class_string: str) -> str:
