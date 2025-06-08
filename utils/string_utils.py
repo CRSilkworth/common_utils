@@ -5,6 +5,7 @@ from lxml import etree
 import os
 from exceptions.parse_exceptions import ParseException
 import traceback
+import asttokens
 
 
 def edit_distance(str1: Optional[str], str2: Optional[str]) -> float:
@@ -176,27 +177,25 @@ def extract_function_body(function_string: str) -> str:
     """
 
     try:
-        # Parse the function string into an AST
-        tree = ast.parse(function_string)
-    except SyntaxError as e:
+        atok = asttokens.ASTTokens(function_string, parse=True)
+        func_node = atok.tree.body[0]
+    except Exception as e:
         print(traceback.format_exc())
-        raise ParseException("Failed to parse function string: {}".format(e.args[0]))
-    # Extract the function node
-    function_node = tree.body[0]
+        raise ParseException(f"Failed to parse function string: {e}")
 
-    # Ensure that it is a function definition
-    if isinstance(function_node, ast.FunctionDef):
-        # Convert the function body into a string
-        try:
-            body = ast.unparse(function_node.body)
-        except Exception as e:
-            print(traceback.format_exc())
-            raise ParseException(
-                "Failed to extract function body: {}".format(e.args[0])
-            )
-        return body
-    else:
-        return ""
+    if not isinstance(func_node, ast.FunctionDef):
+        raise ParseException("Provided string is not a function definition.")
+
+    # Get the first and last statement in the body
+    first_stmt = func_node.body[0]
+    last_stmt = func_node.body[-1]
+
+    # Use asttokens to get exact text between those
+    start_pos = atok.get_text_range(first_stmt)[0]
+    end_pos = atok.get_text_range(last_stmt)[1]
+
+    # Return the body substring (preserving all formatting)
+    return function_string[start_pos:end_pos]
 
 
 def extract_class_def_body(class_string: str) -> str:
