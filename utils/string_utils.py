@@ -5,8 +5,6 @@ from lxml import etree
 import os
 from exceptions.parse_exceptions import ParseException
 import traceback
-import asttokens
-import textwrap
 
 
 def edit_distance(str1: Optional[str], str2: Optional[str]) -> float:
@@ -99,47 +97,34 @@ def longest_substring_overlap(
 
 def remove_indent(text: str) -> str:
     """
-    Removes the common leading indentation (spaces or tabs) from all non-blank lines in
-    a multiline string.
-    Preserves relative indentation. Tabs are converted to 4 spaces before processing.
+    Removes the common leading indentation from all lines in the given text.
 
-    Args:
-        text (str): Multiline string to dedent.
+    Parameters:
+    text (str): The input string with possible leading indentation.
 
     Returns:
-        str: Dedented multiline string.
+    str: The text with the common indentation removed.
     """
-    # Convert all tabs to 4 spaces for consistency
-    text = text.replace("\t", "    ")
-
+    # Split the text into lines
     lines = text.splitlines()
 
-    # Filter out blank lines
-    non_empty_lines = [line for line in lines if line.strip()]
-    if not non_empty_lines:
+    # Find the common leading whitespace for all non-empty lines
+    common_indent = None
+    for line in lines:
+        stripped = line.lstrip()
+        if stripped:  # Only consider non-empty lines
+            leading_spaces = len(line) - len(stripped)
+            if common_indent is None:
+                common_indent = leading_spaces
+            else:
+                common_indent = min(common_indent, leading_spaces)
+
+    # If all lines are empty or there's no common indent, return the original text
+    if common_indent is None or common_indent == 0:
         return text
 
-    # Extract leading whitespace from each non-empty line
-    indents = [re.match(r"^[ ]*", line).group(0) for line in non_empty_lines]
-
-    # Find common prefix of all leading indents
-    common_indent = indents[0]
-    for indent in indents[1:]:
-        # Reduce to the common prefix character-by-character
-        i = 0
-        while (
-            i < len(common_indent) and i < len(indent) and common_indent[i] == indent[i]
-        ):
-            i += 1
-        common_indent = common_indent[:i]
-
-    # Remove the common indent
-    dedented_lines = [
-        line[len(common_indent) :] if line.startswith(common_indent) else line
-        for line in lines
-    ]
-
-    return "\n".join(dedented_lines)
+    # Remove the common leading indentation
+    return "\n".join(line[common_indent:] if line.lstrip() else "" for line in lines)
 
 
 def remove_imports(text: str, only_top_level: bool = False) -> str:
@@ -174,36 +159,41 @@ def remove_imports(text: str, only_top_level: bool = False) -> str:
 
 def extract_function_body(function_string: str) -> str:
     """
-    Extracts the exact body of a function from a function string, preserving
-    indentation.
+    Extracts the body of the function from the given function string.
 
     Args:
-        function_string (str): The string containing the full function definition.
+        function_string (str): The function string from which to extract the body.
 
     Returns:
-        str: The exact source code of the function body with correct indentation.
+        str: The extracted function body.
     """
-    try:
-        atok = asttokens.ASTTokens(function_string, parse=True)
-        func_node = atok.tree.body[0]
-    except Exception as e:
-        raise ParseException(f"Failed to parse function string: {e}")
 
-    if not isinstance(func_node, ast.FunctionDef):
-        raise ParseException("Provided string is not a function definition.")
-
-    # Get line numbers for body (1-based indexing)
-    start_lineno = func_node.body[0].lineno
-    end_lineno = func_node.body[-1].end_lineno
-
-    # Split full string into lines
     lines = function_string.splitlines()
 
-    # Slice only the body lines (adjust for 0-based indexing)
-    body_lines = lines[start_lineno - 1 : end_lineno]
+    # Find the first line that starts with `def`
+    for i, line in enumerate(lines):
+        if line.lstrip().startswith("def "):
+            def_indent = re.match(r"^([ \t]*)", line).group(1)
+            break
+    else:
+        return None  # No function definition found
 
-    # Remove common leading indentation
-    return textwrap.dedent("\n".join(body_lines))
+    # Start scanning lines after the `def` line
+    body_lines = []
+    for line in lines[i + 1 :]:
+        if line.strip() == "":
+            body_lines.append(line)
+            continue
+
+        current_indent = re.match(r"^([ \t]*)", line).group(1)
+
+        # If the current line is not more indented, we've reached outside the body
+        if len(current_indent) <= len(def_indent):
+            break
+
+        body_lines.append(line)
+
+    return "\n".join(body_lines) if body_lines else None
 
 
 def extract_class_def_body(class_string: str) -> str:
