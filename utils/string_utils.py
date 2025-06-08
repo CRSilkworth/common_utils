@@ -6,6 +6,7 @@ import os
 from exceptions.parse_exceptions import ParseException
 import traceback
 import asttokens
+import textwrap
 
 
 def edit_distance(str1: Optional[str], str2: Optional[str]) -> float:
@@ -180,22 +181,23 @@ def extract_function_body(function_string: str) -> str:
         atok = asttokens.ASTTokens(function_string, parse=True)
         func_node = atok.tree.body[0]
     except Exception as e:
-        print(traceback.format_exc())
         raise ParseException(f"Failed to parse function string: {e}")
 
     if not isinstance(func_node, ast.FunctionDef):
         raise ParseException("Provided string is not a function definition.")
 
-    # Get the first and last statement in the body
     first_stmt = func_node.body[0]
     last_stmt = func_node.body[-1]
 
-    # Use asttokens to get exact text between those
+    # Get exact start and end positions
     start_pos = atok.get_text_range(first_stmt)[0]
     end_pos = atok.get_text_range(last_stmt)[1]
 
-    # Return the body substring (preserving all formatting)
-    return function_string[start_pos:end_pos]
+    # Extract the body slice (preserves all indentation)
+    body_text = function_string[start_pos:end_pos]
+
+    # Dedent based on common leading whitespace
+    return textwrap.dedent(body_text)
 
 
 def extract_class_def_body(class_string: str) -> str:
