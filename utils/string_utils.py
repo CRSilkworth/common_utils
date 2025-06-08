@@ -97,34 +97,41 @@ def longest_substring_overlap(
 
 def remove_indent(text: str) -> str:
     """
-    Removes the common leading indentation from all lines in the given text.
-
-    Parameters:
-    text (str): The input string with possible leading indentation.
-
-    Returns:
-    str: The text with the common indentation removed.
+    Removes the common leading indentation (spaces or tabs) from all non-blank lines in
+    a multiline string.Preserves relative indentation.
     """
-    # Split the text into lines
     lines = text.splitlines()
 
-    # Find the common leading whitespace for all non-empty lines
-    common_indent = None
-    for line in lines:
-        stripped = line.lstrip()
-        if stripped:  # Only consider non-empty lines
-            leading_spaces = len(line) - len(stripped)
-            if common_indent is None:
-                common_indent = leading_spaces
-            else:
-                common_indent = min(common_indent, leading_spaces)
-
-    # If all lines are empty or there's no common indent, return the original text
-    if common_indent is None or common_indent == 0:
+    # Filter out blank lines
+    non_empty_lines = [line for line in lines if line.strip()]
+    if not non_empty_lines:
         return text
 
-    # Remove the common leading indentation
-    return "\n".join(line[common_indent:] if line.lstrip() else "" for line in lines)
+    # Extract leading whitespace from each non-empty line
+    indents = [re.match(r"^[ \t]*", line).group(0) for line in non_empty_lines]
+
+    # Find common prefix of all leading indents
+    common_indent = indents[0]
+    for indent in indents[1:]:
+        # Reduce to the common prefix character-by-character
+        i = 0
+        while (
+            i < len(common_indent) and i < len(indent) and common_indent[i] == indent[i]
+        ):
+            i += 1
+        common_indent = common_indent[:i]
+
+    # Remove the common indent
+    dedented_lines = [
+        (
+            line[len(common_indent) :]  # noqa: E203
+            if line.startswith(common_indent)
+            else line
+        )
+        for line in lines
+    ]
+
+    return "\n".join(dedented_lines)
 
 
 def remove_imports(text: str, only_top_level: bool = False) -> str:
