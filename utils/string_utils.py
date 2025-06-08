@@ -100,8 +100,18 @@ def longest_substring_overlap(
 def remove_indent(text: str) -> str:
     """
     Removes the common leading indentation (spaces or tabs) from all non-blank lines in
-    a multiline string.Preserves relative indentation.
+    a multiline string.
+    Preserves relative indentation. Tabs are converted to 4 spaces before processing.
+
+    Args:
+        text (str): Multiline string to dedent.
+
+    Returns:
+        str: Dedented multiline string.
     """
+    # Convert all tabs to 4 spaces for consistency
+    text = text.replace("\t", "    ")
+
     lines = text.splitlines()
 
     # Filter out blank lines
@@ -110,7 +120,7 @@ def remove_indent(text: str) -> str:
         return text
 
     # Extract leading whitespace from each non-empty line
-    indents = [re.match(r"^[ \t]*", line).group(0) for line in non_empty_lines]
+    indents = [re.match(r"^[ ]*", line).group(0) for line in non_empty_lines]
 
     # Find common prefix of all leading indents
     common_indent = indents[0]
@@ -125,11 +135,7 @@ def remove_indent(text: str) -> str:
 
     # Remove the common indent
     dedented_lines = [
-        (
-            line[len(common_indent) :]  # noqa: E203
-            if line.startswith(common_indent)
-            else line
-        )
+        line[len(common_indent) :] if line.startswith(common_indent) else line
         for line in lines
     ]
 
@@ -168,15 +174,15 @@ def remove_imports(text: str, only_top_level: bool = False) -> str:
 
 def extract_function_body(function_string: str) -> str:
     """
-    Extracts the body of the function from the given function string.
+    Extracts the exact body of a function from a function string, preserving
+    indentation.
 
     Args:
-        function_string (str): The function string from which to extract the body.
+        function_string (str): The string containing the full function definition.
 
     Returns:
-        str: The extracted function body.
+        str: The exact source code of the function body with correct indentation.
     """
-
     try:
         atok = asttokens.ASTTokens(function_string, parse=True)
         func_node = atok.tree.body[0]
