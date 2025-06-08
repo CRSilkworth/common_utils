@@ -235,7 +235,7 @@ def attempt_deserialize(
         output = failed_output(message)
         return None, output, cleanups
 
-    if not deserialized_dict:
+    if deserialized_dict is None:
         return deserialized_dict, output, cleanups
 
     if with_db:
