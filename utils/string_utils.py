@@ -1,10 +1,7 @@
 from typing import Optional, Text
 import re
-import ast
 from lxml import etree
 import os
-from exceptions.parse_exceptions import ParseException
-import traceback
 
 
 def edit_distance(str1: Optional[str], str2: Optional[str]) -> float:
