@@ -85,14 +85,8 @@ def extract_function_body(function_string: str) -> str:
         function_body = remove_indent(function_body)
         # Strip the leading indentation (assuming it is uniformly indented)
         lines = function_body.split("\n")
-        stripped_lines = []
-        for line in lines:
-            if line.startswith("\t"):
-                line = line[1:]
-            elif line.startswith("    "):
-                line = line[4:]
-            stripped_lines.append(line)
-        return "\n".join(stripped_lines).strip()
+
+        return "\n".join(lines).strip()
     return ""
 
 
