@@ -23,12 +23,14 @@ import sqlite3
 import plotly.graph_objects as go
 
 TextOrint = TypeVar("TextOrint", Text, int)
-Position = Union[Tuple[Optional[int], Optional[int]], List[Optional[int]]]
 
 
 class PositionDict(TypedDict):
     x: int
     y: int
+
+
+Position = Union[Tuple[Optional[int], Optional[int]], List[Optional[int]], PositionDict]
 
 
 class File(TypedDict):
