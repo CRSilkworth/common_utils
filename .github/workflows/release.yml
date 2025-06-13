@@ -20,6 +20,7 @@ jobs:
       - name: Load .env
         uses: c-py/action-dotenv-to-setenv@v2
 
+      # Same as before ...
       - name: Inject version from VERSION_TAG into pyproject.toml
         run: |
           VERSION="${VERSION_TAG#v}"
@@ -67,8 +68,8 @@ jobs:
 
   build:
     needs: tag
-    runs-on: ubuntu-latest
     if: needs.tag.outputs.created == 'true'
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
