@@ -22,11 +22,14 @@ jobs:
 
       # Same as before ...
       - name: Inject version from VERSION_TAG into pyproject.toml
+        id: inject
         run: |
           VERSION="${VERSION_TAG#v}"
           echo "Injecting version $VERSION into pyproject.toml"
           sed -i.bak -E "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
           cat pyproject.toml | grep version
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
 
       - name: Inject dependencies into pyproject.toml
         run: |
@@ -40,16 +43,10 @@ jobs:
           ' pyproject.toml > pyproject.new.toml
           mv pyproject.new.toml pyproject.toml
 
-      - name: Extract version
-        id: get_version
-        run: |
-          VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
       - name: Check if tag exists
         id: check_tag
         run: |
-          TAG="v${{ steps.get_version.outputs.version }}"
+          TAG="v${{ steps.inject.outputs.version }}"
           if git ls-remote --tags origin "refs/tags/$TAG" | grep "$TAG"; then
             echo "exists=true" >> $GITHUB_OUTPUT
           else
