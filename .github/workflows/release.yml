@@ -17,6 +17,25 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Inject version from VERSION_TAG into pyproject.toml
+        run: |
+          VERSION="${VERSION_TAG#v}"
+          echo "Injecting version $VERSION into pyproject.toml"
+          sed -i.bak -E "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+          cat pyproject.toml | grep version
+
+      - name: Inject dependencies into pyproject.toml
+        run: |
+          deps=$(cat base_requirements.txt dev_requirements.txt | grep -vE '^\s*#|^\s*$' | sed 's/"/\\"/g' | awk '{print "  \"" $0 "\","}')
+          awk -v deps="$deps" '
+            BEGIN {in_proj=0}
+            /^\[project\]/ {print; in_proj=1; next}
+            /^\[/ && in_proj {print "dependencies = [\n" deps "\n]"; in_proj=0}
+            {print}
+            END {if (in_proj) print "dependencies = [\n" deps "\n]"}
+          ' pyproject.toml > pyproject.new.toml
+          mv pyproject.new.toml pyproject.toml
+
       - name: Extract version
         id: get_version
         run: |
@@ -45,7 +64,6 @@ jobs:
 
   build:
     needs: tag
-    if: needs.tag.outputs.created == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
