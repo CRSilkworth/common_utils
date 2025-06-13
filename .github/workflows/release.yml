@@ -68,6 +68,7 @@ jobs:
   build:
     needs: tag
     runs-on: ubuntu-latest
+    if: needs.tag.outputs.created == 'true'
     steps:
       - uses: actions/checkout@v3
 
