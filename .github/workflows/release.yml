@@ -66,6 +66,12 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
+      - name: Inject version into pyproject.toml
+        run: |
+          VERSION="${{ needs.tag.outputs.version }}"
+          sed -i.bak -E "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
+          cat pyproject.toml | grep version
+
 
       - name: Build wheel
         run: |
