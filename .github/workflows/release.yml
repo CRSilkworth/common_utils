@@ -17,6 +17,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Load .env
+        uses: c-py/action-dotenv-to-setenv@v2
+
       - name: Inject version from VERSION_TAG into pyproject.toml
         run: |
           VERSION="${VERSION_TAG#v}"
