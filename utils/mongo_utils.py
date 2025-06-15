@@ -15,7 +15,7 @@ def mongo_to_dict(
             continue
         value = getattr(doc, field_name)
 
-        if isinstance(field, me.ReferenceField):
+        if isinstance(field, (me.ReferenceField, me.GenericReferenceField)):
             result[field_name] = str(value.id) if value else None
         elif isinstance(value, BaseDocument):
             result[field_name] = mongo_to_dict(value, fields_to_ignore)
@@ -32,7 +32,10 @@ def mongo_to_dict(
             result[field_name] = {
                 k: (
                     str(v.id)
-                    if isinstance(field.field, me.ReferenceField) and v
+                    if isinstance(
+                        field.field, (me.ReferenceField, me.GenericReferenceField)
+                    )
+                    and v
                     else (
                         mongo_to_dict(v, fields_to_ignore)
                         if isinstance(v, BaseDocument)
