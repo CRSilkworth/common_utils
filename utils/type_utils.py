@@ -346,38 +346,32 @@ def is_valid_output(value, output_type, with_db: bool = True):
             return False
 
         return True
-    origin = get_origin(output_type)
-    args = get_args(output_type)
-
-    if origin in {dict, Dict} and len(args) == 2:
-        key_type, val_type = args
-        print("in origin")
-        if key_type == SimParamKey and val_type == Allowed:
-            print("HERE")
-            if not isinstance(value, dict):
-                print("dict")
+    if _is_simvalues_type(output_type):
+        print("HERE")
+        if not isinstance(value, dict):
+            print("dict")
+            return False
+        for frzn, alwd in value.items():
+            if not isinstance(frzn, frozenset):
+                print("frozen set")
                 return False
-            for frzn, alwd in value.items():
-                if not isinstance(frzn, frozenset):
-                    print("frozen set")
-                    return False
-                try:
-                    for k, v in frzn:
-                        if not isinstance(k, str):
-                            print("froz")
-                            return False
-                        hash(v)
-                except TypeError:
-                    print("hash")
+            try:
+                for k, v in frzn:
+                    if not isinstance(k, str):
+                        print("froz")
+                        return False
+                    hash(v)
+            except TypeError:
+                print("hash")
 
-                    return False
+                return False
 
-                if not is_allowed_type(alwd):
-                    print("allowed")
+            if not is_allowed_type(alwd):
+                print("allowed")
 
-                    return False
+                return False
 
-            return True
+        return True
     if with_db:
         import torch
 
@@ -405,3 +399,34 @@ def is_valid_output(value, output_type, with_db: bool = True):
 
     # Fallback
     return is_allowed_type(value)
+
+
+def _is_simvalues_type(output_type):
+    origin = get_origin(output_type)
+    if origin not in {dict, Dict}:
+        return False
+
+    key_type, val_type = get_args(output_type)
+
+    # Check that key_type is FrozenSet[Tuple[str, Hashable]]
+    key_origin = get_origin(key_type)
+    if key_origin not in {frozenset, FrozenSet}:
+        return False
+
+    key_args = get_args(key_type)
+    if len(key_args) != 1:
+        return False
+    tuple_type = key_args[0]
+    tuple_origin = get_origin(tuple_type)
+    if tuple_origin not in {tuple, Tuple}:
+        return False
+
+    tuple_args = get_args(tuple_type)
+    if tuple_args != (str, Hashable):
+        return False
+
+    # Check that val_type is Allowed (you can do a similar structural check if Allowed is a Union)
+    if val_type != Allowed:
+        return False
+
+    return True
