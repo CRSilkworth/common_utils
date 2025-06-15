@@ -346,6 +346,10 @@ def is_valid_output(value, output_type, with_db: bool = True):
             return False
 
         return True
+    print("-" * 10)
+    print(output_type)
+    print(SimValues)
+    print("-" * 10)
     if output_type == SimValues:
         print("HERE")
         if not isinstance(value, dict):
@@ -397,6 +401,5 @@ def is_valid_output(value, output_type, with_db: bool = True):
                 )
             return False
 
-    print("AT END")
     # Fallback
     return is_allowed_type(value)
