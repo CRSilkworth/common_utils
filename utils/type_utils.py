@@ -64,8 +64,8 @@ Allowed = Union[
 ]
 
 AllSimParams = typing.Iterable[Dict[Text, typing.Hashable]]
-SimParamKey = FrozenSet[Tuple[Text, typing.Hashable]]
-SimValues = Dict[SimParamKey, Allowed]
+SimParamKey = typing.FrozenSet[typing.Tuple[Text, typing.Hashable]]
+SimValues = typing.Dict[SimParamKey, Allowed]
 
 
 def hash_schema(schema):
@@ -191,7 +191,7 @@ def serialize_typehint(t: type, with_db: bool = True) -> str:
         return t
 
     # Handle special case: non-subscriptable types
-    if t in {Hashable, Iterable}:
+    if t in {Hashable, Iterable, FrozenSet, Tuple, Text}:
         return f"{t.__module__}.{t.__qualname__}"
 
     if isinstance(t, TypeVar):
@@ -346,13 +346,17 @@ def is_valid_output(value, output_type, with_db: bool = True):
             return False
 
         return True
-    if is_simvalues_type(output_type):
+    print("-" * 10)
+    print(output_type)
+    print(SimValues)
+    print("-" * 10)
+    if output_type == SimValues:
         print("HERE")
         if not isinstance(value, dict):
             print("dict")
             return False
         for frzn, alwd in value.items():
-            if not isinstance(frzn, frozenset):
+            if not isinstance(frzn, FrozenSet):
                 print("frozen set")
                 return False
             try:
@@ -399,60 +403,3 @@ def is_valid_output(value, output_type, with_db: bool = True):
 
     # Fallback
     return is_allowed_type(value)
-
-
-def is_frozenset_of_tuple_str_hashable(t):
-    origin = get_origin(t)
-    if origin not in {frozenset, FrozenSet}:
-        return False
-
-    args = get_args(t)
-    if len(args) != 1:
-        return False
-
-    inner = args[0]
-    inner_origin = get_origin(inner)
-    if inner_origin not in {tuple, Tuple}:
-        return False
-
-    inner_args = get_args(inner)
-    if inner_args != (str, Hashable):
-        return True  # Hashable doesn't guarantee `==` match due to typing quirks
-    if len(inner_args) != 2:
-        return False
-
-    # Check it's (str, Hashable) structurally
-    return inner_args[0] == str and inner_args[1] == Hashable
-
-
-def is_allowed_type_spec(val_type):
-    # Your Allowed type is a big Union[...] — so match against the actual definition
-    allowed_args = get_args(Allowed)
-    if get_origin(val_type) is Union:
-        return all(
-            any(issubclass_safe(t, a) for a in allowed_args) for t in get_args(val_type)
-        )
-    return any(issubclass_safe(val_type, a) for a in allowed_args)
-
-
-def issubclass_safe(t, cls):
-    try:
-        return issubclass(t, cls)
-    except TypeError:
-        return t == cls  # for things like ForwardRef or non-class types
-
-
-def is_simvalues_type(output_type):
-    origin = get_origin(output_type)
-    if origin not in {dict, Dict}:
-        return False
-
-    key_type, val_type = get_args(output_type)
-
-    if not is_frozenset_of_tuple_str_hashable(key_type):
-        return False
-
-    if not is_allowed_type_spec(val_type):
-        return False
-
-    return True
