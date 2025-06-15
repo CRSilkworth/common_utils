@@ -11,7 +11,6 @@ from typing import (
     get_origin,
     ForwardRef,
     Any,
-    Hashable,
     Iterable,
     FrozenSet,
 )
@@ -63,8 +62,8 @@ Allowed = Union[
     type(None),
 ]
 
-AllSimParams = Iterable[Dict[Text, Hashable]]
-SimParamKey = FrozenSet[Tuple[Text, Hashable]]
+AllSimParams = Iterable[Dict[Text, typing.Hashable]]
+SimParamKey = FrozenSet[Tuple[Text, typing.Hashable]]
 
 
 def hash_schema(schema):
