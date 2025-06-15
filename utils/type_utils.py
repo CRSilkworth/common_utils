@@ -11,6 +11,9 @@ from typing import (
     get_origin,
     ForwardRef,
     Any,
+    Hashable,
+    Iterable,
+    FrozenSet,
 )
 import numpy as np
 import pandas as pd
@@ -59,6 +62,9 @@ Allowed = Union[
     pd.Period,
     type(None),
 ]
+
+AllSimParams = Iterable[Dict[Text, Hashable]]
+SimParamKey = FrozenSet[Tuple[Text, Hashable]]
 
 
 def hash_schema(schema):
@@ -233,6 +239,7 @@ def get_known_types(
         "utils.type_utils": __import__("utils.type_utils"),
         "utils.type_utils.PositionDict": PositionDict,
         "NoneType": type(None),
+        "utils.type_utils.AllSimParams": AllSimParams,
     }
 
     if with_db:
@@ -316,6 +323,31 @@ def _resolve_forwardrefs(tp, globalns):
 def is_valid_output(value, output_type, with_db: bool = True):
     if output_type == sqlite3.Connection:
         return isinstance(value, sqlite3.Connection)
+    if output_type == AllSimParams:
+        try:
+            for sim_params in value:
+                if not isinstance(sim_params, dict):
+                    return False
+                for key, value in sim_params.items():
+                    if not isinstance(key, str):
+                        return False
+                    hash(value)
+        except TypeError:
+            return False
+
+        return True
+    if output_type == SimParamKey:
+        if not isinstance(value, FrozenSet):
+            return False
+        try:
+            for key, value in sim_params:
+                if not isinstance(key, str):
+                    return False
+                hash(value)
+        except TypeError:
+            return False
+
+        return True
     if with_db:
         import torch
 
