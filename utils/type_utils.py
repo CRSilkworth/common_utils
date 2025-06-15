@@ -346,7 +346,7 @@ def is_valid_output(value, output_type, with_db: bool = True):
             return False
 
         return True
-    if _is_simvalues_type(output_type):
+    if is_simvalues_type(output_type):
         print("HERE")
         if not isinstance(value, dict):
             print("dict")
@@ -401,32 +401,58 @@ def is_valid_output(value, output_type, with_db: bool = True):
     return is_allowed_type(value)
 
 
-def _is_simvalues_type(output_type):
+def is_frozenset_of_tuple_str_hashable(t):
+    origin = get_origin(t)
+    if origin not in {frozenset, FrozenSet}:
+        return False
+
+    args = get_args(t)
+    if len(args) != 1:
+        return False
+
+    inner = args[0]
+    inner_origin = get_origin(inner)
+    if inner_origin not in {tuple, Tuple}:
+        return False
+
+    inner_args = get_args(inner)
+    if inner_args != (str, Hashable):
+        return True  # Hashable doesn't guarantee `==` match due to typing quirks
+    if len(inner_args) != 2:
+        return False
+
+    # Check it's (str, Hashable) structurally
+    return inner_args[0] == str and inner_args[1] == Hashable
+
+
+def is_allowed_type_spec(val_type):
+    # Your Allowed type is a big Union[...] — so match against the actual definition
+    allowed_args = get_args(Allowed)
+    if get_origin(val_type) is Union:
+        return all(
+            any(issubclass_safe(t, a) for a in allowed_args) for t in get_args(val_type)
+        )
+    return any(issubclass_safe(val_type, a) for a in allowed_args)
+
+
+def issubclass_safe(t, cls):
+    try:
+        return issubclass(t, cls)
+    except TypeError:
+        return t == cls  # for things like ForwardRef or non-class types
+
+
+def is_simvalues_type(output_type):
     origin = get_origin(output_type)
     if origin not in {dict, Dict}:
         return False
 
     key_type, val_type = get_args(output_type)
 
-    # Check that key_type is FrozenSet[Tuple[str, Hashable]]
-    key_origin = get_origin(key_type)
-    if key_origin not in {frozenset, FrozenSet}:
+    if not is_frozenset_of_tuple_str_hashable(key_type):
         return False
 
-    key_args = get_args(key_type)
-    if len(key_args) != 1:
-        return False
-    tuple_type = key_args[0]
-    tuple_origin = get_origin(tuple_type)
-    if tuple_origin not in {tuple, Tuple}:
-        return False
-
-    tuple_args = get_args(tuple_type)
-    if tuple_args != (str, Hashable):
-        return False
-
-    # Check that val_type is Allowed (you can do a similar structural check if Allowed is a Union)
-    if val_type != Allowed:
+    if not is_allowed_type_spec(val_type):
         return False
 
     return True
