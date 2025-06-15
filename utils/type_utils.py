@@ -24,6 +24,7 @@ import typing
 import typing_extensions
 import sqlite3
 import plotly.graph_objects as go
+import collections
 
 TextOrint = TypeVar("TextOrint", Text, int)
 
@@ -218,6 +219,7 @@ def get_known_types(
         **vars(typing),
         **vars(typing_extensions),
         "typing": typing,
+        "collections": collections,
         "typing_extensions": typing_extensions,
         # Numpy/Pandas
         "np": np,
