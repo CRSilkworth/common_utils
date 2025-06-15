@@ -50,7 +50,7 @@ def create_function(
                 + "\n\t"
                 + body.replace("\n", "\n\t")
             )
-
+        print(function_string)
         bytecode = compile(function_string, filename="<inline code>", mode="exec")
         exec_result = {}
         exec(bytecode, allowed_modules, exec_result)

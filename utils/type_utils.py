@@ -63,7 +63,7 @@ Allowed = Union[
     type(None),
 ]
 
-AllSimParams = Iterable[Dict[Text, typing.Hashable]]
+AllSimParams = typing.Iterable[Dict[Text, typing.Hashable]]
 SimParamKey = FrozenSet[Tuple[Text, typing.Hashable]]
 
 
