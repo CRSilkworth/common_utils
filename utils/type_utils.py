@@ -24,7 +24,6 @@ import typing
 import typing_extensions
 import sqlite3
 import plotly.graph_objects as go
-import collections
 
 TextOrint = TypeVar("TextOrint", Text, int)
 
@@ -219,7 +218,6 @@ def get_known_types(
         **vars(typing),
         **vars(typing_extensions),
         "typing": typing,
-        "collections": collections,
         "typing_extensions": typing_extensions,
         # Numpy/Pandas
         "np": np,
@@ -300,6 +298,7 @@ def deserialize_typehint(
     try:
         return eval(s, known_types)
     except Exception as e:
+        print(e)
         raise ValueError(f"Cannot deserialize type hint from: {s}") from e
 
 
