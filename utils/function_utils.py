@@ -42,7 +42,7 @@ def create_function(
         if not body.strip() or body.strip() == "pass":
             return None, output
 
-        if header_code or function_header:
+        if header_code:
             function_string = (
                 function_header
                 + "\n\t"
@@ -50,7 +50,6 @@ def create_function(
                 + "\n\t"
                 + body.replace("\n", "\n\t")
             )
-        print(function_string)
         bytecode = compile(function_string, filename="<inline code>", mode="exec")
         exec_result = {}
         exec(bytecode, allowed_modules, exec_result)
