@@ -13,6 +13,7 @@ from typing import (
     Any,
     Iterable,
     FrozenSet,
+    Hashable,
 )
 import numpy as np
 import pandas as pd
@@ -62,8 +63,8 @@ Allowed = Union[
     type(None),
 ]
 
-AllSimParams = Iterable[Dict[Text, typing.Hashable]]
-SimParamKey = FrozenSet[Tuple[Text, typing.Hashable]]
+AllSimParams = Iterable[Dict[Text, Hashable]]
+SimParamKey = FrozenSet[Tuple[Text, Hashable]]
 
 
 def hash_schema(schema):
@@ -185,6 +186,10 @@ def is_allowed_type(obj) -> bool:
 
 def serialize_typehint(t: type, with_db: bool = True) -> str:
     """Serialize a type hint to a string."""
+    if t is Hashable:
+        print(repr(t))
+        return repr(t)
+
     if isinstance(t, str):
         return repr(t)
 
