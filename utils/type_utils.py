@@ -191,7 +191,7 @@ def serialize_typehint(t: type, with_db: bool = True) -> str:
         return t
 
     # Handle special case: non-subscriptable types
-    if t in {Hashable, Iterable, FrozenSet, Tuple, Text}:
+    if t in {Hashable, Iterable, FrozenSet, Tuple}:
         return f"{t.__module__}.{t.__qualname__}"
 
     if isinstance(t, TypeVar):
