@@ -377,7 +377,7 @@ def is_valid_output(value, output_type, with_db: bool = True):
 
                     return False
 
-        return True
+            return True
     if with_db:
         import torch
 
