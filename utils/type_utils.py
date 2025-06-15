@@ -186,11 +186,12 @@ def is_allowed_type(obj) -> bool:
 
 def serialize_typehint(t: type, with_db: bool = True) -> str:
     """Serialize a type hint to a string."""
-    if t is Hashable:
-        return repr(t)
-
     if isinstance(t, str):
-        return repr(t)
+        return t
+
+    # Handle special case: non-subscriptable types
+    if t in {Hashable, Iterable}:
+        return f"{t.__module__}.{t.__qualname__}"
 
     if isinstance(t, TypeVar):
         return f"TypeVar({t.__name__})"
