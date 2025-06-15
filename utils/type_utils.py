@@ -346,34 +346,36 @@ def is_valid_output(value, output_type, with_db: bool = True):
             return False
 
         return True
-    print("-" * 10)
-    print(output_type)
-    print(SimValues)
-    print("-" * 10)
-    if output_type == SimValues:
-        print("HERE")
-        if not isinstance(value, dict):
-            print("dict")
-            return False
-        for frzn, alwd in value.items():
-            if not isinstance(frzn, FrozenSet):
-                print("frozen set")
-                return False
-            try:
-                for k, v in frzn:
-                    if not isinstance(k, str):
-                        print("froz")
-                        return False
-                    hash(v)
-            except TypeError:
-                print("hash")
+    origin = get_origin(output_type)
+    args = get_args(output_type)
 
+    if origin in {dict, Dict} and len(args) == 2:
+        key_type, val_type = args
+        print("in origin")
+        if key_type == SimParamKey and val_type == Allowed:
+            print("HERE")
+            if not isinstance(value, dict):
+                print("dict")
                 return False
+            for frzn, alwd in value.items():
+                if not isinstance(frzn, frozenset):
+                    print("frozen set")
+                    return False
+                try:
+                    for k, v in frzn:
+                        if not isinstance(k, str):
+                            print("froz")
+                            return False
+                        hash(v)
+                except TypeError:
+                    print("hash")
 
-            if not is_allowed_type(alwd):
-                print("allowed")
+                    return False
 
-                return False
+                if not is_allowed_type(alwd):
+                    print("allowed")
+
+                    return False
 
         return True
     if with_db:
