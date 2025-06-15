@@ -65,6 +65,7 @@ Allowed = Union[
 
 AllSimParams = typing.Iterable[Dict[Text, typing.Hashable]]
 SimParamKey = FrozenSet[Tuple[Text, typing.Hashable]]
+SimValues = Dict[SimParamKey, Allowed]
 
 
 def hash_schema(schema):
@@ -345,18 +346,24 @@ def is_valid_output(value, output_type, with_db: bool = True):
             return False
 
         return True
-    if output_type == SimParamKey:
-        if not isinstance(value, FrozenSet):
+    if output_type == SimValues:
+        if not isinstance(value, dict):
             return False
-        try:
-            for key, value in sim_params:
-                if not isinstance(key, str):
-                    return False
-                hash(value)
-        except TypeError:
-            return False
+        for frzn, alwd in value.items():
+            if not isinstance(frzn, FrozenSet):
+                return False
+            try:
+                for k, v in frzn:
+                    if not isinstance(k, str):
+                        return False
+                    hash(v)
+            except TypeError:
+                return False
 
-        return True
+            if not is_allowed_type(alwd):
+                return False
+
+            return True
     if with_db:
         import torch
 
