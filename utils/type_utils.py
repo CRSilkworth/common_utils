@@ -304,7 +304,6 @@ def deserialize_typehint(
             raise ValueError(f"Unknown TypeVar {name}")
 
     try:
-        print(s)
         return eval(s, known_types)
     except Exception as e:
         print(e)
