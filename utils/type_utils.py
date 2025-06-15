@@ -348,22 +348,29 @@ def is_valid_output(value, output_type, with_db: bool = True):
         return True
     if output_type == SimValues:
         if not isinstance(value, dict):
+            print("dict")
             return False
         for frzn, alwd in value.items():
             if not isinstance(frzn, FrozenSet):
+                print("frozen set")
                 return False
             try:
                 for k, v in frzn:
                     if not isinstance(k, str):
+                        print("froz")
                         return False
                     hash(v)
             except TypeError:
+                print("hash")
+
                 return False
 
             if not is_allowed_type(alwd):
+                print("allowed")
+
                 return False
 
-            return True
+        return True
     if with_db:
         import torch
 
