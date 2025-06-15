@@ -247,8 +247,14 @@ def get_known_types(
         "utils.type_utils.AllSimParams": AllSimParams,
         "typing.Hashable": Hashable,
         "typing.Iterable": Iterable,
+        "typing.Tuple": Tuple,
+        "typing.Text": Text,
+        "typing.FrozenSet": FrozenSet,
         "Hashable": Hashable,
         "Iterable": Iterable,
+        "Tuple": Tuple,
+        "Text": Text,
+        "FrozenSet": FrozenSet,
     }
 
     if with_db:
