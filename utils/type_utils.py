@@ -63,8 +63,8 @@ Allowed = Union[
     type(None),
 ]
 
-AllSimParams = Iterable[Dict[Text, Hashable]]
-SimParamKey = FrozenSet[Tuple[Text, Hashable]]
+AllSimParams = Iterable[Dict[Text, typing.Hashable]]
+SimParamKey = FrozenSet[Tuple[Text, typing.Hashable]]
 
 
 def hash_schema(schema):
@@ -187,7 +187,6 @@ def is_allowed_type(obj) -> bool:
 def serialize_typehint(t: type, with_db: bool = True) -> str:
     """Serialize a type hint to a string."""
     if t is Hashable:
-        print(repr(t))
         return repr(t)
 
     if isinstance(t, str):
@@ -244,6 +243,10 @@ def get_known_types(
         "utils.type_utils.PositionDict": PositionDict,
         "NoneType": type(None),
         "utils.type_utils.AllSimParams": AllSimParams,
+        "typing.Hashable": Hashable,
+        "typing.Iterable": Iterable,
+        "Hashable": Hashable,
+        "Iterable": Iterable,
     }
 
     if with_db:
@@ -300,6 +303,7 @@ def deserialize_typehint(
             raise ValueError(f"Unknown TypeVar {name}")
 
     try:
+        print(s)
         return eval(s, known_types)
     except Exception as e:
         print(e)
