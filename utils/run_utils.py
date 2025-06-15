@@ -117,7 +117,7 @@ def run_docs(
                 att_dict["value"] = run_output["value"]
 
     logging.warning("Serializing values")
-    for doc_id in outputs:
+    for doc_id in run_order:
         doc_runner_keys = get_doc_runner_keys(runner_keys, outputs[doc_id]["runners"])
         doc_full_name = doc_data[doc_id]["attributes"]["full_name"]["value"]
 
