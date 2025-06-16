@@ -99,15 +99,36 @@ def describe_json_schema(obj, definitions=None, path="", with_db: bool = True):
             }
 
     if isinstance(obj, dict):
-        properties = {}
-        required = []
+        # Represent dict as array of [key, value] pairs
+        items = []
         for k, v in obj.items():
-            sub_schema, definitions = describe_json_schema(
-                v, definitions, path + "/" + k, with_db=with_db
+            key_schema, definitions = describe_json_schema(
+                k, definitions, path + "/key", with_db=with_db
             )
-            properties[k] = sub_schema
-            required.append(k)
-        schema = {"type": "object", "properties": properties, "required": required}
+            value_schema, definitions = describe_json_schema(
+                v, definitions, path + "/value", with_db=with_db
+            )
+            items.append(
+                {
+                    "type": "array",
+                    "prefixItems": [key_schema, value_schema],
+                    "minItems": 2,
+                    "maxItems": 2,
+                }
+            )
+
+        schema = {
+            "type": "array",
+            "items": {
+                "type": "array",
+                "prefixItems": [
+                    {"type": "any"},
+                    {"type": "any"},
+                ],
+                "minItems": 2,
+                "maxItems": 2,
+            },
+        }
 
     elif isinstance(obj, list):
         if obj:
@@ -117,6 +138,14 @@ def describe_json_schema(obj, definitions=None, path="", with_db: bool = True):
             schema = {"type": "array", "items": items_schema}
         else:
             schema = {"type": "array", "items": {}}
+    elif isinstance(obj, frozenset):
+        if obj:
+            items_schema, definitions = describe_json_schema(
+                obj[0], definitions, path + "/items", with_db=with_db
+            )
+            schema = {"type": "array", "items": items_schema, "uniqueItems": True}
+        else:
+            schema = {"type": "array", "items": {}, "uniqueItems": True}
 
     elif isinstance(obj, np.ndarray):
         schema = {"type": "ndarray", "shape": list(obj.shape), "dtype": str(obj.dtype)}
@@ -313,9 +342,6 @@ def deserialize_typehint(
         else:
             raise ValueError(f"Unknown TypeVar {name}")
 
-    print("0" * 10)
-    print(s)
-    print("0" * 10)
     try:
         return eval(s, known_types)
     except Exception as e:
@@ -358,33 +384,21 @@ def is_valid_output(value, output_type, with_db: bool = True):
             return False
 
         return True
-    print("-" * 10)
-    print(output_type)
-    print(SimValues)
-    print("-" * 10)
     if output_type == SimValues:
-        print("HERE")
         if not isinstance(value, dict):
-            print("dict")
             return False
         for frzn, alwd in value.items():
             if not isinstance(frzn, FrozenSet):
-                print("frozen set")
                 return False
             try:
                 for k, v in frzn:
                     if not isinstance(k, str):
-                        print("froz")
                         return False
                     hash(v)
             except TypeError:
-                print("hash")
-
                 return False
 
             if not is_allowed_type(alwd):
-                print("allowed")
-
                 return False
 
         return True
