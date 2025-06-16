@@ -63,9 +63,9 @@ Allowed = Union[
     type(None),
 ]
 
-AllSimParams = typing.Iterable[Dict[Text, typing.Hashable]]
-SimParamKey = typing.FrozenSet[typing.Tuple[Text, typing.Hashable]]
-SimValues = Dict[SimParamKey, Allowed]
+SimParams = typing.Dict[Text, typing.Hashable]
+AllSimParams = typing.Iterable[SimParams]
+SimValues = Dict[typing.FrozenSet[Tuple[Text, typing.Hashable]], Allowed]
 
 
 def hash_schema(schema):
@@ -311,7 +311,7 @@ def get_known_types(
         "utils.type_utils.PositionDict": PositionDict,
         "utils.type_utils.Position": Position,
         "utils.type_utils.AllSimParams": AllSimParams,
-        "utils.type_utils.SimParamKey": SimParamKey,
+        "utils.type_utils.SimParams": SimParams,
         "utils.type_utils.SimValues": SimValues,
         "utils.type_utils.Allowed": Allowed,
         "typing.Hashable": typing.Hashable,
