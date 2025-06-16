@@ -195,7 +195,10 @@ def serialize_typehint(t: type, with_db: bool = True) -> str:
 
     known_types = get_known_types(with_db=with_db)
     reverse_lookup = {v: k for k, v in known_types.items() if not isinstance(k, str)}
-
+    print("+" * 10)
+    print(reverse_lookup)
+    print(t)
+    print("+" * 10)
     if t in reverse_lookup:
         return reverse_lookup[t]
 
@@ -312,6 +315,9 @@ def deserialize_typehint(
         else:
             raise ValueError(f"Unknown TypeVar {name}")
 
+    print("0" * 10)
+    print(s)
+    print("0" * 10)
     try:
         return eval(s, known_types)
     except Exception as e:
