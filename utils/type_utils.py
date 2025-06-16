@@ -64,8 +64,8 @@ Allowed = Union[
 ]
 
 AllSimParams = typing.Iterable[Dict[Text, typing.Hashable]]
-SimParamKey = typing.FrozenSet[typing.Tuple[Text, typing.Hashable]]
-SimValues = typing.Dict[SimParamKey, Allowed]
+SimParamKey = frozenset[tuple[str, typing.Hashable]]
+SimValues = dict[SimParamKey, Allowed]
 
 
 def hash_schema(schema):
