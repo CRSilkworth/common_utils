@@ -63,8 +63,8 @@ Allowed = Union[
     type(None),
 ]
 
-AllSimParams = Iterable[Dict[Text, Hashable]]
-SimParamKey = FrozenSet[Tuple[Text, Hashable]]
+AllSimParams = typing.Iterable[Dict[Text, typing.Hashable]]
+SimParamKey = typing.FrozenSet[typing.Tuple[Text, typing.Hashable]]
 SimValues = Dict[SimParamKey, Allowed]
 
 
@@ -196,6 +196,9 @@ def serialize_typehint(t: type, with_db: bool = True) -> str:
     known_types = get_known_types(with_db=with_db)
     reverse_lookup = {v: k for k, v in known_types.items() if not isinstance(k, str)}
 
+    if t in {Hashable, Iterable, FrozenSet, Tuple, Text}:
+        return f"{t.__module__}.{t.__qualname__}"
+
     if t in reverse_lookup:
         return reverse_lookup[t]
 
@@ -251,6 +254,9 @@ def get_known_types(
         "utils.type_utils.SimParamKey": SimParamKey,
         "utils.type_utils.SimValues": SimValues,
         "utils.type_utils.Allowed": Allowed,
+        "typing.Hashable": typing.Hashable,
+        "typing.Iterable": typing.Iterable,
+        "typing.Tuple": typing.Tuple,
     }
 
     if with_db:
