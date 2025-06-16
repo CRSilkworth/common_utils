@@ -63,9 +63,9 @@ Allowed = Union[
     type(None),
 ]
 
-AllSimParams = typing.Iterable[Dict[Text, typing.Hashable]]
-SimParamKey = typing.FrozenSet[typing.Tuple[Text, typing.Hashable]]
-SimValues = typing.Dict[SimParamKey, Allowed]
+AllSimParams = Iterable[Dict[Text, Hashable]]
+SimParamKey = FrozenSet[Tuple[Text, Hashable]]
+SimValues = Dict[SimParamKey, Allowed]
 
 
 def hash_schema(schema):
@@ -244,13 +244,13 @@ def get_known_types(
         "plotly.graph_objs._figure.Figure": go.Figure,
         "utils": __import__("utils"),
         "utils.type_utils": __import__("utils.type_utils"),
-        "utils.type_utils.PositionDict": PositionDict,
         "NoneType": type(None),
+        "utils.type_utils.PositionDict": PositionDict,
+        "utils.type_utils.Position": Position,
         "utils.type_utils.AllSimParams": AllSimParams,
-        "typing.Hashable": Hashable,
-        "typing.Iterable": Iterable,
-        "Hashable": Hashable,
-        "Iterable": Iterable,
+        "utils.type_utils.SimParamKey": SimParamKey,
+        "utils.type_utils.SimValues": SimValues,
+        "utils.type_utils.Allowed": Allowed,
     }
 
     if with_db:
