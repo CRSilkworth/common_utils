@@ -194,13 +194,10 @@ def serialize_typehint(t: type, with_db: bool = True) -> str:
         return f"TypeVar({t.__name__})"
 
     known_types = get_known_types(with_db=with_db)
-    reverse_lookup = {v: k for k, v in known_types.items()}
-    print("+" * 10)
-    print(reverse_lookup)
-    print(t)
-    print("+" * 10)
-    if t in reverse_lookup:
-        return reverse_lookup[t]
+
+    for k, v in known_types.items():
+        if v == t:
+            return k
 
     if t in {Hashable, Iterable, FrozenSet, Tuple}:
         return f"{t.__module__}.{t.__qualname__}"
