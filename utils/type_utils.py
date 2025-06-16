@@ -196,11 +196,11 @@ def serialize_typehint(t: type, with_db: bool = True) -> str:
     known_types = get_known_types(with_db=with_db)
     reverse_lookup = {v: k for k, v in known_types.items() if not isinstance(k, str)}
 
-    if t in {Hashable, Iterable, FrozenSet, Tuple, Text}:
-        return f"{t.__module__}.{t.__qualname__}"
-
     if t in reverse_lookup:
         return reverse_lookup[t]
+
+    if t in {Hashable, Iterable, FrozenSet, Tuple}:
+        return f"{t.__module__}.{t.__qualname__}"
 
     origin = get_origin(t)
     args = get_args(t)
