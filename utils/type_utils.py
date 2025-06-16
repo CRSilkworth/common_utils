@@ -100,35 +100,36 @@ def describe_json_schema(obj, definitions=None, path="", with_db: bool = True):
 
     if isinstance(obj, dict):
         # Represent dict as array of [key, value] pairs
-        items = []
-        for k, v in obj.items():
+        if obj:
+            # Get the schema from the *first* key and value
+            first_key, first_val = next(iter(obj.items()))
             key_schema, definitions = describe_json_schema(
-                k, definitions, path + "/key", with_db=with_db
+                first_key, definitions, path + "/key", with_db=with_db
             )
-            value_schema, definitions = describe_json_schema(
-                v, definitions, path + "/value", with_db=with_db
-            )
-            items.append(
-                {
-                    "type": "array",
-                    "prefixItems": [key_schema, value_schema],
-                    "minItems": 2,
-                    "maxItems": 2,
-                }
+            val_schema, definitions = describe_json_schema(
+                first_val, definitions, path + "/value", with_db=with_db
             )
 
-        schema = {
-            "type": "array",
-            "items": {
+            schema = {
                 "type": "array",
-                "prefixItems": [
-                    {"type": "any"},
-                    {"type": "any"},
-                ],
-                "minItems": 2,
-                "maxItems": 2,
-            },
-        }
+                "items": {
+                    "type": "array",
+                    "prefixItems": [key_schema, val_schema],
+                    "minItems": 2,
+                    "maxItems": 2,
+                },
+            }
+        else:
+            # Empty dict: structure is unknown, so allow general [key, value] pairs
+            schema = {
+                "type": "array",
+                "items": {
+                    "type": "array",
+                    "prefixItems": [{"type": "any"}, {"type": "any"}],
+                    "minItems": 2,
+                    "maxItems": 2,
+                },
+            }
 
     elif isinstance(obj, list):
         if obj:

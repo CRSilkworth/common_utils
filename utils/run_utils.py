@@ -121,7 +121,6 @@ def run_docs(
         doc_runner_keys = get_doc_runner_keys(runner_keys, outputs[doc_id]["runners"])
         doc_full_name = doc_data[doc_id]["attributes"]["full_name"]["value"]
 
-        print(doc_full_name, runner_keys)
         for runner_key in doc_runner_keys:
             runner_dict = doc_data[doc_id]["runners"][runner_key]
             att_dict = doc_data[doc_to_run]["attributes"][runner_dict["attribute_key"]]
