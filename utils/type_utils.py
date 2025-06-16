@@ -248,6 +248,7 @@ def get_known_types(
         "utils": __import__("utils"),
         "utils.type_utils": __import__("utils.type_utils"),
         "NoneType": type(None),
+        "_NoneType": type(None),
         "utils.type_utils.PositionDict": PositionDict,
         "utils.type_utils.Position": Position,
         "utils.type_utils.AllSimParams": AllSimParams,
