@@ -64,8 +64,8 @@ Allowed = Union[
 ]
 
 AllSimParams = typing.Iterable[Dict[Text, typing.Hashable]]
-SimParamKey = frozenset[tuple[str, typing.Hashable]]
-SimValues = dict[SimParamKey, Allowed]
+SimParamKey = typing.FrozenSet[typing.Tuple[Text, typing.Hashable]]
+SimValues = typing.Dict[SimParamKey, Allowed]
 
 
 def hash_schema(schema):
@@ -186,23 +186,25 @@ def is_allowed_type(obj) -> bool:
 
 
 def serialize_typehint(t: type, with_db: bool = True) -> str:
-    """Serialize a type hint to a string."""
+    """Serialize a type hint to a string (prefer registered name over full path)."""
     if isinstance(t, str):
         return t
 
-    # Handle special case: non-subscriptable types
-    if t in {Hashable, Iterable, FrozenSet, Tuple}:
-        return f"{t.__module__}.{t.__qualname__}"
-
     if isinstance(t, TypeVar):
         return f"TypeVar({t.__name__})"
+
+    known_types = get_known_types(with_db=with_db)
+    reverse_lookup = {v: k for k, v in known_types.items() if not isinstance(k, str)}
+
+    if t in reverse_lookup:
+        return reverse_lookup[t]
 
     origin = get_origin(t)
     args = get_args(t)
 
     if origin:
-        origin_str = serialize_typehint(origin)
-        args_str = ", ".join(serialize_typehint(arg) for arg in args)
+        origin_str = serialize_typehint(origin, with_db=with_db)
+        args_str = ", ".join(serialize_typehint(arg, with_db=with_db) for arg in args)
         return f"{origin_str}[{args_str}]"
 
     if hasattr(t, "__module__") and hasattr(t, "__qualname__"):
@@ -247,14 +249,8 @@ def get_known_types(
         "utils.type_utils.AllSimParams": AllSimParams,
         "typing.Hashable": Hashable,
         "typing.Iterable": Iterable,
-        "typing.Tuple": Tuple,
-        "typing.Text": Text,
-        "typing.FrozenSet": FrozenSet,
         "Hashable": Hashable,
         "Iterable": Iterable,
-        "Tuple": Tuple,
-        "Text": Text,
-        "FrozenSet": FrozenSet,
     }
 
     if with_db:
