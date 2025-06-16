@@ -72,7 +72,9 @@ def hash_schema(schema):
     return hashlib.md5(str(schema).encode()).hexdigest()
 
 
-def describe_json_schema(obj, definitions=None, path="", with_db: bool = True):
+def describe_json_schema(
+    obj, definitions=None, path="", with_db: bool = True, max_len: int = 32
+):
     if definitions is None:
         definitions = {}
 
@@ -93,14 +95,30 @@ def describe_json_schema(obj, definitions=None, path="", with_db: bool = True):
                 args_info = {}
 
             schema = {
-                "type": "torch.nn.Module",
-                "class": obj.__class__.__name__,
-                "args": args_info,
+                "x-type": "torch.nn.Module",
+                "type": "object",
+                "properties": {"class": obj.__class__.__name__, "args": args_info},
             }
 
     if isinstance(obj, dict):
         # Represent dict as array of [key, value] pairs
-        if obj:
+        if len(obj) < max_len:
+            properties = {}
+            required = []
+            for k, v in obj.items():
+                k = str(k)
+                sub_schema, definitions = describe_json_schema(
+                    v, definitions, path + "/" + k, with_db=with_db
+                )
+                properties[k] = sub_schema
+                required.append(k)
+            schema = {
+                "x-type": "dict",
+                "type": "object",
+                "properties": properties,
+                "required": required,
+            }
+        else:
             # Get the schema from the *first* key and value
             first_key, first_val = next(iter(obj.items()))
             key_schema, definitions = describe_json_schema(
@@ -111,21 +129,11 @@ def describe_json_schema(obj, definitions=None, path="", with_db: bool = True):
             )
 
             schema = {
+                "x-type": "dict",
                 "type": "array",
                 "items": {
                     "type": "array",
                     "prefixItems": [key_schema, val_schema],
-                    "minItems": 2,
-                    "maxItems": 2,
-                },
-            }
-        else:
-            # Empty dict: structure is unknown, so allow general [key, value] pairs
-            schema = {
-                "type": "array",
-                "items": {
-                    "type": "array",
-                    "prefixItems": [{"type": "any"}, {"type": "any"}],
                     "minItems": 2,
                     "maxItems": 2,
                 },
@@ -136,27 +144,49 @@ def describe_json_schema(obj, definitions=None, path="", with_db: bool = True):
             items_schema, definitions = describe_json_schema(
                 obj[0], definitions, path + "/items", with_db=with_db
             )
-            schema = {"type": "array", "items": items_schema}
+            schema = {"x-type": "list", "type": "array", "items": items_schema}
         else:
-            schema = {"type": "array", "items": {}}
-    elif isinstance(obj, frozenset):
+            schema = {"x-type": "list", "type": "array", "items": {}}
+    elif isinstance(obj, (frozenset, set)):
         if obj:
+            x_type = "frozenset" if isinstance(obj, frozenset) else "set"
             items_schema, definitions = describe_json_schema(
-                obj[0], definitions, path + "/items", with_db=with_db
+                next(iter(obj)), definitions, path + "/items", with_db=with_db
             )
-            schema = {"type": "array", "items": items_schema, "uniqueItems": True}
+            schema = {
+                "x-type": x_type,
+                "type": "array",
+                "items": items_schema,
+                "uniqueItems": True,
+            }
         else:
-            schema = {"type": "array", "items": {}, "uniqueItems": True}
+            schema = {
+                "x-type": x_type,
+                "type": "array",
+                "items": {},
+                "uniqueItems": True,
+            }
 
     elif isinstance(obj, np.ndarray):
-        schema = {"type": "ndarray", "shape": list(obj.shape), "dtype": str(obj.dtype)}
+        schema = {
+            "x-type": "np.ndarray",
+            "type": "object",
+            "properties": {"shape": list(obj.shape), "dtype": str(obj.dtype)},
+        }
     elif isinstance(obj, np.generic):
-        schema = {"type": "np.generic", "dtype": str(obj.dtype)}
+        schema = {
+            "x-type": "np.generic",
+            "type": "object",
+            "properties": {"dtype": str(obj.dtype)},
+        }
     elif isinstance(obj, pd.DataFrame):
         schema = {
-            "type": "dataframe",
-            "columns": {col: str(dtype) for col, dtype in obj.dtypes.items()},
-            "shape": list(obj.shape),
+            "x-type": "pd.dataframe",
+            "type": "object",
+            "properties": {
+                "columns": {col: str(dtype) for col, dtype in obj.dtypes.items()},
+                "shape": list(obj.shape),
+            },
         }
 
     elif isinstance(obj, int):
@@ -166,10 +196,9 @@ def describe_json_schema(obj, definitions=None, path="", with_db: bool = True):
     elif isinstance(obj, str):
         schema = {"type": "string"}
     elif isinstance(obj, bytes):
-        schema = {"type": "string"}
+        schema = {"x-type": "bytes", "type": "string"}
     elif obj is None:
         schema = {"type": "null"}
-
     else:
         schema = {"type": "unknown"}
 
