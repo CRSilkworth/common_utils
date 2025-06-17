@@ -21,7 +21,7 @@ def run_docs(
     outputs = {}
     cleanups = []
 
-    logging.warning("Deserializing values")
+    logging.info("Deserializing values")
     for doc_id in doc_data:
         outputs[doc_id] = {"attributes": {}, "runners": {}}
         for att, att_dict in doc_data[doc_id]["attributes"].items():
@@ -49,7 +49,7 @@ def run_docs(
 
     for doc_to_run in run_order:
         doc_full_name = doc_data[doc_to_run]["attributes"]["full_name"]["value"]
-        logging.warning(f"Preparing to run {doc_full_name}")
+        logging.info(f"Preparing to run {doc_full_name}")
 
         skip_run = False
 
@@ -60,7 +60,7 @@ def run_docs(
         for runner_key in doc_runner_keys:
             if not with_db and runner_key in ("model_builder",):
                 continue
-            logging.warning(f"Running {runner_key}")
+            logging.info(f"Running {runner_key}")
             runner_dict = doc_data[doc_to_run]["runners"][runner_key]
             att_dict = doc_data[doc_to_run]["attributes"][runner_dict["attribute_key"]]
 
@@ -106,7 +106,7 @@ def run_docs(
             if output["failed"] or not func:
                 continue
 
-            logging.warning(f"Running {doc_full_name}: {runner_key}")
+            logging.info(f"Running {doc_full_name}: {runner_key}")
 
             run_output = run_with_expected_type(
                 func, runner_kwargs, att_dict["type"], with_db=with_db
@@ -116,7 +116,7 @@ def run_docs(
             if not run_output["failed"]:
                 att_dict["value"] = run_output["value"]
 
-    logging.warning("Serializing values")
+    logging.info("Serializing values")
     for doc_id in run_order:
         doc_runner_keys = get_doc_runner_keys(runner_keys, outputs[doc_id]["runners"])
         doc_full_name = doc_data[doc_id]["attributes"]["full_name"]["value"]
@@ -148,7 +148,7 @@ def run_docs(
     # corresponding runner dict
     outputs = {n: d["runners"] for n, d in outputs.items()}
 
-    logging.warning("Cleaning up connections")
+    logging.info("Cleaning up connections")
     # cleanup any connections
     for cleanup in cleanups:
         cleanup()

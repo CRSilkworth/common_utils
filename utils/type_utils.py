@@ -106,10 +106,14 @@ def describe_json_schema(
             required = []
             for k, v in obj.items():
                 k = str(k)
-                sub_schema, definitions = describe_json_schema(
-                    v, definitions, path + "/" + k, with_db=with_db
+                key_schema, definitions = describe_json_schema(
+                    k, definitions, f"{path}/key/{k}", with_db=with_db
                 )
-                properties[k] = sub_schema
+                val_schema, definitions = describe_json_schema(
+                    v, definitions, f"{path}/value/{k}", with_db=with_db
+                )
+
+                properties[k] = {"key": key_schema, "value": val_schema}
                 required.append(k)
             schema = {
                 "x-type": "dict",
@@ -129,14 +133,11 @@ def describe_json_schema(
 
             schema = {
                 "x-type": "dict",
-                "type": "array",
-                "minItems": len(obj),
-                "maxItems": len(obj),
-                "items": {
-                    "type": "array",
-                    "prefixItems": [key_schema, val_schema],
-                    "minItems": 2,
-                    "maxItems": 2,
+                "type": "object",
+                "properties": {
+                    "keys": key_schema,
+                    "values": val_schema,
+                    "length": len(obj),
                 },
             }
 
