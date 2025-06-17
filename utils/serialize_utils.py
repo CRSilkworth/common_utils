@@ -94,11 +94,23 @@ def encode_obj(obj: Any, with_db: bool = True):
     elif isinstance(obj, bytes):
         return {"__kind__": "bytes", "data": base64.b64encode(obj).decode("utf-8")}
 
-    elif isinstance(obj, (list, tuple)):
+    elif isinstance(obj, tuple):
+        return {
+            "__kind__": "tuple",
+            "data": [encode_obj(item, with_db=with_db) for item in obj],
+        }
+
+    elif isinstance(obj, list):
         return [encode_obj(v) for v in obj]
 
     elif isinstance(obj, dict):
-        return {str(k): encode_obj(v, with_db=with_db) for k, v in obj.items()}
+        return {
+            "__kind__": "dict",
+            "data": [
+                (encode_obj(k, with_db=with_db), encode_obj(v, with_db=with_db))
+                for k, v in obj.items()
+            ],
+        }
 
     else:
         return obj
@@ -155,6 +167,13 @@ def decode_obj(
             return datetime.time.fromisoformat(obj["data"])
         elif kind == "Index":
             return pd.Index(obj["data"])
+        elif kind == "dict":
+            return {
+                decode_obj(k, with_db=with_db): decode_obj(v, with_db=with_db)
+                for k, v in obj["data"]
+            }
+        elif kind == "tuple":
+            return tuple(decode_obj(item, with_db=with_db) for item in obj["data"])
         elif kind == "ndarray":
             return np.array(
                 [decode_obj(x, with_db=with_db) for x in obj["data"]],
@@ -167,8 +186,6 @@ def decode_obj(
 
     elif isinstance(obj, list):
         return [decode_obj(v, with_db=with_db) for v in obj]
-    elif isinstance(obj, tuple):
-        return tuple(decode_obj(v, with_db=with_db) for v in obj)
     else:
         return obj
 
