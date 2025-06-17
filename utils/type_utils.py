@@ -12,7 +12,6 @@ from typing import (
     ForwardRef,
     Any,
     Iterable,
-    FrozenSet,
     Hashable,
 )
 import numpy as np
@@ -264,7 +263,7 @@ def serialize_typehint(t: type, with_db: bool = True) -> str:
         if v == t:
             return k
 
-    if t in {Hashable, Iterable, FrozenSet, Tuple}:
+    if t in {Hashable, Iterable, Tuple}:
         return f"{t.__module__}.{t.__qualname__}"
 
     origin = get_origin(t)
@@ -424,7 +423,7 @@ def is_valid_output(value, output_type, with_db: bool = True):
         if not isinstance(value, dict):
             return False
         for frzn, alwd in value.items():
-            if not isinstance(frzn, FrozenSet):
+            if not isinstance(frzn, tuple):
                 return False
             try:
                 for k, v in frzn:
