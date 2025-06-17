@@ -65,7 +65,7 @@ Allowed = Union[
 
 SimParams = typing.Dict[Text, typing.Hashable]
 AllSimParams = typing.Iterable[SimParams]
-SimValues = Dict[typing.FrozenSet[Tuple[Text, typing.Hashable]], Allowed]
+SimValues = Dict[Tuple[Tuple[Text, typing.Hashable]], Allowed]
 
 
 def hash_schema(schema):
@@ -131,6 +131,8 @@ def describe_json_schema(
             schema = {
                 "x-type": "dict",
                 "type": "array",
+                "minItems": len(obj),
+                "maxItems": len(obj),
                 "items": {
                     "type": "array",
                     "prefixItems": [key_schema, val_schema],
@@ -156,6 +158,8 @@ def describe_json_schema(
             schema = {
                 "x-type": x_type,
                 "type": "array",
+                "minItems": len(obj),
+                "maxItems": len(obj),
                 "items": items_schema,
                 "uniqueItems": True,
             }
@@ -163,6 +167,8 @@ def describe_json_schema(
             schema = {
                 "x-type": x_type,
                 "type": "array",
+                "minItems": len(obj),
+                "maxItems": len(obj),
                 "items": {},
                 "uniqueItems": True,
             }
