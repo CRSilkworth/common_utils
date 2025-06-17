@@ -49,7 +49,7 @@ ElementDataType = Dict[Text, Optional[TextOrint]]
 
 
 Allowed = Union[
-    Dict[Union[Text, int], "Allowed"],
+    Dict[typing.Hashable, "Allowed"],
     List["Allowed"],
     int,
     float,
