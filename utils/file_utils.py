@@ -2,12 +2,11 @@ import base64
 import io
 import pandas as pd
 import json
-import mimetypes
 from typing import List, Dict, Optional, Union
 from PIL import Image
 import PyPDF2
 import xml.etree.ElementTree as ET
-from utils.type_utils import Files
+from utils.type_utils import Files, describe_json_schema
 
 
 def guess_file_extension(data: bytes) -> str:
@@ -76,10 +75,12 @@ def get_file_schema(
         List[Dict[str, Union[str, Dict]]]: List of dictionaries containing metadata.
     """
     results = {
-        "type": "list",
-        "size": 0,
-        "element_descriptions": [],
-        "homogeneous_values": True,
+        "x-type": "Files",
+        "type": "array",
+        "minItems": len(files),
+        "maxItems": len(files),
+        "items": [],
+        "additionalItems": False,
     }
 
     for file_num, file in enumerate(files):
@@ -94,8 +95,6 @@ def get_file_schema(
                 "description": "a string of the file type and base64 encoded string of"
                 " the entire file contents separated by a ','",
             },
-            "type": mimetypes.guess_type(file_name)[0] or "Unknown",
-            "summary": {},
         }
 
         try:
@@ -113,7 +112,7 @@ def get_file_schema(
                     "num_columns": df.shape[1],
                     "columns": df.columns.tolist(),
                     "dtypes": df.dtypes.astype(str).to_dict(),
-                    "head": df.head(3).to_dict(orient="records"),
+                    "head": df.head(5).to_dict(orient="records"),
                 }
 
             # Excel
@@ -125,7 +124,7 @@ def get_file_schema(
                     "num_columns": df.shape[1],
                     "columns": df.columns.tolist(),
                     "dtypes": df.dtypes.astype(str).to_dict(),
-                    "head": df.head(3).to_dict(orient="records"),
+                    "head": df.head(5).to_dict(orient="records"),
                 }
 
             # JSON
@@ -144,6 +143,7 @@ def get_file_schema(
                     "file_type": "json",
                     "item_count": count,
                     "sample": sample,
+                    "schema": describe_json_schema(json_obj),
                 }
 
             # Text files
@@ -203,7 +203,8 @@ def get_file_schema(
         except Exception as e:
             info["summary"] = {"error": f"Failed to process file: {str(e)}"}
 
-        results["size"] += 1
-        results["element_descriptions"].append(info)
+        results["items"].append(
+            {"x-type": "File", "type": "object", "properties": info}
+        )
 
     return results
