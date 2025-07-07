@@ -157,8 +157,8 @@ def describe_json_schema(
         else:
             schema = {"x-type": "list", "type": "array", "items": {}}
     elif isinstance(obj, (frozenset, set)):
+        x_type = "frozenset" if isinstance(obj, frozenset) else "set"
         if obj:
-            x_type = "frozenset" if isinstance(obj, frozenset) else "set"
             items_schema, definitions = describe_json_schema(
                 next(iter(obj)), definitions, path + "/items", with_db=with_db
             )

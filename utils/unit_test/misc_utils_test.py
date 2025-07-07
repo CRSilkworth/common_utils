@@ -1,30 +1,37 @@
 import pytest
-from unittest.mock import MagicMock
-from utils.misc_utils import get_elements_diff
+from utils.misc_utils import get_elements_diff, failed_output
 
 
-# Define a mock MongoEngine document for testing
-class MockDocument(MagicMock):
-    pass
+def test_failed_output():
+    message = "error occurred"
+    output = failed_output(message)
+    expected = {
+        "failed": True,
+        "value": None,
+        "combined_output": message,
+        "stdout_output": message,
+        "stderr_output": message,
+    }
+    assert output == expected
 
 
 def test_get_elements_diff():
-    # Test with both "new" and "old" lists
     new = [{"a": 1, "b": {"c": 2}}, {"d": 3}]
     old = [{"a": 1, "b": {"c": 2}}, {"e": 4}]
 
+    # Test diff_type both
     result = get_elements_diff(new, old, "both")
     expected = [{"d": 3}, {"e": 4}]
-    assert sorted(result, key=lambda a: a.keys()) == sorted(
-        expected, key=lambda a: a.keys()
+    assert sorted(result, key=lambda a: sorted(a.keys())) == sorted(
+        expected, key=lambda a: sorted(a.keys())
     )
 
-    # Test with "new" only
+    # Test diff_type new
     result = get_elements_diff(new, old, "new")
     expected = [{"d": 3}]
     assert result == expected
 
-    # Test with "old" only
+    # Test diff_type old
     result = get_elements_diff(new, old, "old")
     expected = [{"e": 4}]
     assert result == expected
@@ -34,7 +41,7 @@ def test_get_elements_diff():
     expected = []
     assert result == expected
 
-    # Test with None values
+    # Test with None lists
     result = get_elements_diff(None, None, "both")
     expected = []
     assert result == expected
