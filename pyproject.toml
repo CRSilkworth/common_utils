@@ -18,7 +18,7 @@ dependencies = [
     "typeguard<4.2",
     "networkx<3.2",
     "lxml<5.4.0",
-    "scipy-1.16.0"
+    "scipy<1.17.0"
 ]
 
 [tool.setuptools.packages.find]
