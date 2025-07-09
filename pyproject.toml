@@ -18,7 +18,6 @@ dependencies = [
     "typeguard<4.2",
     "networkx<3.2",
     "lxml<5.4.0",
-    "scipy<1.11.0"
 ]
 
 [tool.setuptools.packages.find]
@@ -34,5 +33,6 @@ db = [
     "google-cloud-storage<2.20.0",
     "mongoengine<0.30",
     "torch<3.0.0",
+    "scipy<1.11.0"
 
 ]
