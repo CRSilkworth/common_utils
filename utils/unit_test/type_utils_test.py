@@ -107,7 +107,6 @@ def test_serialize_and_deserialize_typehint_roundtrip():
     t2 = type_utils.deserialize_typehint(s)
     assert t == t2
 
-    s_tv = "TypeVar(TextOrint)"
     # Because TextOrint is a TypeVar from the code, we test deserialize with known_types
     with pytest.raises(ValueError):
         type_utils.deserialize_typehint("TypeVar(NonExistent)")
