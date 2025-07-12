@@ -8,6 +8,7 @@ import io
 from utils.misc_utils import failed_output
 from dataclasses import is_dataclass, asdict
 from utils.function_utils import run_with_expected_type, create_function
+from utils.type_utils import GCSPath
 import datetime
 import traceback
 import base64
@@ -111,6 +112,11 @@ def encode_obj(obj: Any, with_db: bool = True):
                 for k, v in obj.items()
             ],
         }
+    elif isinstance(obj, GCSPath):
+        return {
+            "__kind__": "GCSPath",
+            "data": obj,
+        }
 
     else:
         return obj
@@ -165,6 +171,8 @@ def decode_obj(
             return datetime.date.fromisoformat(obj["data"])
         elif kind == "time":
             return datetime.time.fromisoformat(obj["data"])
+        elif kind == "GCSPath":
+            return GCSPath(obj["data"])
         elif kind == "Index":
             return pd.Index(obj["data"])
         elif kind == "dict":

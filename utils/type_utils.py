@@ -68,6 +68,21 @@ AllSimParams = typing.Iterable[SimParams]
 SimValues = Dict[Tuple[Tuple[Text, typing.Hashable]], Allowed]
 
 
+class GCSPath(str):
+    def __new__(cls, value: str):
+        if not value.startswith("gs://"):
+            raise ValueError("GCSPath must start with 'gs://'")
+        return super().__new__(cls, value)
+
+    @property
+    def bucket(self) -> str:
+        return self.split("/", 3)[2]
+
+    @property
+    def path(self) -> str:
+        return self.split("/", 3)[3] if "/" in self[5:] else ""
+
+
 def hash_schema(schema):
     return hashlib.md5(str(schema).encode()).hexdigest()
 
@@ -327,6 +342,7 @@ def get_known_types(
         "utils.type_utils.SimParams": SimParams,
         "utils.type_utils.SimValues": SimValues,
         "utils.type_utils.Allowed": Allowed,
+        "utils.type_utils.GCSPath": GCSPath,
         "typing.Hashable": typing.Hashable,
         "typing.Iterable": typing.Iterable,
         "typing.Tuple": typing.Tuple,
