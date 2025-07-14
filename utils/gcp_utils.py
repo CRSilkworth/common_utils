@@ -103,7 +103,7 @@ def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
         from pyodide.http import pyfetch
 
         response = pyfetch(gcs_url, method="GET")
-        if response.status_code != 200:
+        if response.status != 200:
             return None
         text = response.string()
         return json.loads(text)
