@@ -39,10 +39,10 @@ def run_docs(
             )
 
             if output:
-                outputs[doc_id]["attributes"][att] = output
+                outputs[doc_id][att] = output
                 continue
             else:
-                outputs[doc_id]["attributes"][att] = {
+                outputs[doc_id][att] = {
                     "failed": False,
                     "combined_output": "",
                     "stdout_output": "",
@@ -119,7 +119,7 @@ def run_docs(
 
     logging.info("Serializing values")
     for doc_id in run_order:
-        doc_full_name = doc_data[doc_id]["attributes"]["full_name"]["value"]
+        doc_full_name = doc_data[doc_id]["full_name"]
 
         for att in attributes:
             att_dict = doc_data[doc_id][att]
