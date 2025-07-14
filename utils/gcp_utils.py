@@ -35,6 +35,8 @@ def upload_via_signed_post(
         response = requests.post(policy["url"], data=policy["fields"], files=files)
         return response.status_code
     else:
+        from pyodide.http import pyfetch
+
         form_data = js.FormData.new()
 
         # Add all fields from the signed policy
@@ -100,7 +102,7 @@ def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
     else:
         from pyodide.http import pyfetch
 
-        response = pyfetch(url, method="GET")
+        response = pyfetch(gcs_url, method="GET")
         if response.status_code != 200:
             return None
         text = response.string()
