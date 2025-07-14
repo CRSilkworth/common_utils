@@ -71,5 +71,6 @@ def read_from_gcs_signed_url(gcs_url: str) -> str:
         str: Content of the blob as a string.
     """
     response = requests.get(gcs_url)
-    response.raise_for_status()
+    if response.status_code != 200:
+        return None
     return response.text

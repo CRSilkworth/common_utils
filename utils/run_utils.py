@@ -129,21 +129,6 @@ def run_docs(
 
             output = prepare_output(att, att_dict, outputs[doc_id][att])
             outputs[doc_id][att] = output
-            # # You don't want to actually deserialize model on the other end this it
-            # # involves  running arbitrary user code
-            # if att == "model":
-            #     value = {
-            #         "model": outputs[doc_id][att]["value"],
-            #         "class_def": att_dict["class_def"],
-            #     }
-            # else:
-            #     value = outputs[doc_id][att]["value"]
-
-            # value, output = attempt_serialize(value, att_dict["type"], with_db=with_db)
-            # if output:
-            #     outputs[doc_id][att] = output
-            # else:
-            #     outputs[doc_id][att]["value"] = value
 
     logging.info("Cleaning up connections")
     # cleanup any connections
@@ -185,41 +170,26 @@ def get_doc_object(
 
 
 def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
-    att_dict["local_type"] = deserialize_typehint(
-        att_dict["_local_type"], with_db=with_db
-    )
+    local_type = deserialize_typehint(att_dict["_local_type"], with_db=with_db)
 
-    deserialized_value, output, _cleanups = attempt_deserialize(
-        att_dict["_local_rep"], att_dict["local_type"], with_db=with_db
+    value, output, _cleanups = attempt_deserialize(
+        att_dict["_local_rep"], local_type, with_db=with_db
     )
     if output:
         return output
 
-    if att_dict.get("model", False):
-        content = read_from_gcs_signed_url(att_dict["signed_url"])
+    if att_dict.get("gcs_stored", False):
+        value = read_from_gcs_signed_url(att_dict["signed_url"])
+
+    if att_dict.get("gcs_stored", False) or att_dict.get("connection", False):
         att_dict["value_type"] = deserialize_typehint(
             att_dict["_value_type"], with_db=with_db
         )
-        deserialized_value, output, _cleanups = attempt_deserialize(
-            content, att_dict["value_type"], with_db=with_db
-        )
-    elif att_dict.get("gcs_stored", False):
-        content = read_from_gcs_signed_url(deserialized_value)
-        att_dict["value_type"] = deserialize_typehint(
-            att_dict["_value_type"], with_db=with_db
-        )
-        deserialized_value, output, _cleanups = attempt_deserialize(
-            content, att_dict["value_type"], with_db=with_db
-        )
-    elif att_dict.get("connection", False):
-        att_dict["value_type"] = deserialize_typehint(
-            att_dict["_value_type"], with_db=with_db
-        )
-        deserialized_value, output, _cleanups = attempt_deserialize(
-            deserialized_value, att_dict["value_type"], with_db=with_db
+        value, output, _cleanups = attempt_deserialize(
+            value, att_dict["value_type"], with_db=with_db
         )
 
-    return deserialized_value, output, _cleanups
+    return value, output, _cleanups
 
 
 def prepare_output(att, att_dict, output, with_db):
