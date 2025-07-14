@@ -179,7 +179,7 @@ def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
         return output
 
     if att_dict.get("gcs_stored", False):
-        value = read_from_gcs_signed_url(att_dict["signed_url"])
+        value = read_from_gcs_signed_url(att_dict["signed_url"], with_db=with_db)
 
     if att_dict.get("gcs_stored", False) or att_dict.get("connection", False):
         att_dict["value_type"] = deserialize_typehint(
@@ -220,7 +220,7 @@ def prepare_output(att, att_dict, output, with_db):
 
     local_rep = value
     if att_dict.get("gcs_stored", False):
-        upload_via_signed_post(att_dict["signed_post_policy"], value)
+        upload_via_signed_post(att_dict["signed_post_policy"], value, with_db=with_db)
         local_rep = attempt_serialize(
             att_dict["gcs_path"], att_dict["local_type"], with_db=with_db
         )

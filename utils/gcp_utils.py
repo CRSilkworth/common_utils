@@ -24,12 +24,34 @@ def generate_signed_url(bucket_name, blob_name, expiration_minutes):
     return signed_url
 
 
-def upload_via_signed_post(policy: dict, json_str: str, filename: str = "value.json"):
-    files = {"file": (filename, BytesIO(json_str.encode("utf-8")), "application/json")}
+def upload_via_signed_post(
+    policy: dict, json_str: str, filename: str = "value.json", with_db: bool = True
+):
+    if with_db:
+        files = {
+            "file": (filename, BytesIO(json_str.encode("utf-8")), "application/json")
+        }
 
-    response = requests.post(policy["url"], data=policy["fields"], files=files)
+        response = requests.post(policy["url"], data=policy["fields"], files=files)
+        return response.status_code
+    else:
+        form_data = js.FormData.new()
 
-    return response.status_code
+        # Add all fields from the signed policy
+        for key, value in policy["fields"].items():
+            form_data.append(key, value)
+
+        # Add the actual file
+        blob = js.Blob.new([json_str], {"type": "application/json"})
+        form_data.append("file", blob, filename)
+
+        response = pyfetch(
+            url=policy["url"],
+            method="POST",
+            body=form_data,
+        )
+
+        return response.status
 
 
 def upload_json_to_gcs(d: Dict[Text, Any], user_id: Text, bucket_name: Text) -> str:
@@ -59,7 +81,7 @@ def read_from_gcs(gcs_path: str) -> dict:
     return content
 
 
-def read_from_gcs_signed_url(gcs_url: str) -> str:
+def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
     """
     Fetch content from a GCS-signed or public URL using plain HTTP.
 
@@ -70,7 +92,16 @@ def read_from_gcs_signed_url(gcs_url: str) -> str:
     Returns:
         str: Content of the blob as a string.
     """
-    response = requests.get(gcs_url)
-    if response.status_code != 200:
-        return None
-    return response.text
+    if with_db:
+        response = requests.get(gcs_url)
+        if response.status_code != 200:
+            return None
+        return response.text
+    else:
+        from pyodide.http import pyfetch
+
+        response = pyfetch(url, method="GET")
+        if response.status_code != 200:
+            return None
+        text = await response.string()
+        return json.loads(text)
