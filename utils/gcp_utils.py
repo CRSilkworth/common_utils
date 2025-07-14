@@ -2,6 +2,8 @@ from typing import Text, Dict, Any
 from datetime import timedelta
 import uuid
 import json
+import requests
+from io import BytesIO
 
 
 def generate_signed_url(bucket_name, blob_name, expiration_minutes):
@@ -22,6 +24,14 @@ def generate_signed_url(bucket_name, blob_name, expiration_minutes):
     return signed_url
 
 
+def upload_via_signed_post(policy: dict, json_str: str, filename: str = "value.json"):
+    files = {"file": (filename, BytesIO(json_str.encode("utf-8")), "application/json")}
+
+    response = requests.post(policy["url"], data=policy["fields"], files=files)
+
+    return response.status_code
+
+
 def upload_json_to_gcs(d: Dict[Text, Any], user_id: Text, bucket_name: Text) -> str:
     from google.cloud import storage
 
@@ -31,5 +41,19 @@ def upload_json_to_gcs(d: Dict[Text, Any], user_id: Text, bucket_name: Text) -> 
     blob_path = f"{user_id}/{unique_id}.py"
     blob = bucket.blob(blob_path)
 
-    blob.upload_from_string(json.dumps(d, indent=4), content_type="text/plain")
+    blob.upload_from_string(json.dumps(d, indent=2), content_type="text/plain")
     return blob_path
+
+
+def read_from_gcs(gcs_path: str) -> dict:
+    from google.cloud import storage
+
+    assert gcs_path.startswith("gs://")
+    bucket_name, blob_name = gcs_path[5:].split("/", 1)
+
+    client = storage.Client()
+    bucket = client.bucket(bucket_name)
+    blob = bucket.blob(blob_name)
+    content = blob.download_as_text()  # or download_as_text() for str
+
+    return content
