@@ -103,5 +103,5 @@ def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
         response = pyfetch(url, method="GET")
         if response.status_code != 200:
             return None
-        text = await response.string()
+        text = response.string()
         return json.loads(text)
