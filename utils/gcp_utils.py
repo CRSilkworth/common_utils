@@ -57,3 +57,19 @@ def read_from_gcs(gcs_path: str) -> dict:
     content = blob.download_as_text()  # or download_as_text() for str
 
     return content
+
+
+def read_from_gcs_signed_url(gcs_url: str) -> str:
+    """
+    Fetch content from a GCS-signed or public URL using plain HTTP.
+
+    Args:
+        gcs_url (str): A signed GCS URL or a public object URL like
+                       'https://storage.googleapis.com/my-bucket/my-file.json'
+
+    Returns:
+        str: Content of the blob as a string.
+    """
+    response = requests.get(gcs_url)
+    response.raise_for_status()
+    return response.text

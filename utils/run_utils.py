@@ -3,7 +3,7 @@ from utils.misc_utils import failed_output
 from utils.function_utils import create_function, run_with_expected_type
 from utils.type_utils import deserialize_typehint, get_known_types, describe_json_schema
 from utils.serialize_utils import attempt_deserialize, attempt_serialize
-from utils.gcp_utils import read_from_gcs, upload_via_signed_post
+from utils.gcp_utils import read_from_gcs_signed_url, upload_via_signed_post
 import logging
 import copy
 import json
@@ -196,7 +196,7 @@ def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
         return output
 
     if att_dict.get("model", False):
-        content = read_from_gcs(deserialized_value)
+        content = read_from_gcs_signed_url(att_dict["signed_url"])
         att_dict["value_type"] = deserialize_typehint(
             att_dict["_value_type"], with_db=with_db
         )
