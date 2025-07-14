@@ -24,7 +24,7 @@ def generate_signed_url(bucket_name, blob_name, expiration_minutes):
     return signed_url
 
 
-def upload_via_signed_post(
+async def upload_via_signed_post(
     policy: dict, json_str: str, filename: str = "value.json", with_db: bool = True
 ):
     if with_db:
@@ -47,7 +47,7 @@ def upload_via_signed_post(
         blob = js.Blob.new([json_str], {"type": "application/json"})
         form_data.append("file", blob, filename)
 
-        response = pyfetch(
+        response = await pyfetch(
             url=policy["url"],
             method="POST",
             body=form_data,
@@ -83,7 +83,7 @@ def read_from_gcs(gcs_path: str) -> dict:
     return content
 
 
-def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
+async def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
     """
     Fetch content from a GCS-signed or public URL using plain HTTP.
 
@@ -102,7 +102,7 @@ def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
     else:
         from pyodide.http import pyfetch
 
-        response = pyfetch(gcs_url, method="GET")
+        response = await pyfetch(gcs_url, method="GET")
         if response.status != 200:
             return None
         text = response.string()
