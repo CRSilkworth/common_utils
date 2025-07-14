@@ -186,7 +186,7 @@ def get_doc_object(
 
 def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
     att_dict["local_type"] = deserialize_typehint(
-        att_dict["local_type"], with_db=with_db
+        att_dict["_local_type"], with_db=with_db
     )
 
     deserialized_value, output, _cleanups = attempt_deserialize(
