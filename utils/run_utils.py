@@ -204,7 +204,7 @@ def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
             content, att_dict["value_type"], with_db=with_db
         )
     elif att_dict.get("gcs_stored", False):
-        content = read_from_gcs(deserialized_value)
+        content = read_from_gcs_signed_url(deserialized_value)
         att_dict["value_type"] = deserialize_typehint(
             att_dict["_value_type"], with_db=with_db
         )
