@@ -11,7 +11,7 @@ import json
 # Define allowed modules for dynamic function execution
 
 
-def run_docs(
+async def run_docs(
     doc_data: Dict[Text, Dict[Text, Any]],
     run_order: List[Text],
     attributes: Optional[List[Text]] = None,
