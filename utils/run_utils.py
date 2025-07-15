@@ -34,7 +34,7 @@ def run_docs(
             if not with_db and att in db_required:
                 continue
 
-            deserialized_value, output, _cleanups = get_value_from_att_dict(
+            deserialized_value, output, _cleanups = await get_value_from_att_dict(
                 att_dict, with_db
             )
 
@@ -131,7 +131,7 @@ def run_docs(
             if outputs[doc_id][att]["failed"]:
                 continue
 
-            output = prepare_output(att, att_dict, outputs[doc_id][att])
+            output = await prepare_output(att, att_dict, outputs[doc_id][att])
             outputs[doc_id][att] = output
 
     logging.info("Cleaning up connections")
