@@ -53,7 +53,7 @@ async def upload_via_signed_post(
             body=form_data,
         )
 
-        return response
+        return response.status
 
 
 def upload_json_to_gcs(d: Dict[Text, Any], user_id: Text, bucket_name: Text) -> str:
@@ -102,6 +102,7 @@ async def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
     else:
         from pyodide.http import pyfetch
 
+        print(gcs_url)
         response = await pyfetch(gcs_url, method="GET")
         if response.status != 200:
             return None
