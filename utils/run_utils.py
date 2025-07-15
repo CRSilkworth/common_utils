@@ -166,7 +166,10 @@ def get_doc_object(
     for att in att_dict:
         if not with_db and att in ("model", "conn"):
             continue
-        obj[att] = copy.deepcopy(att_dict[att]["value"])
+        if isinstance(att_dict[att], str):
+            obj[att] = att_dict[att]
+        else:
+            obj[att] = copy.deepcopy(att_dict[att]["value"])
 
     return DotDict(obj)
 
