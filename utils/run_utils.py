@@ -238,7 +238,7 @@ async def prepare_output(att, att_dict, output, with_db):
             )
 
         local_rep, output = attempt_serialize(
-            att_dict["gcs_path"], att_dict["local_type"], with_db=with_db
+            att_dict["local_rep"], att_dict["local_type"], with_db=with_db
         )
         if output:
             return output
