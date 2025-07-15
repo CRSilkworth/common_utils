@@ -117,9 +117,13 @@ def encode_obj(obj: Any, with_db: bool = True):
             "__kind__": "GCSPath",
             "data": obj,
         }
-
+    elif isinstance(obj, type(None)):
+        return None
     else:
-        return obj
+        return {
+            "__kind__": obj.__class__.__name__,
+            "data": obj,
+        }
 
 
 def decode_obj(
@@ -189,6 +193,17 @@ def decode_obj(
             ).reshape(obj["shape"])
         elif kind == "bytes":
             return base64.b64decode(obj["data"].encode("utf-8"))
+        elif kind == "str":
+            return str(obj["data"])
+        elif kind == "int":
+            return int(obj["data"])
+        elif kind == "float":
+            return float(obj["data"])
+        elif kind == "complex":
+            return complex(obj["data"])
+        elif kind == "bool":
+            return bool(obj["data"])
+
         else:
             return {k: decode_obj(v, with_db=with_db) for k, v in obj.items()}
 
