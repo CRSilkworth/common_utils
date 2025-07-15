@@ -169,6 +169,8 @@ def get_doc_object(
         if isinstance(att_dict[att], str):
             obj[att] = att_dict[att]
         else:
+            print(att_dict[att].keys())
+            print(att_dict[att])
             obj[att] = copy.deepcopy(att_dict[att]["value"])
 
     return DotDict(obj)
