@@ -178,7 +178,7 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
         att_dict["_local_rep"], local_type, with_db=with_db
     )
     if output:
-        return output
+        return value, output, _cleanups
 
     if att_dict.get("gcs_stored", False):
         value = await read_from_gcs_signed_url(att_dict["signed_url"], with_db=with_db)
