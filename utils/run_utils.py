@@ -62,8 +62,12 @@ def run_docs(
         for att in attributes:
             if not with_db and att in ("model",):
                 continue
-            logging.info(f"Running {att}")
+
             att_dict = doc_data[doc_to_run][att]
+            if not att_dict.get("runnable", False):
+                continue
+
+            logging.info(f"Running {att}")
 
             # Set all the arguments to the function to run
             runner_kwargs = {}
