@@ -53,7 +53,7 @@ async def upload_via_signed_post(
             body=form_data,
         )
 
-        return response.status
+        return response
 
 
 def upload_json_to_gcs(d: Dict[Text, Any], user_id: Text, bucket_name: Text) -> str:

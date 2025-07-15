@@ -139,8 +139,6 @@ def run_docs(
     for cleanup in cleanups:
         cleanup()
 
-    print(outputs)
-
     return outputs
 
 
@@ -173,7 +171,7 @@ def get_doc_object(
     return DotDict(obj)
 
 
-def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
+async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
     local_type = deserialize_typehint(att_dict["_local_type"], with_db=with_db)
 
     value, output, _cleanups = attempt_deserialize(
@@ -183,7 +181,7 @@ def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
         return output
 
     if att_dict.get("gcs_stored", False):
-        value = read_from_gcs_signed_url(att_dict["signed_url"], with_db=with_db)
+        value = await read_from_gcs_signed_url(att_dict["signed_url"], with_db=with_db)
 
     if att_dict.get("gcs_stored", False) or att_dict.get("connection", False):
         att_dict["value_type"] = deserialize_typehint(
@@ -196,8 +194,8 @@ def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
     return value, output, _cleanups
 
 
-def prepare_output(att, att_dict, output, with_db):
-
+async def prepare_output(att, att_dict, output, with_db):
+    print(att, att_dict)
     schema = describe_json_schema(output["value"], with_db=with_db)
     preview = str(output["value"])
     if len(preview) > 1000:
@@ -224,10 +222,19 @@ def prepare_output(att, att_dict, output, with_db):
 
     local_rep = value
     if att_dict.get("gcs_stored", False):
-        upload_via_signed_post(att_dict["signed_post_policy"], value, with_db=with_db)
-        local_rep = attempt_serialize(
+        status = await upload_via_signed_post(
+            att_dict["signed_post_policy"], value, with_db=with_db
+        )
+        if status not in (200, 204):
+            return failed_output(
+                f"Failed to upload file to gcs. Got status code {status}"
+            )
+
+        local_rep, output = attempt_serialize(
             att_dict["gcs_path"], att_dict["local_type"], with_db=with_db
         )
+        if output:
+            return output
     output["_local_rep"] = local_rep
     output["_local_type"] = att_dict["_local_type"]
     output["_schema"] = json.dumps(schema)
