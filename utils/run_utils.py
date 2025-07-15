@@ -131,7 +131,7 @@ async def run_docs(
             if outputs[doc_id][att]["failed"]:
                 continue
 
-            output = await prepare_output(att, att_dict, outputs[doc_id][att])
+            output = await prepare_output(att, att_dict, outputs[doc_id][att], with_db)
             outputs[doc_id][att] = output
 
     logging.info("Cleaning up connections")
