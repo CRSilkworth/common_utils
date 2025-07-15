@@ -36,6 +36,7 @@ async def upload_via_signed_post(
         return response.status_code
     else:
         from pyodide.http import pyfetch
+        import js
 
         form_data = js.FormData.new()
 
