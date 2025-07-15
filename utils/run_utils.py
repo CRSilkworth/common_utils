@@ -164,14 +164,12 @@ def get_doc_object(
 ) -> DotDict:
     obj = {}
     for att in att_dict:
-        if not with_db and att in ("model", "conn"):
-            continue
         if isinstance(att_dict[att], str):
             obj[att] = att_dict[att]
+        elif isinstance(att_dict[att], dict):
+            obj[att] = copy.deepcopy(att_dict[att].get("value", None))
         else:
-            print(att_dict[att].keys())
-            print(att_dict[att])
-            obj[att] = copy.deepcopy(att_dict[att]["value"])
+            raise ValueError(f"Unhandled attribute dict type: {type(att_dict[att])}")
 
     return DotDict(obj)
 
@@ -188,7 +186,11 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
     if att_dict.get("gcs_stored", False):
         value = await read_from_gcs_signed_url(att_dict["signed_url"], with_db=with_db)
 
-    if att_dict.get("gcs_stored", False) or att_dict.get("connection", False):
+    if (
+        att_dict.get("gcs_stored", False)
+        or att_dict.get("connection", False)
+        or att_dict.get("model", False)
+    ):
         att_dict["value_type"] = deserialize_typehint(
             att_dict["_value_type"], with_db=with_db
         )
