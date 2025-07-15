@@ -107,4 +107,4 @@ async def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
         if response.status != 200:
             return None
         text = await response.string()
-        return json.loads(text)
+        return text
