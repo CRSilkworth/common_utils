@@ -106,5 +106,5 @@ async def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
         response = await pyfetch(gcs_url, method="GET")
         if response.status != 200:
             return None
-        text = response.string()
+        text = await response.string()
         return json.loads(text)
