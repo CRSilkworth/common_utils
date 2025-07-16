@@ -246,12 +246,7 @@ async def prepare_output(att, att_dict, output, with_db):
         if serialize_output:
             return serialize_output
 
-    if (
-        att_dict.get("gcs_stored", False)
-        or att_dict.get("connection", False)
-        or att_dict.get("model", False)
-    ):
-        del output["value"]
+    del output["value"]
 
     output["_local_rep"] = _local_rep
     output["_local_type"] = att_dict["_local_type"]
