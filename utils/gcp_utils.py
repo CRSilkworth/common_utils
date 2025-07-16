@@ -25,20 +25,22 @@ def generate_signed_url(bucket_name, blob_name, expiration_minutes):
 
 
 async def upload_via_signed_post(
-    policy: dict, json_str: str, filename: str = "value.json", with_db: bool = True
+    url: str, json_str: str, filename: str = "value.json", with_db: bool = True
 ):
     if with_db:
         files = {
             "file": (filename, BytesIO(json_str.encode("utf-8")), "application/json")
         }
 
-        response = requests.post(policy["url"], data=policy["fields"], files=files)
+        response = requests.post(
+            url, headers={"Content-Type": "application/json"}, files=files
+        )
         return response.status_code
     else:
         from pyodide.http import pyfetch
 
         response = await pyfetch(
-            url=signed_url,
+            url=url,
             method="PUT",
             body=json_str.encode("utf-8"),
             headers={"Content-Type": "application/json"},
