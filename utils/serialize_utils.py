@@ -102,7 +102,7 @@ def encode_obj(obj: Any, with_db: bool = True):
         }
 
     elif isinstance(obj, list):
-        return [encode_obj(v) for v in obj]
+        return {"__kind__": "list", "data": [encode_obj(v) for v in obj]}
 
     elif isinstance(obj, dict):
         return {
@@ -184,6 +184,8 @@ def decode_obj(
                 decode_obj(k, with_db=with_db): decode_obj(v, with_db=with_db)
                 for k, v in obj["data"]
             }
+        elif kind == "list":
+            return [decode_obj(v, with_db=with_db) for v in obj["data"]]
         elif kind == "tuple":
             return tuple(decode_obj(item, with_db=with_db) for item in obj["data"])
         elif kind == "ndarray":

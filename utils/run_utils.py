@@ -217,14 +217,7 @@ async def prepare_output(att, att_dict, output, with_db):
             f"{json.dumps(schema, indent=2)}"
         )
 
-    if att == "model":
-        value = {
-            "model": output["value"],
-            "class_def": att_dict["class_def"],
-        }
-    else:
-        value = output["value"]
-
+    value = output["value"]
     _value, serialize_output = attempt_serialize(
         value, att_dict["value_type"], with_db=with_db
     )
