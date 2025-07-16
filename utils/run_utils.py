@@ -223,26 +223,24 @@ async def prepare_output(att, att_dict, output, with_db):
     else:
         value = output["value"]
 
-    value, output = attempt_serialize(value, att_dict["value_type"], with_db=with_db)
+    _value, output = attempt_serialize(value, att_dict["value_type"], with_db=with_db)
     if output:
         return output
 
-    local_rep = value
+    _local_rep = _value
     if att_dict.get("gcs_stored", False):
         status = await upload_via_signed_post(
-            att_dict["signed_post_policy"], value, with_db=with_db
+            att_dict["signed_post_policy"], _value, with_db=with_db
         )
         if status not in (200, 204):
             return failed_output(
                 f"Failed to upload file to gcs. Got status code {status}"
             )
 
-        local_rep, output = attempt_serialize(
-            att_dict["local_rep"], att_dict["local_type"], with_db=with_db
-        )
+        _local_rep, output = att_dict["_local_rep"]
         if output:
             return output
-    output["_local_rep"] = local_rep
+    output["_local_rep"] = _local_rep
     output["_local_type"] = att_dict["_local_type"]
     output["_schema"] = json.dumps(schema)
     output["preview"] = preview
