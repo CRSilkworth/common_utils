@@ -29,8 +29,6 @@ async def run_docs(
     logging.info("Deserializing values")
     for doc_id in doc_data:
         outputs[doc_id] = {}
-        print("-" * 100)
-        print(doc_data[doc_id]["full_name"])
         for att, att_dict in doc_data[doc_id].items():
             if att in not_attributes:
                 continue
@@ -241,11 +239,12 @@ async def prepare_output(att, att_dict, output, with_db):
                 f"Failed to upload file to gcs. Got status code {status}"
             )
 
+        local_rep = f"gs://{att_dict['bucket']}/{att_dict['new_blob_name']}"
         local_type = deserialize_typehint(att_dict["_local_type"], with_db=with_db)
         _local_rep, serialized_output = attempt_serialize(
-            att_dict["signed_post_policy"]["url"], local_type, with_db=with_db
+            local_rep, local_type, with_db=with_db
         )
-        if serialize_output:
+        if serialized_output:
             return serialize_output
 
     del output["value"]
