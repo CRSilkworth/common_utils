@@ -232,7 +232,7 @@ async def prepare_output(att, att_dict, output, with_db):
         return serialize_output
 
     _local_rep = _value
-    size = len(value if value is not None else "")
+    size = len(_value if _value is not None else "")
     if att_dict.get("gcs_stored", False):
         status = await upload_via_signed_post(
             att_dict["signed_post_policy"], _value, with_db=with_db
