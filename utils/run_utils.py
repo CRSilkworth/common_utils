@@ -239,9 +239,11 @@ async def prepare_output(att, att_dict, output, with_db):
             )
 
         local_type = deserialize_typehint(att_dict["_local_type"], with_db=with_db)
-        _local_rep = attempt_serialize(
+        _local_rep, serialized_output = attempt_serialize(
             att_dict["signed_post_policy"]["url"], local_type, with_db=with_db
         )
+        if serialize_output:
+            return serialize_output
     output["_local_rep"] = _local_rep
     output["_local_type"] = att_dict["_local_type"]
     output["_schema"] = json.dumps(schema)
