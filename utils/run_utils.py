@@ -251,7 +251,7 @@ async def prepare_output(att, att_dict, output, with_db):
         or att_dict.get("connection", False)
         or att_dict.get("model", False)
     ):
-        del att_dict["value"]
+        del output["value"]
 
     output["_local_rep"] = _local_rep
     output["_local_type"] = att_dict["_local_type"]
