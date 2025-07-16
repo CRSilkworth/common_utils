@@ -261,5 +261,5 @@ async def prepare_output(att, att_dict, output, with_db):
     output["_local_type"] = att_dict["_local_type"]
     output["_schema"] = json.dumps(schema)
     output["preview"] = preview
-    output["size"] = size
+    output["size_delta"] = size - att_dict["size"]
     return output
