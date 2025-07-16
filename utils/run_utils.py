@@ -1,7 +1,7 @@
 from typing import Text, Dict, Any, Optional, List
 from utils.misc_utils import failed_output
 from utils.function_utils import create_function, run_with_expected_type
-from utils.type_utils import deserialize_typehint, get_known_types, describe_json_schema
+from utils.type_utils import deserialize_typehint, get_known_types, describe_allowed
 from utils.serialize_utils import attempt_deserialize, attempt_serialize
 from utils.gcp_utils import read_from_gcs_signed_url, upload_via_signed_post
 from utils.string_utils import data_to_readable_string
@@ -203,7 +203,7 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
 
 
 async def prepare_output(att, att_dict, output, with_db):
-    schema = describe_json_schema(output["value"], with_db=with_db)
+    schema = describe_allowed(output["value"], with_db=with_db)
     preview = data_to_readable_string(output["value"])
     if len(preview) > 1000:
         preview = (
@@ -212,7 +212,7 @@ async def prepare_output(att, att_dict, output, with_db):
             + preview[-100:]
             + "\n\nValue too large to show. This is it's basic"
             f" format:\n\n"
-            f"{schema}"
+            f"{json.dumps(schema, indent=2)}"
         )
 
     if att == "model":
