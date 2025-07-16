@@ -29,6 +29,8 @@ async def run_docs(
     logging.info("Deserializing values")
     for doc_id in doc_data:
         outputs[doc_id] = {}
+        print("-" * 100)
+        print(doc_data[doc_id]["full_name"])
         for att, att_dict in doc_data[doc_id].items():
             if att in not_attributes:
                 continue
@@ -40,6 +42,10 @@ async def run_docs(
             )
 
             if output:
+                print(
+                    att,
+                    "output",
+                )
                 outputs[doc_id][att] = output
                 continue
             else:
@@ -49,7 +55,7 @@ async def run_docs(
                     "stdout_output": "",
                     "stderr_output": "",
                 }
-
+            print(att, deserialized_value)
             att_dict["value"] = deserialized_value
             cleanups.extend(_cleanups)
 
@@ -73,14 +79,14 @@ async def run_docs(
             # Set all the arguments to the function to run
             runner_kwargs = {}
             for var_name, input_doc_id in att_dict["var_name_to_id"].items():
-                input_att_dict = doc_data[input_doc_id]
+                input_doc_dict = doc_data[input_doc_id]
 
                 attributes_output = outputs[input_doc_id]
                 for _, output in attributes_output.items():
                     if output["failed"]:
                         outputs[doc_to_run][att] = failed_output(
                             "Upstream failure from "
-                            f"{input_att_dict['full_name']}:"
+                            f"{input_doc_dict['full_name']}:"
                             f" {output['stderr_output']}"
                         )
                         skip_run = True
@@ -89,7 +95,7 @@ async def run_docs(
                     break
 
                 runner_kwargs[var_name] = get_doc_object(
-                    input_att_dict, with_db=with_db
+                    input_doc_dict, with_db=with_db
                 )
 
             if skip_run:
