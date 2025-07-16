@@ -177,7 +177,9 @@ def get_doc_object(
 
 async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
     local_type = deserialize_typehint(att_dict["_local_type"], with_db=with_db)
-
+    att_dict["value_type"] = deserialize_typehint(
+        att_dict["_value_type"], with_db=with_db
+    )
     value, output, _cleanups = attempt_deserialize(
         att_dict["_local_rep"], local_type, with_db=with_db
     )
@@ -194,9 +196,7 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
         or att_dict.get("connection", False)
         or att_dict.get("model", False)
     ):
-        att_dict["value_type"] = deserialize_typehint(
-            att_dict["_value_type"], with_db=with_db
-        )
+
         value, output, _cleanups = attempt_deserialize(
             value, att_dict["value_type"], with_db=with_db
         )
