@@ -202,7 +202,6 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
 
 
 async def prepare_output(att, att_dict, output, with_db):
-    print(att, att_dict)
     schema = describe_json_schema(output["value"], with_db=with_db)
     preview = str(output["value"])
     if len(preview) > 1000:
