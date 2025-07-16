@@ -36,25 +36,15 @@ async def upload_via_signed_post(
         return response.status_code
     else:
         from pyodide.http import pyfetch
-        import js
-
-        form_data = js.FormData.new()
-
-        # Add all fields from the signed policy
-        for key, value in policy["fields"].items():
-            form_data.append(key, value)
-
-        # Add the actual file
-        blob = js.Blob.new([json_str], {"type": "application/json"})
-        form_data.append("file", blob, filename)
 
         response = await pyfetch(
-            url=policy["url"],
-            method="POST",
-            body=form_data,
+            url=signed_url,
+            method="PUT",
+            body=json_str.encode("utf-8"),
+            headers={"Content-Type": "application/json"},
         )
-        print(await response.text())
 
+        print(await response.text())
         return response.status
 
 
