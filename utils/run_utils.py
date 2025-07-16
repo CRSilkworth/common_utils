@@ -182,12 +182,14 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
     value, output, _cleanups = attempt_deserialize(
         att_dict["_local_rep"], local_type, with_db=with_db
     )
+    size = bson.BSON.encode(att_dict["_local_rep"])
     if output:
+        output["size"] = size
         return value, output, _cleanups
 
     if att_dict.get("gcs_stored", False):
         value = await read_from_gcs_signed_url(att_dict["signed_url"], with_db=with_db)
-
+        size = bson.BSON.encode(value)
     if (
         att_dict.get("gcs_stored", False)
         or att_dict.get("connection", False)
@@ -199,7 +201,7 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
         value, output, _cleanups = attempt_deserialize(
             value, att_dict["value_type"], with_db=with_db
         )
-
+    att_dict["size"] = size
     return value, output, _cleanups
 
 
