@@ -89,7 +89,7 @@ async def run_docs(
                     break
 
                 runner_kwargs[var_name] = get_doc_object(
-                    input_doc_dict, with_db=with_db
+                    var_name, input_doc_dict, with_db=with_db
                 )
 
             if skip_run:
@@ -144,11 +144,15 @@ async def run_docs(
 
 
 class DotDict(dict):
+    def __init__(self, *args, var_name: Text, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.var_name = var_name
+
     def __getattr__(self, key):
         try:
             return self[key]
         except KeyError:
-            raise AttributeError(f"'DotDict' object has no attribute '{key}'")
+            raise AttributeError(f"'{self.var_name}' has no attribute '{key}'")
 
     def __setattr__(self, key, value):
         self[key] = value
@@ -157,22 +161,22 @@ class DotDict(dict):
         try:
             del self[key]
         except KeyError:
-            raise AttributeError(f"'DotDict' object has no attribute '{key}'")
+            raise AttributeError(f"'{self.var_name}' has no attribute '{key}'")
 
 
 def get_doc_object(
-    att_dict: Dict[Text, Dict[Text, Any]], with_db: bool = True
+    var_name: Text, doc_dict: Dict[Text, Dict[Text, Any]], with_db: bool = True
 ) -> DotDict:
     obj = {}
-    for att in att_dict:
-        if isinstance(att_dict[att], str):
-            obj[att] = att_dict[att]
-        elif isinstance(att_dict[att], dict):
-            obj[att] = copy.deepcopy(att_dict[att].get("value", None))
+    for att in doc_dict:
+        if isinstance(doc_dict[att], str):
+            obj[att] = doc_dict[att]
+        elif isinstance(doc_dict[att], dict):
+            obj[att] = copy.deepcopy(doc_dict[att].get("value", None))
         else:
-            raise ValueError(f"Unhandled attribute dict type: {type(att_dict[att])}")
+            raise ValueError(f"Unhandled attribute dict type: {type(doc_dict[att])}")
 
-    return DotDict(obj)
+    return DotDict(obj, var_name=var_name)
 
 
 async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
