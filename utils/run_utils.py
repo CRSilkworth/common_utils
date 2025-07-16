@@ -223,9 +223,11 @@ async def prepare_output(att, att_dict, output, with_db):
     else:
         value = output["value"]
 
-    _value, output = attempt_serialize(value, att_dict["value_type"], with_db=with_db)
-    if output:
-        return output
+    _value, serialize_output = attempt_serialize(
+        value, att_dict["value_type"], with_db=with_db
+    )
+    if serialize_output:
+        return serialize_output
 
     _local_rep = _value
     if att_dict.get("gcs_stored", False):
