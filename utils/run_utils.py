@@ -197,6 +197,12 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
     if att_dict.get("gcs_stored", False):
         value = await read_from_gcs_signed_url(att_dict["signed_url"], with_db=with_db)
         size = len(value if value is not None else "")
+        print("serialized", value)
+    print(
+        att_dict.get("gcs_stored", False),
+        att_dict.get("connection", False),
+        att_dict.get("model", False),
+    )
     if (
         att_dict.get("gcs_stored", False)
         or att_dict.get("connection", False)
@@ -206,6 +212,7 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
         value, output, _cleanups = attempt_deserialize(
             value, att_dict["value_type"], with_db=with_db
         )
+        print("deserialize", value)
     att_dict["size"] = size
     return value, output, _cleanups
 
