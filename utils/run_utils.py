@@ -8,7 +8,6 @@ from utils.string_utils import data_to_readable_string
 import logging
 import copy
 import json
-import bson
 
 # Define allowed modules for dynamic function execution
 
@@ -182,14 +181,14 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
     value, output, _cleanups = attempt_deserialize(
         att_dict["_local_rep"], local_type, with_db=with_db
     )
-    size = bson.BSON.encode(att_dict["_local_rep"])
+    size = len(att_dict["_local_rep"])
     if output:
         output["size"] = size
         return value, output, _cleanups
 
     if att_dict.get("gcs_stored", False):
         value = await read_from_gcs_signed_url(att_dict["signed_url"], with_db=with_db)
-        size = bson.BSON.encode(value)
+        size = len(value)
     if (
         att_dict.get("gcs_stored", False)
         or att_dict.get("connection", False)
@@ -233,7 +232,7 @@ async def prepare_output(att, att_dict, output, with_db):
         return serialize_output
 
     _local_rep = _value
-    size = bson.BSON.encode(_value)
+    size = len(_value)
     if att_dict.get("gcs_stored", False):
         status = await upload_via_signed_post(
             att_dict["signed_post_policy"], _value, with_db=with_db
