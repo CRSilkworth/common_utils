@@ -8,6 +8,7 @@ from utils.string_utils import data_to_readable_string
 import logging
 import copy
 import json
+import bson
 
 # Define allowed modules for dynamic function execution
 
@@ -230,6 +231,7 @@ async def prepare_output(att, att_dict, output, with_db):
         return serialize_output
 
     _local_rep = _value
+    size = bson.BSON.encode(_value)
     if att_dict.get("gcs_stored", False):
         status = await upload_via_signed_post(
             att_dict["signed_post_policy"], _value, with_db=with_db
@@ -257,4 +259,5 @@ async def prepare_output(att, att_dict, output, with_db):
     output["_local_type"] = att_dict["_local_type"]
     output["_schema"] = json.dumps(schema)
     output["preview"] = preview
+    output["size"] = size
     return output
