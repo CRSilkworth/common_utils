@@ -53,7 +53,7 @@ async def upload_via_signed_post(
             method="POST",
             body=form_data,
         )
-        print(response)
+        print(await response.text())
 
         return response.status
 
