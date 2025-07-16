@@ -206,7 +206,11 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
 
 async def prepare_output(att, att_dict, output, with_db):
     schema = describe_allowed(output["value"], with_db=with_db)
-    preview = data_to_readable_string(output["value"])
+    try:
+        preview = data_to_readable_string(output["value"])
+    except TypeError:
+        preview = ""
+
     if len(preview) > 1000:
         preview = (
             preview[:100]
