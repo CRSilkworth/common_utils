@@ -4,6 +4,7 @@ from utils.function_utils import create_function, run_with_expected_type
 from utils.type_utils import deserialize_typehint, get_known_types, describe_json_schema
 from utils.serialize_utils import attempt_deserialize, attempt_serialize
 from utils.gcp_utils import read_from_gcs_signed_url, upload_via_signed_post
+from utils.string_utils import data_to_readable_string
 import logging
 import copy
 import json
@@ -203,7 +204,7 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
 
 async def prepare_output(att, att_dict, output, with_db):
     schema = describe_json_schema(output["value"], with_db=with_db)
-    preview = str(output["value"])
+    preview = data_to_readable_string(output["value"])
     if len(preview) > 1000:
         preview = (
             preview[:100]

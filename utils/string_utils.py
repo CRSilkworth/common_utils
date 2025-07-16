@@ -1,7 +1,10 @@
-from typing import Optional, Text
+from typing import Optional, Text, Any
 import re
 from lxml import etree
 import os
+import numpy as np
+import pandas as pd
+import json
 
 
 def edit_distance(str1: Optional[str], str2: Optional[str]) -> float:
@@ -228,3 +231,79 @@ def xml_to_html(
     html_tree = transform(xml_tree)
     html_string = etree.tostring(html_tree, pretty_print=True)
     return html_string.decode("utf-8")
+
+
+def json_converter(obj: object) -> object:
+    """Convert NumPy arrays, pandas objects, and other non-serializable
+    types to JSON-serializable formats.
+
+    Args:
+        obj (object): The object to convert.
+
+    Returns:
+        object: A JSON-serializable version of the object.
+
+    Raises:
+        TypeError: If the object is not JSON serializable.
+    """
+    if isinstance(obj, (np.ndarray, np.generic)):
+        # Convert NumPy arrays to lists
+        return obj.tolist()
+    elif isinstance(obj, pd.DataFrame):
+        # Convert DataFrame to dictionary
+        return str(obj)
+    elif isinstance(obj, pd.Series):
+        # Convert Series to dictionary
+        return str(obj)
+    elif isinstance(obj, (pd.Timestamp, pd.Timedelta)):
+        # Convert timestamps and timedeltas to string
+        return str(obj)
+    elif isinstance(obj, (tuple, list)):
+        # Recursively convert items in tuples and lists
+        return [json_converter(o) for o in obj]
+    elif isinstance(obj, dict):
+        # Recursively convert dictionary keys and values
+        return {str(k): json_converter(v) for k, v in obj.items()}
+    elif type(obj) is bytes:
+        # Convert bytes to string
+        return str(obj)
+    elif pd.isna(obj):
+        # Convert pandas NA values to None
+        return None
+    elif isinstance(obj, (str, int, complex, float, bool)):
+        return str(obj)
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+
+def data_to_readable_string(data: Any, indent: int = 2) -> str:
+    """Convert nested dictionary (with NumPy arrays) to a human-readable string.
+
+    Args:
+        data (dict): The data to convert.
+        indent (int, optional): The indentation level for pretty printing.
+            Defaults to 2.
+
+    Returns:
+        str: A JSON string representation of the dictionary.
+    """
+    # Convert keys to strings and use numpy_converter for non-serializable objects
+    return json.dumps(
+        convert_keys_to_strings(data), indent=indent, default=json_converter
+    )
+
+
+def convert_keys_to_strings(obj: object) -> object:
+    """Recursively convert dictionary keys to strings.
+
+    Args:
+        obj (object): The object to process.
+
+    Returns:
+        object: The processed object with all dictionary keys as strings.
+    """
+    if isinstance(obj, dict):
+        return {str(k): convert_keys_to_strings(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_keys_to_strings(i) for i in obj]
+    else:
+        return obj
