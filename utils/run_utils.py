@@ -237,9 +237,7 @@ async def prepare_output(att, att_dict, output, with_db):
                 f"Failed to upload file to gcs. Got status code {status}"
             )
 
-        _local_rep, output = att_dict["_local_rep"]
-        if output:
-            return output
+        _local_rep = att_dict["_local_rep"]
     output["_local_rep"] = _local_rep
     output["_local_type"] = att_dict["_local_type"]
     output["_schema"] = json.dumps(schema)
