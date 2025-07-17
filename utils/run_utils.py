@@ -134,11 +134,11 @@ async def run_docs(
             if att in not_attributes:
                 continue
             att_dict = doc_data[doc_id][att]
-
-            if outputs[doc_id][att]["failed"]:
+            output = outputs[doc_id][att]
+            if output["failed"] or "value" not in output:
                 continue
 
-            output = await prepare_output(att, att_dict, outputs[doc_id][att], with_db)
+            output = await prepare_output(att, att_dict, output, with_db)
             outputs[doc_id][att] = output
 
     logging.info("Cleaning up connections")
