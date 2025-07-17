@@ -38,9 +38,12 @@ async def run_docs(
             deserialized_value, output, _cleanups = await get_value_from_att_dict(
                 att_dict, with_db
             )
+            print("-" * 100)
+            print(att)
+            print(deserialized_value)
+            print(output)
 
             if output:
-                print(output)
                 outputs[doc_id][att] = output
                 continue
             else:
