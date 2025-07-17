@@ -131,6 +131,8 @@ async def run_docs(
         doc_full_name = doc_data[doc_id]["full_name"]
 
         for att in attributes:
+            if att in not_attributes:
+                continue
             att_dict = doc_data[doc_id][att]
 
             if outputs[doc_id][att]["failed"]:
