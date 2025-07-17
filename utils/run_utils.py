@@ -58,9 +58,13 @@ async def run_docs(
         logging.info(f"Preparing to run {doc_full_name}")
 
         skip_run = False
-
+        attributes = (
+            list(doc_data[doc_to_run].keys()) if attributes is None else attributes
+        )
         # Run all the runners associate with this doc
         for att in attributes:
+            if att in not_attributes:
+                continue
             if not with_db and att in ("model",):
                 continue
 
