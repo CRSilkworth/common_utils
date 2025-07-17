@@ -70,7 +70,7 @@ async def run_docs(
                 continue
 
             att_dict = doc_data[doc_to_run][att]
-            if not att_dict.get("runnable", False) or att.get("empty", False):
+            if not att_dict.get("runnable", False) or att_dict.get("empty", False):
                 continue
 
             logging.info(f"Running {att}")
