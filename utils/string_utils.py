@@ -251,10 +251,10 @@ def json_converter(obj: object) -> object:
         return obj.tolist()
     elif isinstance(obj, pd.DataFrame):
         # Convert DataFrame to dictionary
-        return str(obj)
+        return obj.to_dict(orient="records")
     elif isinstance(obj, pd.Series):
         # Convert Series to dictionary
-        return str(obj)
+        return obj.to_dict()
     elif isinstance(obj, (pd.Timestamp, pd.Timedelta)):
         # Convert timestamps and timedeltas to string
         return str(obj)
