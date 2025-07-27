@@ -213,13 +213,12 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
 
 async def prepare_output(att, att_dict, output, with_db):
     schema = describe_allowed(output["value"], with_db=with_db)
-    preview_output = ""
     try:
         preview = data_to_readable_string(output["value"])
-    except TypeError as e:
-        logging.warning(traceback.format_exc())
-        preview_output = e.args[0]
-        preview = ""
+    except TypeError:
+        return failed_output(
+            f"Failed to create schema for output.\n{traceback.format_exc()}"
+        )
 
     if len(preview) > 1000:
         preview = (
@@ -235,13 +234,7 @@ async def prepare_output(att, att_dict, output, with_db):
     _value, serialize_output = attempt_serialize(
         value, att_dict["value_type"], with_db=with_db
     )
-    if serialize_output or preview_output:
-        serialize_output["stederr_output"] = (
-            preview_output + serialize_output["stederr_output"]
-        )
-        serialize_output["combined_output"] = (
-            preview_output + serialize_output["combined_output"]
-        )
+    if serialize_output:
         return serialize_output
 
     _local_rep = _value
