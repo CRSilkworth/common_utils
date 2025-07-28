@@ -22,10 +22,6 @@ async def run_docs(
 ):
     allowed_modules = get_known_types(with_db=with_db)
 
-    for key, value in kwargs.get("globals", {}).items():
-        print(f"{key} = {repr(value)}")
-        exec(f"{key} = {repr(value)}")
-
     not_attributes = {"full_name", "name", "subclass_str"}
     db_required = {"db", "model"}
     outputs = {}
@@ -107,6 +103,9 @@ async def run_docs(
             header_code = ""
             if att == "model":
                 header_code = att_dict["class_def"]
+
+            for key, value in kwargs.get("globals", {}).items():
+                header_code += f"\n{key} = {repr(value)}"
 
             # Convert the functionv string to a callable function
             func, output = create_function(
