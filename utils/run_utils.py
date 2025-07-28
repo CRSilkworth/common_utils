@@ -23,6 +23,7 @@ async def run_docs(
     allowed_modules = get_known_types(with_db=with_db)
 
     for key, value in kwargs.get("globals", {}).items():
+        print(f"{key} = {repr(value)}")
         exec(f"{key} = {repr(value)}")
 
     not_attributes = {"full_name", "name", "subclass_str"}
