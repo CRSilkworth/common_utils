@@ -272,7 +272,9 @@ def json_converter(obj: object) -> object:
         return None
     elif isinstance(obj, (str, int, complex, float, bool)):
         return str(obj)
-    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+    else:
+        return str(obj)
+    # raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 
 def data_to_readable_string(data: Any, indent: int = 2) -> str:
