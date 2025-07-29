@@ -104,9 +104,6 @@ async def run_docs(
             if att == "model":
                 header_code = att_dict["class_def"]
 
-            for key, value in kwargs.get("globals", {}).items():
-                header_code += f"\n{key} = {repr(value)}"
-
             # Convert the functionv string to a callable function
             func, output = create_function(
                 function_name=att_dict["function_name"],
@@ -114,6 +111,7 @@ async def run_docs(
                 function_string=att_dict["function_string"],
                 allowed_modules=allowed_modules,
                 header_code=header_code,
+                global_vars=kwargs.get("globals", {}),
             )
 
             outputs[doc_to_run][att] = output

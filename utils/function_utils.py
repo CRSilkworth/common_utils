@@ -15,6 +15,7 @@ def create_function(
     allowed_modules: Dict[Text, Any],
     function_header: Text = "",
     header_code: Text = "",
+    global_vars: Optional[Dict[Text, Any]] = None,
 ) -> Callable:
     """
     Compile and return the function specified in `function_name`.
@@ -25,6 +26,9 @@ def create_function(
     Raises:
         ValueError: If the function cannot be created or is not callable.
     """
+    if not global_vars:
+        global_vars = {}
+
     output = {
         "failed": False,
         "value": None,
@@ -50,8 +54,13 @@ def create_function(
                 + "\n\t"
                 + body.replace("\n", "\n\t")
             )
+
+        full_function_string = ""
+        for key, value in global_vars.items():
+            full_function_string += f"{key} = {repr(value)}\n"
+        full_function_string = full_function_string + function_string
         print("-" * 10)
-        print(function_string)
+        print(full_function_string)
         print("-" * 10)
         bytecode = compile(function_string, filename="<inline code>", mode="exec")
         exec_result = {}
