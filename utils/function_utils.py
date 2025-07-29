@@ -1,4 +1,4 @@
-from typing import Text, Dict, Any, Callable
+from typing import Text, Dict, Any, Callable, Optional
 from utils.misc_utils import failed_output
 from utils.string_utils import remove_indent
 import re
