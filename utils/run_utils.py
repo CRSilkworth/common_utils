@@ -308,7 +308,7 @@ async def prepare_output(att_dict, output, with_db):
                 f"Failed to upload file to gcs. Got status code {status}"
             )
 
-        local_rep = f"gs://{att_dict['bucket']}/{att_dict['new_blob_names'][0]}"
+        local_rep = (att_dict["bucket"], att_dict["new_version"])
         local_type = deserialize_typehint(att_dict["_local_type"], with_db=with_db)
         _local_rep, serialized_output = attempt_serialize(
             local_rep, local_type, with_db=with_db
@@ -365,8 +365,13 @@ async def combine_outputs(output_chunks, att_dict, with_db):
     }
     output["_schema"] = json.dumps(schema)
     output["preview"] = output["schema"]
-    output["_local_rep"] = att_dict["new_signed_urls"][:num_chunks]
-    output["_local_type"] = att_dict["_local_type"]
+
+    local_rep = (att_dict["bucket"], att_dict["new_version"])
+    local_type = deserialize_typehint(att_dict["_local_type"], with_db=with_db)
+    _local_rep, _ = attempt_serialize(local_rep, local_type, with_db=with_db)
+
+    output["_local_rep"] = _local_rep
+
     output["size_delta"] = size - att_dict["size"]
 
     return output
