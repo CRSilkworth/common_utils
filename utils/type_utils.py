@@ -64,8 +64,13 @@ Allowed = Union[
 ]
 
 SimParams = typing.Dict[Text, typing.Hashable]
+FrozenSimParams = Tuple[Tuple[Text, typing.Hashable], ...]
 AllSimParams = typing.Iterable[SimParams]
-SimValues = Dict[Tuple[Tuple[Text, typing.Hashable]], Allowed]
+SimValues = Dict[FrozenSimParams, Allowed]
+SimValue = Tuple[FrozenSimParams, Allowed]
+
+
+chunked_type_map = {AllSimParams: SimParams, SimValues: SimValue, Allowed: Allowed}
 
 
 class GCSPath(str):
@@ -237,8 +242,10 @@ def describe_json_schema(
     return {"$ref": f"#/definitions/{key}"}, definitions
 
 
-def describe_allowed(obj, with_db: bool = True):
-    schema, definitions = describe_json_schema(obj, with_db=with_db)
+def describe_allowed(obj, with_db: bool = True, definitions=None):
+    schema, definitions = describe_json_schema(
+        obj, with_db=with_db, definitions=definitions
+    )
     return {
         "$schema": "http://json-schema.org/draft-07/schema#",
         **schema,
@@ -340,7 +347,9 @@ def get_known_types(
         "utils.type_utils.Position": Position,
         "utils.type_utils.AllSimParams": AllSimParams,
         "utils.type_utils.SimParams": SimParams,
+        "utils.type_utils.FrozenSimParams": FrozenSimParams,
         "utils.type_utils.SimValues": SimValues,
+        "utils.type_utils.SimValue": SimValue,
         "utils.type_utils.Allowed": Allowed,
         "utils.type_utils.GCSPath": GCSPath,
         "typing.Hashable": typing.Hashable,
@@ -459,6 +468,25 @@ def is_valid_output(value, output_type, with_db: bool = True):
 
             if not is_allowed_type(alwd):
                 return False
+
+        return True
+    if output_type == SimValue:
+        if not isinstance(value, tuple) or not len(value) == 2:
+            return False
+        frzn, alwd = value
+
+        if not isinstance(frzn, tuple):
+            return False
+        try:
+            for k, v in frzn:
+                if not isinstance(k, str):
+                    return False
+                hash(v)
+        except TypeError:
+            return False
+
+        if not is_allowed_type(alwd):
+            return False
 
         return True
     if with_db:

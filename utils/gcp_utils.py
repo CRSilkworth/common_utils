@@ -1,4 +1,4 @@
-from typing import Text, Dict, Any
+from typing import Text, Dict, Any, AsyncGenerator
 from datetime import timedelta
 import uuid
 import json
@@ -109,3 +109,36 @@ async def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
             return None
         text = await response.string()
         return text
+
+
+async def read_from_gcs_signed_urls(
+    gcs_urls: list[str], with_db: bool = True
+) -> AsyncGenerator[str, None]:
+    """
+    Asynchronously yield content from a list of GCS-signed or public URLs.
+
+    Args:
+        gcs_urls (list[str]): List or generator of GCS URLs.
+        with_db (bool): Whether to use synchronous HTTP (requests) or pyfetch
+        (e.g. for Pyodide).
+
+    Yields:
+        str: Content of each blob as a string.
+    """
+    if with_db:
+        for url in gcs_urls:
+            response = requests.get(url)
+            if response.status_code != 200:
+                yield None
+            else:
+                yield response.text
+    else:
+        from pyodide.http import pyfetch
+
+        for url in gcs_urls:
+            response = await pyfetch(url, method="GET")
+            if response.status != 200:
+                yield None
+            else:
+                text = await response.string()
+                yield text

@@ -5,7 +5,7 @@ import re
 import traceback
 import io
 import contextlib
-from utils.type_utils import is_valid_output
+from utils.type_utils import is_valid_output, chunked_type_map
 import logging
 
 
@@ -59,9 +59,6 @@ def create_function(
         for key, value in global_vars.items():
             full_function_string += f"{key} = {repr(value)}\n"
         full_function_string = full_function_string + function_string
-        print("-" * 10)
-        print(full_function_string)
-        print("-" * 10)
         bytecode = compile(function_string, filename="<inline code>", mode="exec")
         exec_result = {}
         exec(bytecode, allowed_modules, exec_result)
@@ -177,6 +174,53 @@ def capture_output(func: Callable, *args: Any, **kwargs: Any) -> tuple:
     return result, combined_output, stdout_output, stderr_output, failed
 
 
+def capture_output_generator(func: Callable, *args: Any, **kwargs: Any) -> tuple:
+    """
+    Capture the output and errors of a function execution.
+
+    Args:
+        func (Callable): The function to be executed.
+        *args (Any): Positional arguments for the function.
+        **kwargs (Any): Keyword arguments for the function.
+
+    Returns:
+        tuple: A tuple containing the function result, combined output, stdout, stderr,
+            and a failure flag.
+    """
+    # Create pipes for stdout and stderr
+    stdout_pipe = io.StringIO()
+    stderr_pipe = io.StringIO()
+
+    try:
+        with contextlib.redirect_stdout(stdout_pipe), contextlib.redirect_stderr(
+            stderr_pipe
+        ):
+            result = func(*args, **kwargs)
+        failed = False
+    except Exception:
+        result = None
+        failed = True
+        # Capture the full traceback and write it to stderr_pipe
+        stderr_pipe.write(traceback.format_exc())
+
+    # Collect output and errors
+    stdout_output = stdout_pipe.getvalue().strip()
+    stderr_output = stderr_pipe.getvalue().strip()
+
+    # Remove the non user define function traceback
+    if failed:
+        stderr_output = "\n".join(stderr_output.split("\n")[3:])
+
+    # Combine output and errors
+    combined_output = ""
+    if stdout_output:
+        combined_output += "[stdout] " + "\n[stdout] ".join(stdout_output.split("\n"))
+    if stderr_output:
+        combined_output += "[stderr] " + "\n[stderr] ".join(stderr_output.split("\n"))
+
+    yield result, combined_output, stdout_output, stderr_output, failed
+
+
 def run_with_expected_type(
     func: Callable,
     decoded_kwargs: Dict[Text, Any],
@@ -219,3 +263,49 @@ def run_with_expected_type(
         output["value"] = value
 
     return output
+
+
+def run_with_generator(
+    func: Callable,
+    decoded_kwargs: Dict[Text, Any],
+    output_type: Any,
+    with_db: bool = True,
+):
+    """
+    Execute a function that returns and put returned value.
+
+    Args:
+        request (RunRequest): The request containing function details
+                              and arguments.
+
+    Returns:
+        Response: A response with the function result and execution details.
+    """
+    chunked_output_type = chunked_type_map[output_type]
+    generator = capture_output_generator(func=func, **decoded_kwargs)
+    for value, combined_output, stdout_output, stderr_output, failed in generator:
+
+        output = {
+            "value_chunk": None,
+            "combined_output": combined_output,
+            "stdout_output": stdout_output,
+            "stderr_output": stderr_output,
+            "failed": failed,
+        }
+        if failed:
+            pass
+        elif not is_valid_output(
+            value, output_type=chunked_output_type, with_db=with_db
+        ):
+            new_error = (
+                f"\nExpected output type of {output_type}. {value} is of type "
+                f"{type(value).__name__}\n"
+            )
+            output["value_chunk"] = None
+            output["failed"] = True
+            output["stderr_output"] += new_error
+            output["combined_output"] += new_error
+        else:
+            output["value_chunk"] = value
+
+        yield output

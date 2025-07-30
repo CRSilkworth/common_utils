@@ -1,16 +1,27 @@
 from typing import Text, Dict, Any, Optional, List
 from utils.misc_utils import failed_output
-from utils.function_utils import create_function, run_with_expected_type
-from utils.type_utils import deserialize_typehint, get_known_types, describe_allowed
+from utils.function_utils import (
+    create_function,
+    run_with_expected_type,
+    run_with_generator,
+)
+from utils.type_utils import (
+    deserialize_typehint,
+    get_known_types,
+    describe_allowed,
+    describe_json_schema,
+    chunked_type_map,
+)
 from utils.serialize_utils import attempt_deserialize, attempt_serialize
-from utils.gcp_utils import read_from_gcs_signed_url, upload_via_signed_post
+from utils.gcp_utils import (
+    upload_via_signed_post,
+    read_from_gcs_signed_urls,
+)
 from utils.string_utils import data_to_readable_string
 import logging
 import copy
 import json
 import traceback
-
-# Define allowed modules for dynamic function execution
 
 
 async def run_docs(
@@ -119,29 +130,69 @@ async def run_docs(
                 continue
 
             logging.info(f"Running {doc_full_name}: {att}")
+            if not att_dict.get("chunked", False):
+                run_output = run_with_expected_type(
+                    func, runner_kwargs, att_dict["value_type"], with_db=with_db
+                )
+                outputs[doc_to_run][att] = run_output
 
-            run_output = run_with_expected_type(
-                func, runner_kwargs, att_dict["value_type"], with_db=with_db
-            )
-            outputs[doc_to_run][att] = run_output
+                if run_output["failed"]:
+                    continue
 
-            if not run_output["failed"]:
                 att_dict["value"] = run_output["value"]
 
-    logging.info("Serializing values")
-    for doc_id in run_order:
-        doc_full_name = doc_data[doc_id]["full_name"]
+                serialized_output = await prepare_output(att_dict, run_output, with_db)
+                outputs[doc_id][att] = serialized_output
+            else:
+                run_generator = run_with_generator(
+                    func, runner_kwargs, att_dict["value_type"], with_db=with_db
+                )
+                output_chunks = []
+                definitions = None
+                max_num_chunks = len(att_dict["new_signed_urls"])
+                for chunk_num, run_output_chunk in enumerate(run_generator):
+                    if run_output_chunk["failed"]:
+                        run_output.append(run_output_chunk)
+                        break
 
-        for att in attributes:
-            if att in not_attributes:
-                continue
-            att_dict = doc_data[doc_id][att]
-            output = outputs[doc_id][att]
-            if output["failed"] or "value" not in output:
-                continue
+                    if "value_chunk" not in run_output:
+                        continue
 
-            output = await prepare_output(att, att_dict, output, with_db)
-            outputs[doc_id][att] = output
+                    if chunk_num >= max_num_chunks:
+                        run_output.append(
+                            failed_output(
+                                f"Exceeded max number of chunks {max_num_chunks}."
+                            )
+                        )
+                        break
+
+                    output_chunk = await prepare_output_chunk(
+                        chunk_num, att_dict, run_output, with_db, definitions
+                    )
+                    definitions = output_chunk["definitions"]
+
+                    output_chunks.append(output_chunk)
+
+                output = combine_outputs(output_chunks, att_dict, with_db)
+
+                att_dict["value"] = output["value"]
+
+                del output["value"]
+                outputs[doc_id][att] = output
+    # logging.info("Serializing values")
+    # for doc_id in run_order:
+    #     doc_full_name = doc_data[doc_id]["full_name"]
+
+    #     for att in attributes:
+    #         if att in not_attributes:
+    #             continue
+    #         att_dict = doc_data[doc_id][att]
+    #         output = outputs[doc_id][att]
+    #         if output["failed"] or "value" not in output:
+    #             continue
+
+    #         output = await prepare_output(att, att_dict, output, with_db)
+    #         outputs[doc_id][att] = output
 
     logging.info("Cleaning up connections")
     # cleanup any connections
@@ -201,8 +252,16 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
         return value, output, _cleanups
 
     if att_dict.get("gcs_stored", False):
-        value = await read_from_gcs_signed_url(att_dict["signed_url"], with_db=with_db)
-        size = len(value if value is not None else "")
+        if not att_dict("chunked", False):
+            value = await read_from_gcs_signed_urls(
+                att_dict["signed_urls"][0], with_db=with_db
+            )
+            size = len(value if value is not None else "")
+        else:
+            value = await read_from_gcs_signed_urls(
+                att_dict["signed_urls"], with_db=with_db
+            )
+            size = len(value if value is not None else "")
     if att_dict.get("gcs_stored", False) or att_dict.get("model", False):
         value, output, _cleanups = attempt_deserialize(
             value, att_dict["value_type"], with_db=with_db
@@ -212,7 +271,7 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
     return value, output, _cleanups
 
 
-async def prepare_output(att, att_dict, output, with_db):
+async def prepare_output(att_dict, output, with_db):
     schema = describe_allowed(output["value"], with_db=with_db)
     try:
         preview = data_to_readable_string(output["value"])
@@ -242,14 +301,14 @@ async def prepare_output(att, att_dict, output, with_db):
     size = len(_value if _value is not None else "")
     if att_dict.get("gcs_stored", False):
         status = await upload_via_signed_post(
-            att_dict["signed_post_policy"], _value, with_db=with_db
+            att_dict["signed_post_policies"][0], _value, with_db=with_db
         )
         if status not in (200, 204):
             return failed_output(
                 f"Failed to upload file to gcs. Got status code {status}"
             )
 
-        local_rep = f"gs://{att_dict['bucket']}/{att_dict['new_blob_name']}"
+        local_rep = f"gs://{att_dict['bucket']}/{att_dict['new_blob_names'][0]}"
         local_type = deserialize_typehint(att_dict["_local_type"], with_db=with_db)
         _local_rep, serialized_output = attempt_serialize(
             local_rep, local_type, with_db=with_db
@@ -264,4 +323,75 @@ async def prepare_output(att, att_dict, output, with_db):
     output["_schema"] = json.dumps(schema)
     output["preview"] = preview
     output["size_delta"] = size - att_dict["size"]
+
     return output
+
+
+async def combine_outputs(output_chunks, att_dict, with_db):
+    output = {
+        "failed": False,
+        "value": None,
+        "combined_output": "",
+        "stdout_output": "",
+        "stderr_output": "",
+    }
+    num_chunks = len(output_chunks)
+    chunk_schema = None
+    definitions = None
+    size = 0
+    for output_chunk in output_chunks:
+        if output_chunk["failed"]:
+            output["failed"] = True
+        if chunk_schema is None:
+            chunk_schema = output_chunk["chunk_schema"]
+
+        output["combined_output"] += output_chunk["combined_output"]
+        output["stdout_output"] += output_chunk["stdout_output"]
+        output["stderr_output"] += output_chunk["stderr_output"]
+        definitions = output_chunk["definitions"]
+
+        size += output["size"]
+    output["value"] = await read_from_gcs_signed_urls(
+        att_dict["new_signed_urls"][:num_chunks], with_db=with_db
+    )
+    schema = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "x-type": "generator",
+        "type": "array",
+        "minItems": num_chunks,
+        "maxItems": num_chunks,
+        "items": chunk_schema if chunk_schema else {},
+        "definitions": definitions if definitions else [],
+    }
+    output["_schema"] = json.dumps(schema)
+    output["preview"] = output["schema"]
+    output["_local_rep"] = att_dict["new_signed_urls"][:num_chunks]
+    output["_local_type"] = att_dict["_local_type"]
+    output["size_delta"] = size - att_dict["size"]
+
+    return output
+
+
+async def prepare_output_chunk(chunk_num, att_dict, output_chunk, with_db, definitions):
+    chunk_schema, definitions = describe_json_schema(
+        output_chunk["value_chunk"], with_db=with_db, definitions=definitions
+    )
+
+    value = output_chunk["value"]
+    _value, serialize_output = attempt_serialize(
+        value, chunked_type_map[att_dict["value_type"]], with_db=with_db
+    )
+    if serialize_output:
+        return serialize_output
+
+    size = len(_value if _value is not None else "")
+    status = await upload_via_signed_post(
+        att_dict["signed_post_policies"][chunk_num], _value, with_db=with_db
+    )
+    if status not in (200, 204):
+        return failed_output(f"Failed to upload file to gcs. Got status code {status}")
+
+    output_chunk["chunk_size"] = size
+    output_chunk["chunk_schema"] = chunk_schema
+    output_chunk["definitions"] = definitions
+    return output_chunk
