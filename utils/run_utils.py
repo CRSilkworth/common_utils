@@ -16,6 +16,7 @@ from utils.serialize_utils import attempt_deserialize, attempt_serialize
 from utils.gcp_utils import (
     upload_via_signed_post,
     read_from_gcs_signed_urls,
+    request_post_policy,
 )
 from utils.string_utils import data_to_readable_string
 import logging
@@ -27,6 +28,10 @@ import traceback
 async def run_docs(
     doc_data: Dict[Text, Dict[Text, Any]],
     run_order: List[Text],
+    token: Text,
+    dash_app_url: Text,
+    user_id: Text,
+    calc_graph_id: Text,
     attributes: Optional[List[Text]] = None,
     with_db: bool = True,
     **kwargs,
@@ -141,7 +146,15 @@ async def run_docs(
 
                 att_dict["value"] = run_output["value"]
 
-                serialized_output = await prepare_output(att_dict, run_output, with_db)
+                serialized_output = await prepare_output(
+                    att_dict,
+                    run_output,
+                    user_id,
+                    calc_graph_id,
+                    token,
+                    dash_app_url,
+                    with_db,
+                )
                 outputs[doc_id][att] = serialized_output
             else:
                 run_generator = run_with_generator(
@@ -167,7 +180,15 @@ async def run_docs(
                         break
 
                     output_chunk = await prepare_output_chunk(
-                        chunk_num, att_dict, run_output, with_db, definitions
+                        chunk_num,
+                        att_dict,
+                        run_output,
+                        user_id,
+                        calc_graph_id,
+                        token,
+                        dash_app_url,
+                        with_db,
+                        definitions,
                     )
                     definitions = output_chunk["definitions"]
 
@@ -252,7 +273,7 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
         return value, output, _cleanups
 
     if att_dict.get("gcs_stored", False):
-        if not att_dict("chunked", False):
+        if not att_dict.get("chunked", False):
             value = await read_from_gcs_signed_urls(
                 att_dict["signed_urls"][0], with_db=with_db
             )
@@ -271,7 +292,9 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
     return value, output, _cleanups
 
 
-async def prepare_output(att_dict, output, with_db):
+async def prepare_output(
+    att_dict, output, user_id, calc_graph_id, token, dash_app_url, with_db
+):
     schema = describe_allowed(output["value"], with_db=with_db)
     try:
         preview = data_to_readable_string(output["value"])
@@ -300,8 +323,20 @@ async def prepare_output(att_dict, output, with_db):
     _local_rep = _value
     size = len(_value if _value is not None else "")
     if att_dict.get("gcs_stored", False):
+        policy_data = await request_post_policy(
+            dash_app_url,
+            {
+                "token": token,
+                "calc_graph_id": calc_graph_id,
+                "user_id": user_id,
+                "version": att_dict["new_version"],
+                "chunk_num": 0,
+            },
+            token=token,
+            with_db=with_db,
+        )
         status = await upload_via_signed_post(
-            att_dict["signed_post_policies"][0], _value, with_db=with_db
+            policy_data["policy"], _value, with_db=with_db
         )
         if status not in (200, 204):
             return failed_output(
@@ -377,7 +412,17 @@ async def combine_outputs(output_chunks, att_dict, with_db):
     return output
 
 
-async def prepare_output_chunk(chunk_num, att_dict, output_chunk, with_db, definitions):
+async def prepare_output_chunk(
+    chunk_num,
+    att_dict,
+    output_chunk,
+    user_id,
+    calc_graph_id,
+    token,
+    dash_app_url,
+    with_db,
+    definitions,
+):
     chunk_schema, definitions = describe_json_schema(
         output_chunk["value_chunk"], with_db=with_db, definitions=definitions
     )
@@ -390,8 +435,21 @@ async def prepare_output_chunk(chunk_num, att_dict, output_chunk, with_db, defin
         return serialize_output
 
     size = len(_value if _value is not None else "")
+
+    policy_data = await request_post_policy(
+        dash_app_url,
+        {
+            "token": token,
+            "calc_graph_id": calc_graph_id,
+            "user_id": user_id,
+            "version": att_dict["new_version"],
+            "chunk_num": chunk_num,
+        },
+        token=token,
+        with_db=with_db,
+    )
     status = await upload_via_signed_post(
-        att_dict["signed_post_policies"][chunk_num], _value, with_db=with_db
+        policy_data["policy"], _value, with_db=with_db
     )
     if status not in (200, 204):
         return failed_output(f"Failed to upload file to gcs. Got status code {status}")

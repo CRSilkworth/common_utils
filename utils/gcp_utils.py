@@ -4,6 +4,8 @@ import uuid
 import json
 import requests
 from io import BytesIO
+import os
+import asyncio
 
 
 def generate_signed_url(bucket_name, blob_name, expiration_minutes):
@@ -142,3 +144,34 @@ async def read_from_gcs_signed_urls(
             else:
                 text = await response.string()
                 yield text
+
+
+async def request_post_policy(
+    app_url: Text, data: dict, token: Text, with_db: bool = True
+):
+    url = os.path.join(app_url, "signed-policy")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    if with_db:
+        # Run the blocking request in a thread
+        def sync_post():
+            response = requests.post(
+                url,
+                json=data,
+                headers=headers,
+            )
+            response.raise_for_status()
+            return response.json()
+
+        return await asyncio.to_thread(sync_post)
+
+    else:
+        from pyodide.http import pyfetch
+
+        response = await pyfetch(
+            url=url,
+            method="POST",
+            headers=headers,
+            body=json.dumps(data).encode("utf-8"),
+        )
+        return await response.json()
