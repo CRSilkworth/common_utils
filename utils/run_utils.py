@@ -16,7 +16,7 @@ from utils.serialize_utils import attempt_deserialize, attempt_serialize
 from utils.gcp_utils import (
     upload_via_signed_post,
     read_from_gcs_signed_urls,
-    read_from_gcs_signed_url
+    read_from_gcs_signed_url,
     request_post_policy,
 )
 from utils.string_utils import data_to_readable_string
