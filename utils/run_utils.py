@@ -276,13 +276,16 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
                 if att_dict["signed_urls"]
                 else None
             )
+            value, output, _cleanups = attempt_deserialize(
+                value, att_dict["value_type"], with_db=with_db
+            )
         else:
             value = (
                 read_from_gcs_signed_urls(att_dict["signed_urls"], with_db=with_db)
                 if att_dict["signed_urls"]
                 else None
             )
-    if att_dict.get("gcs_stored", False) or att_dict.get("model", False):
+    elif att_dict.get("model", False):
         value, output, _cleanups = attempt_deserialize(
             value, att_dict["value_type"], with_db=with_db
         )
