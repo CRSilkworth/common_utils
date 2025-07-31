@@ -66,7 +66,9 @@ async def run_docs(
                     "stdout_output": "",
                     "stderr_output": "",
                 }
-
+            print("-" * 10)
+            print(deserialized_value)
+            print("-" * 10)
             att_dict["value"] = deserialized_value
             cleanups.extend(_cleanups)
 
