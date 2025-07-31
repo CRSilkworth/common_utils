@@ -67,9 +67,6 @@ async def run_docs(
                     "stdout_output": "",
                     "stderr_output": "",
                 }
-            print("-" * 10)
-            print(deserialized_value)
-            print("-" * 10)
             att_dict["value"] = deserialized_value
             cleanups.extend(_cleanups)
 
@@ -167,7 +164,6 @@ async def run_docs(
                 )
                 output_chunks = []
                 definitions = None
-                max_num_chunks = len(att_dict["new_signed_urls"])
                 for chunk_num, run_output_chunk in enumerate(run_generator):
                     if run_output_chunk["failed"]:
                         run_output.append(run_output_chunk)
@@ -175,14 +171,6 @@ async def run_docs(
 
                     if "value_chunk" not in run_output:
                         continue
-
-                    if chunk_num >= max_num_chunks:
-                        run_output.append(
-                            failed_output(
-                                f"Exceeded max number of chunks {max_num_chunks}."
-                            )
-                        )
-                        break
 
                     output_chunk = await prepare_output_chunk(
                         att,
@@ -291,9 +279,7 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
             size = len(value if value is not None else "")
         else:
             value = (
-                await read_from_gcs_signed_urls(
-                    att_dict["signed_urls"], with_db=with_db
-                )
+                read_from_gcs_signed_urls(att_dict["signed_urls"], with_db=with_db)
                 if att_dict["signed_urls"]
                 else None
             )
@@ -411,7 +397,7 @@ async def combine_outputs(output_chunks, att_dict, with_db):
         definitions = output_chunk["definitions"]
 
         size += output["size"]
-    output["value"] = await read_from_gcs_signed_urls(
+    output["value"] = read_from_gcs_signed_urls(
         att_dict["new_signed_urls"][:num_chunks], with_db=with_db
     )
     schema = {
