@@ -174,4 +174,7 @@ async def request_post_policy(
             headers=headers,
             body=json.dumps(data).encode("utf-8"),
         )
-        return await response.json()
+        text = await response.string()
+        print(text)
+        json_dict = json.loads(text)
+        return json_dict
