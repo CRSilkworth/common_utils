@@ -150,7 +150,6 @@ async def request_post_policy(
     app_url: Text, data: dict, token: Text, with_db: bool = True
 ):
     url = os.path.join(app_url, "signed-policy")
-    headers = {"Authorization": f"Bearer {token}"}
 
     if with_db:
         # Run the blocking request in a thread
@@ -158,7 +157,9 @@ async def request_post_policy(
             response = requests.post(
                 url,
                 json=data,
-                headers=headers,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                },
             )
             response.raise_for_status()
             return response.json()
@@ -171,7 +172,10 @@ async def request_post_policy(
         response = await pyfetch(
             url=url,
             method="POST",
-            headers=headers,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
             body=json.dumps(data).encode("utf-8"),
         )
         text = await response.string()
