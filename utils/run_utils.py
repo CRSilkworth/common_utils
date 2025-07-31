@@ -276,20 +276,17 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
                 if att_dict["signed_urls"]
                 else None
             )
-            size = len(value if value is not None else "")
         else:
             value = (
                 read_from_gcs_signed_urls(att_dict["signed_urls"], with_db=with_db)
                 if att_dict["signed_urls"]
                 else None
             )
-            size = len(value if value is not None else "")
     if att_dict.get("gcs_stored", False) or att_dict.get("model", False):
         value, output, _cleanups = attempt_deserialize(
             value, att_dict["value_type"], with_db=with_db
         )
 
-    att_dict["size"] = size
     return value, output, _cleanups
 
 
@@ -368,7 +365,7 @@ async def prepare_output(
     output["_local_type"] = att_dict["_local_type"]
     output["_schema"] = json.dumps(schema)
     output["preview"] = preview
-    output["size_delta"] = size - att_dict["size"]
+    output["size_delta"] = size - att_dict["value_size"]
 
     return output
 
@@ -396,7 +393,7 @@ async def combine_outputs(output_chunks, att_dict, with_db):
         output["stderr_output"] += output_chunk["stderr_output"]
         definitions = output_chunk["definitions"]
 
-        size += output["size"]
+        size += output["chunk_size"]
     output["value"] = read_from_gcs_signed_urls(
         att_dict["new_signed_urls"][:num_chunks], with_db=with_db
     )
@@ -418,7 +415,7 @@ async def combine_outputs(output_chunks, att_dict, with_db):
 
     output["_local_rep"] = _local_rep
 
-    output["size_delta"] = size - att_dict["size"]
+    output["size_delta"] = size - att_dict["value_size"]
 
     return output
 
