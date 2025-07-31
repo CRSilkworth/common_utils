@@ -151,6 +151,7 @@ async def run_docs(
                     run_output,
                     user_id,
                     calc_graph_id,
+                    doc_to_run,
                     token,
                     dash_app_url,
                     with_db,
@@ -185,6 +186,7 @@ async def run_docs(
                         run_output,
                         user_id,
                         calc_graph_id,
+                        doc_to_run,
                         token,
                         dash_app_url,
                         with_db,
@@ -301,7 +303,7 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
 
 
 async def prepare_output(
-    att_dict, output, user_id, calc_graph_id, token, dash_app_url, with_db
+    att_dict, output, user_id, calc_graph_id, doc_id, token, dash_app_url, with_db
 ):
     schema = describe_allowed(output["value"], with_db=with_db)
     try:
@@ -335,6 +337,7 @@ async def prepare_output(
             dash_app_url,
             {
                 "token": token,
+                "doc_id": doc_id,
                 "calc_graph_id": calc_graph_id,
                 "user_id": user_id,
                 "version": att_dict["new_version"],
@@ -426,6 +429,7 @@ async def prepare_output_chunk(
     output_chunk,
     user_id,
     calc_graph_id,
+    doc_id,
     token,
     dash_app_url,
     with_db,
@@ -448,6 +452,7 @@ async def prepare_output_chunk(
         dash_app_url,
         {
             "token": token,
+            "doc_id": doc_id,
             "calc_graph_id": calc_graph_id,
             "user_id": user_id,
             "version": att_dict["new_version"],
