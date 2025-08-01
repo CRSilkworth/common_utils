@@ -170,9 +170,6 @@ async def run_docs(
                         output_chunks.append(run_output_chunk)
                         break
 
-                    if "value_chunk" not in run_output_chunk:
-                        continue
-
                     output_chunk = await prepare_output_chunk(
                         att,
                         chunk_num,

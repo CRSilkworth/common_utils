@@ -283,8 +283,8 @@ def run_with_generator(
     """
     chunked_output_type = chunked_type_map[output_type]
     generator = capture_output_generator(func=func, **decoded_kwargs)
-    for value, combined_output, stdout_output, stderr_output, failed in generator:
-
+    for value_chunk, combined_output, stdout_output, stderr_output, failed in generator:
+        print("run", value_chunk)
         output = {
             "value_chunk": None,
             "combined_output": combined_output,
@@ -295,17 +295,17 @@ def run_with_generator(
         if failed:
             pass
         elif not is_valid_output(
-            value, output_type=chunked_output_type, with_db=with_db
+            value_chunk, output_type=chunked_output_type, with_db=with_db
         ):
             new_error = (
-                f"\nExpected output type of {output_type}. {value} is of type "
-                f"{type(value).__name__}\n"
+                f"\nExpected output type of {output_type}. {value_chunk} is of type "
+                f"{type(value_chunk).__name__}\n"
             )
             output["value_chunk"] = None
             output["failed"] = True
             output["stderr_output"] += new_error
             output["combined_output"] += new_error
         else:
-            output["value_chunk"] = value
+            output["value_chunk"] = value_chunk
 
         yield output
