@@ -394,7 +394,7 @@ def combine_outputs(output_chunks, att_dict, with_db):
         if output_chunk["failed"]:
             output["failed"] = True
         if chunk_schema is None:
-            chunk_schema = output_chunk["chunk_schema"]
+            chunk_schema = output_chunk.get("chunk_schema", None)
 
         output["combined_output"] += output_chunk["combined_output"]
         output["stdout_output"] += output_chunk["stdout_output"]
