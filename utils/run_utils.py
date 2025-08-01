@@ -167,10 +167,10 @@ async def run_docs(
                 definitions = None
                 for chunk_num, run_output_chunk in enumerate(run_generator):
                     if run_output_chunk["failed"]:
-                        run_output.append(run_output_chunk)
+                        output_chunks.append(run_output_chunk)
                         break
 
-                    if "value_chunk" not in run_output:
+                    if "value_chunk" not in run_output_chunk:
                         continue
 
                     output_chunk = await prepare_output_chunk(
