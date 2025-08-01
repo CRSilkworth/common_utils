@@ -277,10 +277,13 @@ def run_with_generator(
         Response: A response with the function result and execution details.
     """
     chunked_output_type = chunked_type_map[output_type]
+    print("before")
     gen, combined, stdout, stderr, fail = capture_output_generator(
         func=func, **decoded_kwargs
     )
+    print("gen", gen, combined, stdout, stderr, fail)
     for value_chunk in gen:
+        print("chunk", value_chunk)
         output = {
             "value_chunk": None,
             "combined_output": combined(),
@@ -288,6 +291,7 @@ def run_with_generator(
             "stderr_output": stderr(),
             "failed": fail(),
         }
+        print(output)
         if output["failed"]:
             pass
         elif not is_valid_output(
