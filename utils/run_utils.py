@@ -378,7 +378,7 @@ async def prepare_output(
     return output
 
 
-async def combine_outputs(output_chunks, att_dict, with_db):
+def combine_outputs(output_chunks, att_dict, with_db):
     output = {
         "failed": False,
         "value": None,
