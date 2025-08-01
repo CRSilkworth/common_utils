@@ -208,21 +208,15 @@ def capture_output_generator(
 
     def wrapper() -> Generator[Any, None, None]:
         nonlocal failed
-        print("wrapper")
         try:
-            print("context")
             # with contextlib.redirect_stdout(stdout_pipe), contextlib.redirect_stderr(
             #     stderr_pipe
             # ):
-            print("before")
             gen = func(*args, **kwargs)
-            print("second gen", gen)
             for item in gen:
                 print("item", item)
                 yield item
-            print("after")
         except Exception:
-            print("except")
             failed = True
             stderr_pipe.write(traceback.format_exc())
             print("stderr", traceback.format_exc())
@@ -294,34 +288,28 @@ def run_with_generator(
     gen, combined, stdout, stderr, fail = capture_output_generator(
         func=func, **decoded_kwargs
     )
-    print("gen", gen, combined, stdout, stderr, fail)
-    try:
-        for value_chunk in gen:
-            print("chunk", value_chunk)
-            output = {
-                "value_chunk": None,
-                "combined_output": combined(),
-                "stdout_output": stdout(),
-                "stderr_output": stderr(),
-                "failed": fail(),
-            }
-            print(output)
-            if output["failed"]:
-                pass
-            elif not is_valid_output(
-                value_chunk, output_type=chunked_output_type, with_db=with_db
-            ):
-                new_error = (
-                    f"\nExpected output type of {output_type}. {value_chunk} is of type "
-                    f"{type(value_chunk).__name__}\n"
-                )
-                output["value_chunk"] = None
-                output["failed"] = True
-                output["stderr_output"] += new_error
-                output["combined_output"] += new_error
-            else:
-                output["value_chunk"] = value_chunk
+    for value_chunk in gen:
+        output = {
+            "value_chunk": None,
+            "combined_output": combined(),
+            "stdout_output": stdout(),
+            "stderr_output": stderr(),
+            "failed": fail(),
+        }
+        if output["failed"]:
+            pass
+        elif not is_valid_output(
+            value_chunk, output_type=chunked_output_type, with_db=with_db
+        ):
+            new_error = (
+                f"\nExpected output type of {output_type}. {value_chunk} is of type "
+                f"{type(value_chunk).__name__}\n"
+            )
+            output["value_chunk"] = None
+            output["failed"] = True
+            output["stderr_output"] += new_error
+            output["combined_output"] += new_error
+        else:
+            output["value_chunk"] = value_chunk
 
-            yield output
-    except Exception:
-        print(traceback.format_exc())
+        yield output

@@ -450,7 +450,7 @@ async def prepare_output_chunk(
         output_chunk["value_chunk"], with_db=with_db, definitions=definitions
     )
 
-    value = output_chunk["value"]
+    value = output_chunk["value_chunk"]
     _value, serialize_output = attempt_serialize(
         value, chunked_type_map[att_dict["value_type"]], with_db=with_db
     )
