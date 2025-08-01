@@ -399,7 +399,7 @@ def combine_outputs(output_chunks, att_dict, with_db):
         output["combined_output"] += output_chunk["combined_output"]
         output["stdout_output"] += output_chunk["stdout_output"]
         output["stderr_output"] += output_chunk["stderr_output"]
-        definitions = output_chunk["definitions"]
+        definitions = output_chunk.get("definitions", None)
 
         size += output["chunk_size"]
     output["value"] = read_from_gcs_signed_urls(
