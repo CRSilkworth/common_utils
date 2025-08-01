@@ -211,16 +211,16 @@ def capture_output_generator(
         print("wrapper")
         try:
             print("context")
-            with contextlib.redirect_stdout(stdout_pipe), contextlib.redirect_stderr(
-                stderr_pipe
-            ):
-                print("before")
-                gen = func(*args, **kwargs)
-                print("second gen", gen)
-                for item in gen:
-                    print("item", item)
-                    yield item
-                print("after")
+            # with contextlib.redirect_stdout(stdout_pipe), contextlib.redirect_stderr(
+            #     stderr_pipe
+            # ):
+            print("before")
+            gen = func(*args, **kwargs)
+            print("second gen", gen)
+            for item in gen:
+                print("item", item)
+                yield item
+            print("after")
         except Exception:
             print("except")
             failed = True
