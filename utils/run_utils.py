@@ -186,6 +186,7 @@ async def run_docs(
                         with_db,
                         definitions,
                     )
+                    print("chunk", output_chunk)
                     definitions = output_chunk["definitions"]
 
                     output_chunks.append(output_chunk)
@@ -392,18 +393,21 @@ def combine_outputs(output_chunks, att_dict, with_db):
     for output_chunk in output_chunks:
         if output_chunk["failed"]:
             output["failed"] = True
+
         if chunk_schema is None:
             chunk_schema = output_chunk.get("chunk_schema", None)
 
         output["combined_output"] += output_chunk["combined_output"]
         output["stdout_output"] += output_chunk["stdout_output"]
         output["stderr_output"] += output_chunk["stderr_output"]
+
         definitions = output_chunk.get("definitions", None)
 
         size += output.get("chunk_size", 0)
 
     if output["failed"]:
         output["value"] = None
+        print("failed", output)
         return output
 
     output["value"] = read_from_gcs_signed_urls(
