@@ -190,15 +190,20 @@ def capture_output_generator(
     failed = False
 
     def output() -> str:
+        print("output")
         return stdout() + stderr()
 
     def stdout() -> str:
+        print("stdout")
         return stdout_pipe.getvalue().strip()
 
     def stderr() -> str:
+        print("stderr")
         return stderr_pipe.getvalue().strip()
 
     def failed_flag() -> bool:
+        print("failed")
+
         return failed
 
     def wrapper() -> Generator[Any, None, None]:
@@ -207,11 +212,16 @@ def capture_output_generator(
             with contextlib.redirect_stdout(stdout_pipe), contextlib.redirect_stderr(
                 stderr_pipe
             ):
+                print("before")
                 for item in func(*args, **kwargs):
+                    print("item", item)
                     yield item
+                print("after")
         except Exception:
+            print("except")
             failed = True
             stderr_pipe.write(traceback.format_exc())
+            print("stderr", traceback.format_exc())
 
     return wrapper(), output, stdout, stderr, failed_flag
 
