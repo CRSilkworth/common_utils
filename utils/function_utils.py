@@ -1,4 +1,4 @@
-from typing import Text, Dict, Any, Callable, Optional
+from typing import Text, Dict, Any, Callable, Optional, Tuple, Union, Generator
 from utils.misc_utils import failed_output
 from utils.string_utils import remove_indent
 import re
@@ -174,51 +174,46 @@ def capture_output(func: Callable, *args: Any, **kwargs: Any) -> tuple:
     return result, combined_output, stdout_output, stderr_output, failed
 
 
-def capture_output_generator(func: Callable, *args: Any, **kwargs: Any) -> tuple:
+def capture_output_generator(
+    func: Callable, *args: Any, **kwargs: Any
+) -> Tuple[Union[Any, Generator], str, str, str, bool]:
     """
     Capture the output and errors of a function execution.
 
-    Args:
-        func (Callable): The function to be executed.
-        *args (Any): Positional arguments for the function.
-        **kwargs (Any): Keyword arguments for the function.
+    Supports both regular functions and generator functions.
 
     Returns:
-        tuple: A tuple containing the function result, combined output, stdout, stderr,
-            and a failure flag.
+        tuple: (result or generator wrapper, combined_output, stdout, stderr, failed)
     """
-    # Create pipes for stdout and stderr
     stdout_pipe = io.StringIO()
     stderr_pipe = io.StringIO()
+    failed = False
 
-    try:
-        with contextlib.redirect_stdout(stdout_pipe), contextlib.redirect_stderr(
-            stderr_pipe
-        ):
-            result = func(*args, **kwargs)
-        failed = False
-    except Exception:
-        result = None
-        failed = True
-        # Capture the full traceback and write it to stderr_pipe
-        stderr_pipe.write(traceback.format_exc())
+    def output() -> str:
+        return stdout() + stderr()
 
-    # Collect output and errors
-    stdout_output = stdout_pipe.getvalue().strip()
-    stderr_output = stderr_pipe.getvalue().strip()
+    def stdout() -> str:
+        return stdout_pipe.getvalue().strip()
 
-    # Remove the non user define function traceback
-    if failed:
-        stderr_output = "\n".join(stderr_output.split("\n")[3:])
+    def stderr() -> str:
+        return stderr_pipe.getvalue().strip()
 
-    # Combine output and errors
-    combined_output = ""
-    if stdout_output:
-        combined_output += "[stdout] " + "\n[stdout] ".join(stdout_output.split("\n"))
-    if stderr_output:
-        combined_output += "[stderr] " + "\n[stderr] ".join(stderr_output.split("\n"))
+    def failed_flag() -> bool:
+        return failed
 
-    yield result, combined_output, stdout_output, stderr_output, failed
+    def wrapper() -> Generator[Any, None, None]:
+        nonlocal failed
+        try:
+            with contextlib.redirect_stdout(stdout_pipe), contextlib.redirect_stderr(
+                stderr_pipe
+            ):
+                for item in func(*args, **kwargs):
+                    yield item
+        except Exception:
+            failed = True
+            stderr_pipe.write(traceback.format_exc())
+
+    return wrapper(), output, stdout, stderr, failed_flag
 
 
 def run_with_expected_type(
@@ -282,17 +277,18 @@ def run_with_generator(
         Response: A response with the function result and execution details.
     """
     chunked_output_type = chunked_type_map[output_type]
-    generator = capture_output_generator(func=func, **decoded_kwargs)
-    for value_chunk, combined_output, stdout_output, stderr_output, failed in generator:
-        print("run", value_chunk)
+    gen, combined, stdout, stderr, fail = capture_output_generator(
+        func=func, **decoded_kwargs
+    )
+    for value_chunk in gen:
         output = {
             "value_chunk": None,
-            "combined_output": combined_output,
-            "stdout_output": stdout_output,
-            "stderr_output": stderr_output,
-            "failed": failed,
+            "combined_output": combined(),
+            "stdout_output": stdout(),
+            "stderr_output": stderr(),
+            "failed": fail(),
         }
-        if failed:
+        if output["failed"]:
             pass
         elif not is_valid_output(
             value_chunk, output_type=chunked_output_type, with_db=with_db
