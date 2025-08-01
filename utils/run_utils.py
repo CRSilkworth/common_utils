@@ -24,6 +24,7 @@ import logging
 import copy
 import json
 import traceback
+import inspect
 
 
 async def run_docs(
@@ -247,7 +248,11 @@ def get_doc_object(
         if isinstance(doc_dict[att], str):
             obj[att] = doc_dict[att]
         elif isinstance(doc_dict[att], dict):
-            obj[att] = copy.deepcopy(doc_dict[att].get("value", None))
+            value = doc_dict[att].get("value", None)
+            if inspect.isgenerator(value) or inspect.isasyncgen(value):
+                obj[att] = value
+            else:
+                obj[att] = copy.deepcopy(value)
         else:
             raise ValueError(f"Unhandled attribute dict type: {type(doc_dict[att])}")
 
