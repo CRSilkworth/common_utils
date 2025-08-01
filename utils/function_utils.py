@@ -208,12 +208,16 @@ def capture_output_generator(
 
     def wrapper() -> Generator[Any, None, None]:
         nonlocal failed
+        print("wrapper")
         try:
+            print("context")
             with contextlib.redirect_stdout(stdout_pipe), contextlib.redirect_stderr(
                 stderr_pipe
             ):
                 print("before")
-                for item in func(*args, **kwargs):
+                gen = func(*args, **kwargs)
+                print("second gen", gen)
+                for item in gen:
                     print("item", item)
                     yield item
                 print("after")
@@ -287,7 +291,6 @@ def run_with_generator(
         Response: A response with the function result and execution details.
     """
     chunked_output_type = chunked_type_map[output_type]
-    print("before")
     gen, combined, stdout, stderr, fail = capture_output_generator(
         func=func, **decoded_kwargs
     )
