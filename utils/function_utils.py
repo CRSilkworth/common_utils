@@ -292,30 +292,33 @@ def run_with_generator(
         func=func, **decoded_kwargs
     )
     print("gen", gen, combined, stdout, stderr, fail)
-    for value_chunk in gen:
-        print("chunk", value_chunk)
-        output = {
-            "value_chunk": None,
-            "combined_output": combined(),
-            "stdout_output": stdout(),
-            "stderr_output": stderr(),
-            "failed": fail(),
-        }
-        print(output)
-        if output["failed"]:
-            pass
-        elif not is_valid_output(
-            value_chunk, output_type=chunked_output_type, with_db=with_db
-        ):
-            new_error = (
-                f"\nExpected output type of {output_type}. {value_chunk} is of type "
-                f"{type(value_chunk).__name__}\n"
-            )
-            output["value_chunk"] = None
-            output["failed"] = True
-            output["stderr_output"] += new_error
-            output["combined_output"] += new_error
-        else:
-            output["value_chunk"] = value_chunk
+    try:
+        for value_chunk in gen:
+            print("chunk", value_chunk)
+            output = {
+                "value_chunk": None,
+                "combined_output": combined(),
+                "stdout_output": stdout(),
+                "stderr_output": stderr(),
+                "failed": fail(),
+            }
+            print(output)
+            if output["failed"]:
+                pass
+            elif not is_valid_output(
+                value_chunk, output_type=chunked_output_type, with_db=with_db
+            ):
+                new_error = (
+                    f"\nExpected output type of {output_type}. {value_chunk} is of type "
+                    f"{type(value_chunk).__name__}\n"
+                )
+                output["value_chunk"] = None
+                output["failed"] = True
+                output["stderr_output"] += new_error
+                output["combined_output"] += new_error
+            else:
+                output["value_chunk"] = value_chunk
 
-        yield output
+            yield output
+    except Exception:
+        print(traceback.format_exc())
