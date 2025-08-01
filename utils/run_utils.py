@@ -193,7 +193,6 @@ async def run_docs(
                 output = combine_outputs(output_chunks, att_dict, with_db)
 
                 att_dict["value"] = output["value"]
-
                 del output["value"]
                 outputs[doc_id][att] = output
     # logging.info("Serializing values")
@@ -401,7 +400,12 @@ def combine_outputs(output_chunks, att_dict, with_db):
         output["stderr_output"] += output_chunk["stderr_output"]
         definitions = output_chunk.get("definitions", None)
 
-        size += output["chunk_size"]
+        size += output.get("chunk_size", 0)
+
+    if output["failed"]:
+        output["value"] = None
+        return output
+
     output["value"] = read_from_gcs_signed_urls(
         att_dict["new_signed_urls"][:num_chunks], with_db=with_db
     )
