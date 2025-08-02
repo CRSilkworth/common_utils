@@ -4,6 +4,7 @@ from utils.function_utils import (
     create_function,
     run_with_expected_type,
     run_with_generator,
+    async_run_with_generator,
 )
 from utils.type_utils import (
     deserialize_typehint,
@@ -161,9 +162,14 @@ async def run_docs(
 
                 outputs[doc_id][att] = serialized_output
             else:
-                run_generator = run_with_generator(
-                    func, runner_kwargs, att_dict["value_type"], with_db=with_db
-                )
+                if att_dict["is_async"]:
+                    run_generator = run_with_generator(
+                        func, runner_kwargs, att_dict["value_type"], with_db=with_db
+                    )
+                else:
+                    run_generator = async_run_with_generator(
+                        func, runner_kwargs, att_dict["value_type"], with_db=with_db
+                    )
                 output_chunks = []
                 definitions = None
                 for chunk_num, run_output_chunk in enumerate(run_generator):
@@ -416,7 +422,7 @@ def combine_outputs(output_chunks, att_dict, with_db):
         "items": chunk_schema if chunk_schema else {},
         "definitions": definitions if definitions else [],
     }
-    output["_schema"] = json.dumps(schema)
+    output["_schema"] = json.dumps(schema, indent=2)
     output["preview"] = output["_schema"]
 
     local_rep = (att_dict["bucket"], att_dict["new_version"])
