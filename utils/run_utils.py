@@ -395,7 +395,8 @@ def combine_outputs(output_chunks, att_dict, with_db):
         output["combined_output"] += output_chunk["combined_output"]
         output["stdout_output"] += output_chunk["stdout_output"]
         output["stderr_output"] += output_chunk["stderr_output"]
-        signed_urls.append(output_chunk["signed_url"])
+
+        signed_urls.append(output_chunk.get("signed_url"), None)
         definitions = output_chunk.get("definitions", None)
 
         size += output.get("chunk_size", 0)
@@ -416,7 +417,7 @@ def combine_outputs(output_chunks, att_dict, with_db):
         "definitions": definitions if definitions else [],
     }
     output["_schema"] = json.dumps(schema)
-    output["preview"] = output["schema"]
+    output["preview"] = output["_schema"]
 
     local_rep = (att_dict["bucket"], att_dict["new_version"])
     local_type = deserialize_typehint(att_dict["_local_type"], with_db=with_db)
