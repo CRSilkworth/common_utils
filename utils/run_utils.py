@@ -396,7 +396,7 @@ def combine_outputs(output_chunks, att_dict, with_db):
         output["stdout_output"] += output_chunk["stdout_output"]
         output["stderr_output"] += output_chunk["stderr_output"]
 
-        signed_urls.append(output_chunk.get("signed_url"), None)
+        signed_urls.append(output_chunk.get("signed_url", None))
         definitions = output_chunk.get("definitions", None)
 
         size += output.get("chunk_size", 0)
