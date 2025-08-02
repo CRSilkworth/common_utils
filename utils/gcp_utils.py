@@ -146,10 +146,8 @@ async def read_from_gcs_signed_urls(
                 yield text
 
 
-async def request_post_policy(
-    app_url: Text, data: dict, token: Text, with_db: bool = True
-):
-    url = os.path.join(app_url, "signed-policy")
+async def request_policy(app_url: Text, data: dict, token: Text, with_db: bool = True):
+    url = os.path.join(app_url, "request-policy")
 
     if with_db:
         # Run the blocking request in a thread

@@ -17,7 +17,7 @@ from utils.gcp_utils import (
     upload_via_signed_post,
     read_from_gcs_signed_urls,
     read_from_gcs_signed_url,
-    request_post_policy,
+    request_policy,
 )
 from utils.string_utils import data_to_readable_string
 import logging
@@ -145,8 +145,6 @@ async def run_docs(
                 if run_output["failed"]:
                     continue
 
-                att_dict["value"] = run_output["value"]
-
                 serialized_output = await prepare_output(
                     att,
                     att_dict,
@@ -158,6 +156,9 @@ async def run_docs(
                     dash_app_url,
                     with_db,
                 )
+                att_dict["value"] = run_output["value"]
+                del serialized_output["value"]
+
                 outputs[doc_id][att] = serialized_output
             else:
                 run_generator = run_with_generator(
@@ -334,7 +335,7 @@ async def prepare_output(
     _local_rep = _value
     size = len(_value if _value is not None else "")
     if att_dict.get("gcs_stored", False):
-        policy_data = await request_post_policy(
+        policy = await request_policy(
             dash_app_url,
             {
                 "token": token,
@@ -348,9 +349,7 @@ async def prepare_output(
             token=token,
             with_db=with_db,
         )
-        status = await upload_via_signed_post(
-            policy_data["policy"], _value, with_db=with_db
-        )
+        status = await upload_via_signed_post(policy, _value, with_db=with_db)
         if status not in (200, 204):
             return failed_output(
                 f"Failed to upload file to gcs. Got status code {status}"
@@ -363,8 +362,6 @@ async def prepare_output(
         )
         if serialized_output:
             return serialize_output
-
-    del output["value"]
 
     output["_local_rep"] = _local_rep
     output["_local_type"] = att_dict["_local_type"]
@@ -387,6 +384,7 @@ def combine_outputs(output_chunks, att_dict, with_db):
     chunk_schema = None
     definitions = None
     size = 0
+    signed_urls = []
     for output_chunk in output_chunks:
         if output_chunk["failed"]:
             output["failed"] = True
@@ -397,7 +395,7 @@ def combine_outputs(output_chunks, att_dict, with_db):
         output["combined_output"] += output_chunk["combined_output"]
         output["stdout_output"] += output_chunk["stdout_output"]
         output["stderr_output"] += output_chunk["stderr_output"]
-
+        signed_urls.append(output_chunk["signed_urls"])
         definitions = output_chunk.get("definitions", None)
 
         size += output.get("chunk_size", 0)
@@ -407,9 +405,7 @@ def combine_outputs(output_chunks, att_dict, with_db):
         print("failed", output)
         return output
 
-    output["value"] = read_from_gcs_signed_urls(
-        att_dict["new_signed_urls"][:num_chunks], with_db=with_db
-    )
+    output["value"] = read_from_gcs_signed_urls(signed_urls, with_db=with_db)
     schema = {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "x-type": "generator",
@@ -459,7 +455,7 @@ async def prepare_output_chunk(
 
     size = len(_value if _value is not None else "")
 
-    policy_data = await request_post_policy(
+    policy = await request_policy(
         dash_app_url,
         {
             "token": token,
@@ -473,13 +469,13 @@ async def prepare_output_chunk(
         token=token,
         with_db=with_db,
     )
-    status = await upload_via_signed_post(
-        policy_data["policy"], _value, with_db=with_db
-    )
+    status = await upload_via_signed_post(policy, _value, with_db=with_db)
     if status not in (200, 204):
         return failed_output(f"Failed to upload file to gcs. Got status code {status}")
 
     output_chunk["chunk_size"] = size
     output_chunk["chunk_schema"] = chunk_schema
     output_chunk["definitions"] = definitions
+    output_chunk["url"] = policy["url"]
+    output_chunk["signed_url"] = policy["signed_url"]
     return output_chunk
