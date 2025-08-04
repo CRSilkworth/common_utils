@@ -4,7 +4,6 @@ from utils.function_utils import (
     create_function,
     run_with_expected_type,
     run_with_generator,
-    async_run_with_generator,
 )
 from utils.type_utils import (
     deserialize_typehint,
@@ -28,7 +27,7 @@ import traceback
 import inspect
 
 
-async def run_docs(
+def run_docs(
     doc_data: Dict[Text, Dict[Text, Any]],
     run_order: List[Text],
     token: Text,
@@ -55,7 +54,7 @@ async def run_docs(
             if not with_db and att in db_required:
                 continue
 
-            deserialized_value, output, _cleanups = await get_value_from_att_dict(
+            deserialized_value, output, _cleanups = get_value_from_att_dict(
                 att_dict, with_db
             )
 
@@ -146,7 +145,7 @@ async def run_docs(
                 if run_output["failed"]:
                     continue
 
-                serialized_output = await prepare_output(
+                serialized_output = prepare_output(
                     att,
                     att_dict,
                     run_output,
@@ -162,14 +161,9 @@ async def run_docs(
 
                 outputs[doc_id][att] = serialized_output
             else:
-                if att_dict["is_async"]:
-                    run_generator = run_with_generator(
-                        func, runner_kwargs, att_dict["value_type"], with_db=with_db
-                    )
-                else:
-                    run_generator = async_run_with_generator(
-                        func, runner_kwargs, att_dict["value_type"], with_db=with_db
-                    )
+                run_generator = run_with_generator(
+                    func, runner_kwargs, att_dict["value_type"], with_db=with_db
+                )
                 output_chunks = []
                 definitions = None
                 for chunk_num, run_output_chunk in enumerate(run_generator):
@@ -177,7 +171,7 @@ async def run_docs(
                         output_chunks.append(run_output_chunk)
                         break
 
-                    output_chunk = await prepare_output_chunk(
+                    output_chunk = prepare_output_chunk(
                         att,
                         chunk_num,
                         att_dict,
@@ -200,20 +194,6 @@ async def run_docs(
                 att_dict["value"] = output["value"]
                 del output["value"]
                 outputs[doc_id][att] = output
-    # logging.info("Serializing values")
-    # for doc_id in run_order:
-    #     doc_full_name = doc_data[doc_id]["full_name"]
-
-    #     for att in attributes:
-    #         if att in not_attributes:
-    #             continue
-    #         att_dict = doc_data[doc_id][att]
-    #         output = outputs[doc_id][att]
-    #         if output["failed"] or "value" not in output:
-    #             continue
-
-    #         output = await prepare_output(att, att_dict, output, with_db)
-    #         outputs[doc_id][att] = output
 
     logging.info("Cleaning up connections")
     # cleanup any connections
@@ -253,7 +233,7 @@ def get_doc_object(
             obj[att] = doc_dict[att]
         elif isinstance(doc_dict[att], dict):
             value = doc_dict[att].get("value", None)
-            if inspect.isgenerator(value) or inspect.isasyncgen(value):
+            if inspect.isgenerator(value):
                 obj[att] = value
             else:
                 obj[att] = copy.deepcopy(value)
@@ -263,7 +243,7 @@ def get_doc_object(
     return DotDict(obj, var_name=var_name)
 
 
-async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
+def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
     local_type = deserialize_typehint(att_dict["_local_type"], with_db=with_db)
     att_dict["value_type"] = deserialize_typehint(
         att_dict["_value_type"], with_db=with_db
@@ -279,9 +259,7 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
     if att_dict.get("gcs_stored", False):
         if not att_dict.get("chunked", False):
             value = (
-                await read_from_gcs_signed_url(
-                    att_dict["signed_urls"][0], with_db=with_db
-                )
+                read_from_gcs_signed_url(att_dict["signed_urls"][0], with_db=with_db)
                 if att_dict["signed_urls"]
                 else None
             )
@@ -302,7 +280,7 @@ async def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
     return value, output, _cleanups
 
 
-async def prepare_output(
+def prepare_output(
     attribute_name,
     att_dict,
     output,
@@ -341,7 +319,7 @@ async def prepare_output(
     _local_rep = _value
     size = len(_value if _value is not None else "")
     if att_dict.get("gcs_stored", False):
-        policy = await request_policy(
+        policy = request_policy(
             dash_app_url,
             {
                 "token": token,
@@ -355,7 +333,7 @@ async def prepare_output(
             token=token,
             with_db=with_db,
         )
-        status = await upload_via_signed_post(policy, _value, with_db=with_db)
+        status = upload_via_signed_post(policy, _value, with_db=with_db)
         if status not in (200, 204):
             return failed_output(
                 f"Failed to upload file to gcs. Got status code {status}"
@@ -436,7 +414,7 @@ def combine_outputs(output_chunks, att_dict, with_db):
     return output
 
 
-async def prepare_output_chunk(
+def prepare_output_chunk(
     attribute_name,
     chunk_num,
     att_dict,
@@ -462,7 +440,7 @@ async def prepare_output_chunk(
 
     size = len(_value if _value is not None else "")
 
-    policy = await request_policy(
+    policy = request_policy(
         dash_app_url,
         {
             "token": token,
@@ -476,7 +454,7 @@ async def prepare_output_chunk(
         token=token,
         with_db=with_db,
     )
-    status = await upload_via_signed_post(policy, _value, with_db=with_db)
+    status = upload_via_signed_post(policy, _value, with_db=with_db)
     if status not in (200, 204):
         return failed_output(f"Failed to upload file to gcs. Got status code {status}")
 

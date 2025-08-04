@@ -1,11 +1,10 @@
-from typing import Text, Dict, Any, AsyncGenerator
+from typing import Text, Dict, Any, Generator
 from datetime import timedelta
 import uuid
 import json
 import requests
 from io import BytesIO
 import os
-import asyncio
 
 
 def generate_signed_url(bucket_name, blob_name, expiration_minutes):
@@ -26,38 +25,13 @@ def generate_signed_url(bucket_name, blob_name, expiration_minutes):
     return signed_url
 
 
-async def upload_via_signed_post(
+def upload_via_signed_post(
     policy: dict, json_str: str, filename: str = "value.json", with_db: bool = True
 ):
-    if with_db:
-        files = {
-            "file": (filename, BytesIO(json_str.encode("utf-8")), "application/json")
-        }
+    files = {"file": (filename, BytesIO(json_str.encode("utf-8")), "application/json")}
 
-        response = requests.post(policy["url"], data=policy["fields"], files=files)
-        return response.status_code
-    else:
-        from pyodide.http import pyfetch
-        import js
-
-        form_data = js.FormData.new()
-
-        # Add all fields from the signed policy
-        for key, value in policy["fields"].items():
-            form_data.append(key, value)
-
-        # Add the actual file
-        blob = js.Blob.new([json_str], {"type": "application/json"})
-        form_data.append("file", blob, filename)
-
-        response = await pyfetch(
-            url=policy["url"],
-            method="POST",
-            body=form_data,
-        )
-        print(await response.text())
-
-        return response.status
+    response = requests.post(policy["url"], data=policy["fields"], files=files)
+    return response.status_code
 
 
 def upload_json_to_gcs(d: Dict[Text, Any], user_id: Text, bucket_name: Text) -> str:
@@ -87,7 +61,7 @@ def read_from_gcs(gcs_path: str) -> dict:
     return content
 
 
-async def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
+def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
     """
     Fetch content from a GCS-signed or public URL using plain HTTP.
 
@@ -98,24 +72,15 @@ async def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
     Returns:
         str: Content of the blob as a string.
     """
-    if with_db:
-        response = requests.get(gcs_url)
-        if response.status_code != 200:
-            return None
-        return response.text
-    else:
-        from pyodide.http import pyfetch
-
-        response = await pyfetch(gcs_url, method="GET")
-        if response.status != 200:
-            return None
-        text = await response.string()
-        return text
+    response = requests.get(gcs_url)
+    if response.status_code != 200:
+        return None
+    return response.text
 
 
-async def read_from_gcs_signed_urls(
+def read_from_gcs_signed_urls(
     gcs_urls: list[str], with_db: bool = True
-) -> AsyncGenerator[str, None]:
+) -> Generator[str, None]:
     """
     Asynchronously yield content from a list of GCS-signed or public URLs.
 
@@ -127,56 +92,23 @@ async def read_from_gcs_signed_urls(
     Yields:
         str: Content of each blob as a string.
     """
-    if with_db:
-        for url in gcs_urls:
-            response = requests.get(url)
-            if response.status_code != 200:
-                yield None
-            else:
-                yield response.text
-    else:
-        from pyodide.http import pyfetch
-
-        for url in gcs_urls:
-            response = await pyfetch(url, method="GET")
-            if response.status != 200:
-                yield None
-            else:
-                text = await response.string()
-                yield text
+    for url in gcs_urls:
+        response = requests.get(url)
+        if response.status_code != 200:
+            yield None
+        else:
+            yield response.text
 
 
-async def request_policy(app_url: Text, data: dict, token: Text, with_db: bool = True):
+def request_policy(app_url: Text, data: dict, token: Text, with_db: bool = True):
     url = os.path.join(app_url, "request-policy")
 
-    if with_db:
-        # Run the blocking request in a thread
-        def sync_post():
-            response = requests.post(
-                url,
-                json=data,
-                headers={
-                    "Authorization": f"Bearer {token}",
-                },
-            )
-            response.raise_for_status()
-            return response.json()
-
-        return await asyncio.to_thread(sync_post)
-
-    else:
-        from pyodide.http import pyfetch
-
-        response = await pyfetch(
-            url=url,
-            method="POST",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            },
-            body=json.dumps(data).encode("utf-8"),
-        )
-        text = await response.string()
-        print(text)
-        json_dict = json.loads(text)
-        return json_dict
+    response = requests.post(
+        url,
+        json=data,
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+    response.raise_for_status()
+    return response.json()
