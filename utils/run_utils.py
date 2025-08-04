@@ -274,15 +274,16 @@ def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
 
             def deserialized_gen(generator):
                 for item in generator:
-                    print(
-                        item,
-                        attempt_deserialize(
-                            item, att_dict["value_type"], with_db=with_db
-                        ),
-                    )
-                    yield attempt_deserialize(
+                    item, output, _ = attempt_deserialize(
                         item, att_dict["value_type"], with_db=with_db
                     )
+                    if output:
+                        raise ValueError(
+                            "failed to deserialize item from generator: "
+                            f"{output['stderr_output']}"
+                        )
+
+                    yield item
 
             value = deserialized_gen(value)
     elif att_dict.get("model", False):

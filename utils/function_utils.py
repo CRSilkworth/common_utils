@@ -209,9 +209,6 @@ def capture_output_generator(
     def wrapper() -> Generator[Any, None, None]:
         nonlocal failed
         try:
-            # with contextlib.redirect_stdout(stdout_pipe), contextlib.redirect_stderr(
-            #     stderr_pipe
-            # ):
             gen = func(*args, **kwargs)
             for item in gen:
                 print("item", item)
