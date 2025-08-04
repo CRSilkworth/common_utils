@@ -272,6 +272,14 @@ def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
                 if att_dict["signed_urls"]
                 else None
             )
+
+            def deserialized_gen(generator):
+                for item in generator:
+                    yield attempt_deserialize(
+                        item, att_dict["value_type"], with_db=with_db
+                    )
+
+            value = deserialized_gen(value)
     elif att_dict.get("model", False):
         value, output, _cleanups = attempt_deserialize(
             value, att_dict["value_type"], with_db=with_db
