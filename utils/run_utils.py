@@ -275,6 +275,7 @@ def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
 
             def deserialized_gen(generator):
                 for item in generator:
+                    print(item, att_dict["value_type"])
                     yield attempt_deserialize(
                         item, att_dict["value_type"], with_db=with_db
                     )
