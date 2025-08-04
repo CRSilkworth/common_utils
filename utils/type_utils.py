@@ -67,7 +67,7 @@ SimParams = typing.Dict[Text, typing.Hashable]
 FrozenSimParams = Tuple[Tuple[Text, typing.Hashable], ...]
 AllSimParams = typing.Iterable[SimParams]
 SimValues = Dict[FrozenSimParams, Allowed]
-SimValue = Tuple[FrozenSimParams, Allowed]
+SimValue = Tuple[SimParams, Allowed]
 
 
 chunked_type_map = {AllSimParams: SimParams, SimValues: SimValue, Allowed: Allowed}
