@@ -184,7 +184,6 @@ def run_docs(
                         with_db,
                         definitions,
                     )
-                    print("chunk", output_chunk)
                     definitions = output_chunk["definitions"]
 
                     output_chunks.append(output_chunk)
@@ -275,7 +274,12 @@ def get_value_from_att_dict(att_dict: Dict[Text, Any], with_db: bool):
 
             def deserialized_gen(generator):
                 for item in generator:
-                    print(item, att_dict["value_type"])
+                    print(
+                        item,
+                        attempt_deserialize(
+                            item, att_dict["value_type"], with_db=with_db
+                        ),
+                    )
                     yield attempt_deserialize(
                         item, att_dict["value_type"], with_db=with_db
                     )
@@ -396,7 +400,6 @@ def combine_outputs(output_chunks, att_dict, with_db):
 
     if output["failed"]:
         output["value"] = None
-        print("failed", output)
         return output
 
     output["value"] = read_from_gcs_signed_urls(signed_urls, with_db=with_db)
