@@ -1,4 +1,4 @@
-from typing import Text, Dict, Any, Generator
+from typing import Text, Dict, Any
 from datetime import timedelta
 import uuid
 import json
@@ -78,9 +78,7 @@ def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
     return response.text
 
 
-def read_from_gcs_signed_urls(
-    gcs_urls: list[str], with_db: bool = True
-) -> Generator[str, None]:
+def read_from_gcs_signed_urls(gcs_urls: list[str], with_db: bool = True):
     """
     Asynchronously yield content from a list of GCS-signed or public URLs.
 
