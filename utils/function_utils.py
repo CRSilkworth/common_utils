@@ -237,6 +237,7 @@ def run_with_expected_type(
     Returns:
         Response: A response with the function result and execution details.
     """
+    print("run_with_expectd", output_type)
 
     value, combined_output, stdout_output, stderr_output, failed = capture_output(
         func=func, **decoded_kwargs
@@ -282,6 +283,7 @@ def run_with_generator(
         Response: A response with the function result and execution details.
     """
     chunked_output_type = chunked_type_map[output_type]
+    print("run_with_generator", chunked_output_type)
     gen, combined, stdout, stderr, fail = capture_output_generator(
         func=func, **decoded_kwargs
     )
