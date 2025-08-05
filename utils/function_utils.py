@@ -299,8 +299,8 @@ def run_with_generator(
             value_chunk, output_type=chunked_output_type, with_db=with_db
         ):
             new_error = (
-                f"\nExpected output type of {output_type}. {value_chunk} is of type "
-                f"{type(value_chunk).__name__}\n"
+                f"\nExpected output type of {chunked_output_type}. {value_chunk} is of"
+                f" type {type(value_chunk).__name__}\n"
             )
             output["value_chunk"] = None
             output["failed"] = True

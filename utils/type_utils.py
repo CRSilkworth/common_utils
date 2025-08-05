@@ -475,10 +475,10 @@ def is_valid_output(value, output_type, with_db: bool = True):
             return False
         frzn, alwd = value
 
-        if not isinstance(frzn, tuple):
+        if not isinstance(frzn, dict):
             return False
         try:
-            for k, v in frzn:
+            for k, v in frzn.items():
                 if not isinstance(k, str):
                     return False
                 hash(v)
