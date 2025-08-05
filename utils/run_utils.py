@@ -136,7 +136,6 @@ def run_docs(
                 continue
 
             logging.info(f"Running {doc_full_name}: {att}")
-            print("att_dict", att_dict)
             if not att_dict.get("chunked", False):
                 run_output = run_with_expected_type(
                     func, runner_kwargs, att_dict["value_type"], with_db=with_db

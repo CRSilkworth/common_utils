@@ -67,7 +67,7 @@ def create_function(
         if function is None or not callable(function):
             raise ValueError(f"Failed to create python function:\n{function_string}")
     except (ValueError, SyntaxError) as e:
-        logging.warning(traceback.format_exc())
+        logging.info(traceback.format_exc())
         output = failed_output(
             f"A  error occurred when trying to deserialize the function: {str(e)}"
         )
@@ -190,20 +190,15 @@ def capture_output_generator(
     failed = False
 
     def output() -> str:
-        print("output")
         return stdout() + stderr()
 
     def stdout() -> str:
-        print("stdout")
         return stdout_pipe.getvalue().strip()
 
     def stderr() -> str:
-        print("stderr")
         return stderr_pipe.getvalue().strip()
 
     def failed_flag() -> bool:
-        print("failed")
-
         return failed
 
     def wrapper() -> Generator[Any, None, None]:
@@ -211,12 +206,11 @@ def capture_output_generator(
         try:
             gen = func(*args, **kwargs)
             for item in gen:
-                print("item", item)
                 yield item
         except Exception:
             failed = True
             stderr_pipe.write(traceback.format_exc())
-            print("stderr", traceback.format_exc())
+            logging.info("stderr", traceback.format_exc())
 
     return wrapper(), output, stdout, stderr, failed_flag
 
@@ -237,7 +231,6 @@ def run_with_expected_type(
     Returns:
         Response: A response with the function result and execution details.
     """
-    print("run_with_expectd", output_type)
 
     value, combined_output, stdout_output, stderr_output, failed = capture_output(
         func=func, **decoded_kwargs
@@ -283,7 +276,6 @@ def run_with_generator(
         Response: A response with the function result and execution details.
     """
     chunked_output_type = chunked_type_map[output_type]
-    print("run_with_generator", chunked_output_type)
     gen, combined, stdout, stderr, fail = capture_output_generator(
         func=func, **decoded_kwargs
     )
