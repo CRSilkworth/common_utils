@@ -55,13 +55,11 @@ def create_function(
                 + body.replace("\n", "\n\t")
             )
 
-        full_function_string = ""
-        for key, value in global_vars.items():
-            full_function_string += f"{key} = {repr(value)}\n"
-        full_function_string = full_function_string + function_string
-        print(full_function_string)
-        bytecode = compile(full_function_string, filename="<inline code>", mode="exec")
+        bytecode = compile(function_string, filename="<inline code>", mode="exec")
         exec_result = {}
+
+        for key, value in global_vars.items():
+            allowed_modules[key] = value
         exec(bytecode, allowed_modules, exec_result)
 
         function = exec_result.get(function_name)
