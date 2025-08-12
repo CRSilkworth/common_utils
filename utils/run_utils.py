@@ -168,7 +168,7 @@ def run_docs(
                 buffer = []
                 output_chunks = []
                 buffer_size = 0
-                group_num = 0
+                chunk_file_num = 0
                 definitions = None
                 failed = False
                 max_chunk_file_size = run_config.get("max_chunk_file_size", 1e8)
@@ -195,7 +195,7 @@ def run_docs(
                         output_chunks.append(
                             upload_group(
                                 attribute_name=att,
-                                group_num=group_num,
+                                chunk_file_num=chunk_file_num,
                                 buffer=buffer,
                                 buffer_size=buffer_size,
                                 att_dict=att_dict,
@@ -209,7 +209,7 @@ def run_docs(
                             )
                         )
                         definitions = output_chunks["definitions"]
-                        group_num += 1
+                        chunk_file_num += 1
                         buffer = []
                         buffer_size = 0
 
@@ -222,7 +222,7 @@ def run_docs(
                     output_chunks.append(
                         upload_group(
                             attribute_name=att,
-                            group_num=group_num,
+                            chunk_file_num=chunk_file_num,
                             buffer=buffer,
                             att_dict=att_dict,
                             user_id=user_id,
@@ -489,7 +489,7 @@ def combine_outputs(chunk_output_files, att_dict, failed, with_db):
 
 def upload_group(
     attribute_name,
-    group_num,
+    chunk_file_num,
     buffer,
     buffer_size,
     att_dict,
@@ -528,7 +528,7 @@ def upload_group(
             "doc_id": doc_id,
             "attribute_name": attribute_name,
             "version": att_dict["new_version"],
-            "group_num": group_num,
+            "chunk_file_num": chunk_file_num,
         },
         token=token,
         with_db=with_db,
@@ -539,7 +539,7 @@ def upload_group(
         return failed_output(f"Failed to upload file to gcs. Got status code {status}")
 
     return {
-        "group_num": group_num,
+        "chunk_file_num": chunk_file_num,
         "chunks_in_group": len(buffer),
         "chunk_schemas": chunk_schemas,
         "definitions": definitions,
