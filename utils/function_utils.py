@@ -59,6 +59,7 @@ def create_function(
         for key, value in global_vars.items():
             full_function_string += f"{key} = {repr(value)}\n"
         full_function_string = full_function_string + function_string
+        print(full_function_string)
         bytecode = compile(full_function_string, filename="<inline code>", mode="exec")
         exec_result = {}
         exec(bytecode, allowed_modules, exec_result)
