@@ -237,7 +237,6 @@ def run_docs(
                     )
 
                 output = combine_outputs(output_chunks, att_dict, failed, with_db)
-                print("final", doc_id, att, output)
                 att_dict["value"] = output["value"]
                 del output["value"]
                 outputs[doc_to_run][att] = output
