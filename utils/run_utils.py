@@ -505,8 +505,8 @@ def upload_group(
     # Combine all value_chunks into one
     combined_values = [chunk["value_chunk"] for chunk in buffer]
     combined_outputs = [chunk["combined_output"] for chunk in buffer]
-    stdout_outputs = [chunk["stdout_outputs"] for chunk in buffer]
-    stderr_outputs = [chunk["stderr_outputs"] for chunk in buffer]
+    stdout_outputs = [chunk["stdout_output"] for chunk in buffer]
+    stderr_outputs = [chunk["stderr_output"] for chunk in buffer]
     chunk_schemas = []
     for value_chunk in combined_values:
         chunk_schema, definitions = describe_json_schema(
