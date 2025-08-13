@@ -207,7 +207,10 @@ def capture_output_generator(
                 stderr_pipe
             ):
                 gen = func(*args, **kwargs)
+                print(args)
+                print(kwargs)
                 for item in gen:
+                    print(item)
                     yield item
         except Exception:
             failed = True
