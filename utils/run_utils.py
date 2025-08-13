@@ -209,7 +209,7 @@ def run_docs(
                                 definitions=definitions,
                             )
                         )
-                        definitions = output_chunks["definitions"]
+                        definitions = output_chunks[-1]["definitions"]
                         chunk_file_num += 1
                         buffer = []
                         buffer_size = 0
