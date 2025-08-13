@@ -444,7 +444,7 @@ def combine_outputs(chunk_output_files, att_dict, failed, with_db):
         definitions = chunk_file_output.get("definitions", None)
 
         size += chunk_file_output.get("buffer_size", 0)
-        num_chunks = chunk_file_output.get("num_chunks", 0)
+        num_chunks += chunk_file_output.get("num_chunks", 0)
 
     if failed:
         output["failed"] = True
