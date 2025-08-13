@@ -432,6 +432,8 @@ def combine_outputs(chunk_output_files, att_dict, failed, with_db):
     num_chunks = 0
     signed_urls = []
     for chunk_file_output in chunk_output_files:
+        print(chunk_file_output.keys())
+        print(chunk_file_output.get("num_chunks", 0))
         if chunk_schemas is None:
             chunk_schemas = []
         chunk_schemas.extend(chunk_file_output.get("chunk_schemas", []))
@@ -541,6 +543,7 @@ def upload_group(
     if status not in (200, 204):
         return failed_output(f"Failed to upload file to gcs. Got status code {status}")
 
+    print("upload", len(buffer))
     return {
         "chunk_file_num": chunk_file_num,
         "chunk_schemas": chunk_schemas,
@@ -550,6 +553,6 @@ def upload_group(
         "combined_outputs": combined_outputs,
         "stdout_outputs": stdout_outputs,
         "stderr_outputs": stderr_outputs,
-        "num_chunks": len(combined_values),
+        "num_chunks": len(buffer),
         "size": buffer_size,
     }
