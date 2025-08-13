@@ -173,6 +173,7 @@ def run_docs(
                 failed = False
                 max_chunk_file_size = run_config.get("max_chunk_file_size", 1e8)
                 for chunk_num, run_output_chunk in enumerate(run_generator):
+
                     if run_output_chunk["failed"]:
                         buffer.append(run_output_chunk)
                         failed = True
@@ -192,6 +193,7 @@ def run_docs(
                     # If adding this chunk would exceed the limit, upload the current
                     # buffer
                     if buffer and buffer_size + chunk_size > max_chunk_file_size:
+                        print("MAX_BUFFER")
                         output_chunks.append(
                             upload_group(
                                 attribute_name=att,
@@ -219,6 +221,7 @@ def run_docs(
 
                 # Upload remaining chunks if any
                 if buffer:
+                    print("END")
                     output_chunks.append(
                         upload_group(
                             attribute_name=att,
@@ -521,6 +524,7 @@ def upload_group(
         combined_values, chunked_type_map[att_dict["value_type"]], with_db=with_db
     )
     if serialize_output:
+        print("FAILED SERIALIZED", serialize_output)
         return serialize_output
 
     policy = request_policy(
