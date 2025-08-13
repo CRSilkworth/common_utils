@@ -172,7 +172,9 @@ def run_docs(
                 definitions = None
                 failed = False
                 max_chunk_file_size = run_config.get("max_chunk_file_size", 1e8)
-
+                print("8" * 100)
+                print("WHAT THE HELL")
+                print("8" * 100)
                 for chunk_num, run_output_chunk in enumerate(run_generator):
                     print(run_output_chunk)
                     if run_output_chunk["failed"]:
