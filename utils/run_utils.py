@@ -540,7 +540,6 @@ def upload_group(
 
     return {
         "chunk_file_num": chunk_file_num,
-        "chunks_in_group": len(buffer),
         "chunk_schemas": chunk_schemas,
         "definitions": definitions,
         "url": policy["url"],
