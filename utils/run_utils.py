@@ -192,7 +192,6 @@ def run_docs(
                     # If adding this chunk would exceed the limit, upload the current
                     # buffer
                     if buffer and buffer_size + chunk_size > max_chunk_file_size:
-                        print("MAX_BUFFER")
                         output_chunks.append(
                             upload_group(
                                 attribute_name=att,
@@ -220,7 +219,6 @@ def run_docs(
 
                 # Upload remaining chunks if any
                 if buffer:
-                    print("END")
                     output_chunks.append(
                         upload_group(
                             attribute_name=att,
@@ -469,7 +467,6 @@ def combine_outputs(chunk_output_files, att_dict, failed, with_db):
                 yield item
 
     output["value"] = deserialized_gen(value)
-    print("num_chunks", num_chunks)
     schema = {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "x-type": "generator",
@@ -523,7 +520,6 @@ def upload_group(
         combined_values, chunked_type_map[att_dict["value_type"]], with_db=with_db
     )
     if serialize_output:
-        print("FAILED SERIALIZED", serialize_output)
         return serialize_output
 
     policy = request_policy(
@@ -545,7 +541,6 @@ def upload_group(
     if status not in (200, 204):
         return failed_output(f"Failed to upload file to gcs. Got status code {status}")
 
-    print("upload", len(buffer))
     return {
         "chunk_file_num": chunk_file_num,
         "chunk_schemas": chunk_schemas,
