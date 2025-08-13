@@ -436,9 +436,9 @@ def combine_outputs(chunk_output_files, att_dict, failed, with_db):
             chunk_schemas = []
         chunk_schemas.extend(chunk_file_output.get("chunk_schemas", []))
 
-        output["combined_output"] += "\n".join(chunk_file_output["combined_outputs"])
-        output["stdout_output"] += "\n".join(chunk_file_output["stdout_outputs"])
-        output["stderr_output"] += "\n".join(chunk_file_output["stderr_outputs"])
+        output["combined_output"] += "".join(chunk_file_output["combined_outputs"])
+        output["stdout_output"] += "".join(chunk_file_output["stdout_outputs"])
+        output["stderr_output"] += "".join(chunk_file_output["stderr_outputs"])
 
         signed_urls.append(chunk_file_output.get("signed_url", None))
         definitions = chunk_file_output.get("definitions", None)
