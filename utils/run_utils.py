@@ -224,6 +224,7 @@ def run_docs(
                             attribute_name=att,
                             chunk_file_num=chunk_file_num,
                             buffer=buffer,
+                            buffer_size=buffer_size,
                             att_dict=att_dict,
                             user_id=user_id,
                             calc_graph_id=calc_graph_id,
