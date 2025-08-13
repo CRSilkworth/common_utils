@@ -175,7 +175,7 @@ def run_docs(
 
                 for chunk_num, run_output_chunk in enumerate(run_generator):
                     if run_output_chunk["failed"]:
-                        buffer = []
+                        buffer.append(run_output_chunk)
                         failed = True
                         break
 
@@ -184,8 +184,9 @@ def run_docs(
                         value, chunked_type_map[att_dict["value_type"]], with_db=with_db
                     )
                     if serialize_output:
-                        output_chunks.append(serialize_output)
-                        continue
+                        buffer.append(serialize_output)
+                        failed = True
+                        break
 
                     chunk_size = len(_value if _value is not None else "")
 
@@ -444,7 +445,9 @@ def combine_outputs(chunk_output_files, att_dict, failed, with_db):
 
         size += chunk_file_output.get("buffer_size", 0)
         num_chunks = chunk_file_output.get("num_chunks", 0)
+
     if failed:
+        output["failed"] = True
         output["value"] = None
         return output
 
