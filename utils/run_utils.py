@@ -160,7 +160,7 @@ def run_docs(
                 att_dict["value"] = run_output["value"]
                 del serialized_output["value"]
 
-                outputs[doc_id][att] = serialized_output
+                outputs[doc_to_run][att] = serialized_output
             else:
                 run_generator = run_with_generator(
                     func, runner_kwargs, att_dict["value_type"], with_db=with_db
@@ -237,10 +237,10 @@ def run_docs(
                     )
 
                 output = combine_outputs(output_chunks, att_dict, failed, with_db)
-                print("final", output)
+                print("final", doc_id, att, output)
                 att_dict["value"] = output["value"]
                 del output["value"]
-                outputs[doc_id][att] = output
+                outputs[doc_to_run][att] = output
 
     logging.info("Cleaning up connections")
     # cleanup any connections
