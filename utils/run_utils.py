@@ -172,11 +172,7 @@ def run_docs(
                 definitions = None
                 failed = False
                 max_chunk_file_size = run_config.get("max_chunk_file_size", 1e8)
-                print("8" * 100)
-                print("WHAT THE HELL")
-                print("8" * 100)
                 for chunk_num, run_output_chunk in enumerate(run_generator):
-                    print(run_output_chunk)
                     if run_output_chunk["failed"]:
                         buffer.append(run_output_chunk)
                         failed = True
@@ -241,6 +237,7 @@ def run_docs(
                     )
 
                 output = combine_outputs(output_chunks, att_dict, failed, with_db)
+                print("final", output)
                 att_dict["value"] = output["value"]
                 del output["value"]
                 outputs[doc_id][att] = output
@@ -423,7 +420,7 @@ def prepare_output(
 
 def combine_outputs(chunk_output_files, att_dict, failed, with_db):
     output = {
-        "failed": False,
+        "failed": failed,
         "value": None,
         "combined_output": "",
         "stdout_output": "",
@@ -435,8 +432,6 @@ def combine_outputs(chunk_output_files, att_dict, failed, with_db):
     num_chunks = 0
     signed_urls = []
     for chunk_file_output in chunk_output_files:
-        print(chunk_file_output.keys())
-        print(chunk_file_output.get("num_chunks", 0))
         if chunk_schemas is None:
             chunk_schemas = []
         chunk_schemas.extend(chunk_file_output.get("chunk_schemas", []))
@@ -472,6 +467,7 @@ def combine_outputs(chunk_output_files, att_dict, failed, with_db):
                 yield item
 
     output["value"] = deserialized_gen(value)
+    print("num_chunks", num_chunks)
     schema = {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "x-type": "generator",
