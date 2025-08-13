@@ -389,7 +389,7 @@ def prepare_output(
                 "doc_id": doc_id,
                 "attribute_name": attribute_name,
                 "version": att_dict["new_version"],
-                "chunk_num": 0,
+                "chunk_file_num": 0,
             },
             token=token,
             with_db=with_db,
