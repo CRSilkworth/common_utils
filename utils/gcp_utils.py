@@ -100,6 +100,11 @@ def read_from_gcs_signed_urls(gcs_urls: list[str], with_db: bool = True):
 
 def request_policy(app_url: Text, data: dict, token: Text, with_db: bool = True):
     url = os.path.join(app_url, "request-policy")
+    print("-" * 10)
+    print(url)
+    print(data)
+    print(token)
+    print("-" * 10)
 
     response = requests.post(
         url,
