@@ -265,7 +265,11 @@ def get_value_from_att_dict(att_dict: Dict[Text, Any]):
 
     if att_dict.get("gcs_stored", False):
         if not att_dict.get("chunked", False):
-            value = read_from_gcs_signed_url(att_dict["signed_urls"][0])
+            value = (
+                read_from_gcs_signed_url(att_dict["signed_urls"][0])
+                if att_dict["signed_urls"]
+                else None
+            )
             value, output, _cleanups = attempt_deserialize(
                 value, att_dict["value_type"]
             )
