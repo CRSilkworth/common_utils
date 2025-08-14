@@ -68,7 +68,7 @@ def run_docs(
             if attributes_to_run is None
             else attributes_to_run
         )
-        # Run all the runners associate with this doc
+        # Run all the attributes associate with this doc
         for att in attributes_to_run:
             if att in not_attributes:
                 continue
