@@ -121,7 +121,9 @@ def upload_chunk_file(
             "chunk_file_num": chunk_file_num,
         },
     )
-    policy = request_policy(auth_data["dash_app_url"], token=auth_data["token"])
+    policy = request_policy(
+        auth_data["dash_app_url"], data=policy_data, token=auth_data["token"]
+    )
 
     status = upload_via_signed_post(policy, _values)
     if status not in (200, 204):
