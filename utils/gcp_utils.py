@@ -104,9 +104,7 @@ def request_policy(app_url: Text, data: dict, token: Text, with_db: bool = True)
     response = requests.post(
         url,
         json=data,
-        headers={
-            "Authorization": f"Bearer {token}",
-        },
+        headers={"Authorization": f"Bearer {token}"},
     )
     response.raise_for_status()
     return response.json()
