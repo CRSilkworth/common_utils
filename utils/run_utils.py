@@ -193,12 +193,13 @@ def run_docs(
                 if buffer:
                     output_chunks.append(
                         upload_chunk_file(
+                            doc_id=doc_to_run,
                             attribute_name=att,
+                            att_dict=att_dict,
                             chunk_file_num=chunk_file_num,
                             buffer=buffer,
                             buffer_size=buffer_size,
-                            att_dict=att_dict,
-                            doc_id=doc_to_run,
+                            auth_data=auth_data,
                             definitions=definitions,
                         )
                     )
