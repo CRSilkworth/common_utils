@@ -26,8 +26,7 @@ def generator_from_urls(signed_urls: List[Text], value_type: Any = Allowed):
 def upload_serialized_value(
     _value, doc_id, attribute_name, version, auth_data: Dict[Text, Text]
 ):
-    policy_data = {}
-    policy_data.update(auth_data)
+    policy_data = {"auth_data": auth_data}
     policy_data.update(
         {
             "doc_id": doc_id,

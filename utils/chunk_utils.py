@@ -112,8 +112,7 @@ def upload_chunk_file(
     )
     if serialize_output:
         return serialize_output
-    policy_data = {}
-    policy_data.update(auth_data)
+    policy_data = {"auth_data": auth_data}
     policy_data.update(
         {
             "doc_id": doc_id,
