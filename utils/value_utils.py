@@ -1,12 +1,11 @@
 from typing import Text, Any, List, Dict
 from utils.type_utils import Allowed
-from utils.serialize_utils import attempt_deserialize, attempt_serialize
+from utils.serialize_utils import attempt_deserialize
 from utils.gcp_utils import (
     upload_via_signed_post,
     read_from_gcs_signed_urls,
     request_policy,
 )
-from utils.type_utils import deserialize_typehint
 from utils.misc_utils import failed_output
 
 
