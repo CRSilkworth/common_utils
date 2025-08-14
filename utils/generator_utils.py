@@ -12,6 +12,8 @@ def strict_zip(*gens):
         if all(v is sentinel for v in values):
             break  # all done
         if any(v is sentinel for v in values):
-            raise ValueError("Iterables have different lengths")
+            raise ValueError(
+                "Iterables have different lengths. Did you all the upstream nodes get run?"
+            )
 
         yield tuple(values)
