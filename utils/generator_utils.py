@@ -55,5 +55,5 @@ def sim_values_generator(sim_value_gen, chunked: bool = False):
         for key, group in groupby(sim_value_gen, key=itemgetter(0)):
             yield (value for _, value in group)
     else:
-        for value in sim_value_gen:
+        for key, value in sim_value_gen:
             yield value
