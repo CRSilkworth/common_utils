@@ -11,6 +11,8 @@ def strict_zip(*gens):
     Zip an arbitrary number of iterables together, raising ValueError
     if they don't all have the same length.
     """
+    if len(gens) == 1:
+        return gens[0]
     sentinel = object()
     iterators = [iter(g) for g in gens]
 
