@@ -48,7 +48,7 @@ def run_docs(
 
             if output:
                 outputs[doc_id][att] = output
-                print(att_dict["full_name"], "att failed")
+                print(doc_data[doc_id]["full_name"], att, "att failed")
                 continue
             else:
                 outputs[doc_id][att] = {
