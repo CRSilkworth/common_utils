@@ -221,7 +221,6 @@ def run_with_expected_type(
     func: Callable,
     decoded_kwargs: Dict[Text, Any],
     output_type: Any,
-    with_db: bool = True,
 ):
     """
     Execute a function that returns and put returned value.
@@ -246,7 +245,7 @@ def run_with_expected_type(
     }
     if failed:
         pass
-    elif not is_valid_output(value, output_type=output_type, with_db=with_db):
+    elif not is_valid_output(value, output_type=output_type):
         new_error = (
             f"\nExpected output type of {output_type}. {value} is of type "
             f"{type(value).__name__}\n"
@@ -262,10 +261,7 @@ def run_with_expected_type(
 
 
 def run_with_generator(
-    func: Callable,
-    decoded_kwargs: Dict[Text, Any],
-    output_type: Any,
-    with_db: bool = True,
+    func: Callable, decoded_kwargs: Dict[Text, Any], output_type: Any
 ):
     """
     Execute a function that returns and put returned value.
@@ -291,9 +287,7 @@ def run_with_generator(
         }
         if output["failed"]:
             pass
-        elif not is_valid_output(
-            value_chunk, output_type=chunked_output_type, with_db=with_db
-        ):
+        elif not is_valid_output(value_chunk, output_type=chunked_output_type):
             new_error = (
                 f"\nExpected output type of {chunked_output_type}. {value_chunk} is of"
                 f" type {type(value_chunk).__name__}\n"

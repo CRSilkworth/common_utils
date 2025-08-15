@@ -25,9 +25,7 @@ def generate_signed_url(bucket_name, blob_name, expiration_minutes):
     return signed_url
 
 
-def upload_via_signed_post(
-    policy: dict, json_str: str, filename: str = "value.json", with_db: bool = True
-):
+def upload_via_signed_post(policy: dict, json_str: str, filename: str = "value.json"):
     files = {"file": (filename, BytesIO(json_str.encode("utf-8")), "application/json")}
 
     response = requests.post(policy["url"], data=policy["fields"], files=files)
@@ -61,7 +59,7 @@ def read_from_gcs(gcs_path: str) -> dict:
     return content
 
 
-def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
+def read_from_gcs_signed_url(gcs_url: str) -> str:
     """
     Fetch content from a GCS-signed or public URL using plain HTTP.
 
@@ -78,7 +76,7 @@ def read_from_gcs_signed_url(gcs_url: str, with_db: bool = True) -> str:
     return response.text
 
 
-def read_from_gcs_signed_urls(gcs_urls: list[str], with_db: bool = True):
+def read_from_gcs_signed_urls(gcs_urls: list[str]):
     """
     Asynchronously yield content from a list of GCS-signed or public URLs.
 
@@ -98,7 +96,7 @@ def read_from_gcs_signed_urls(gcs_urls: list[str], with_db: bool = True):
             yield response.text
 
 
-def request_policy(app_url: Text, data: dict, token: Text, with_db: bool = True):
+def request_policy(app_url: Text, data: dict, token: Text):
     url = os.path.join(app_url, "request-policy")
     response = requests.post(
         url,

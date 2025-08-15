@@ -181,9 +181,8 @@ def test_is_valid_output_with_torch_module(monkeypatch):
     # patch to simulate torch.nn.Module
     monkeypatch.setattr(type_utils, "is_allowed_type", lambda obj: True)
 
-    # forcibly test with_db=True and output_type torch.nn.Module
     dummy_module = DummyTorchModule()
-    assert type_utils.is_valid_output(dummy_module, DummyTorchModule, with_db=True)
+    assert type_utils.is_valid_output(dummy_module, DummyTorchModule)
 
 
 def test_is_valid_output_union_figure_and_dict(monkeypatch):

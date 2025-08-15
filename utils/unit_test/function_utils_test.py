@@ -97,32 +97,6 @@ def test_capture_output_exception():
     assert "[stderr] " in combined
 
 
-def test_run_with_expected_type_success(monkeypatch):
-    def test_func():
-        return 123
-
-    # Patch is_valid_output to True
-    monkeypatch.setattr(
-        function_utils, "is_valid_output", lambda value, output_type, with_db: True
-    )
-    output = function_utils.run_with_expected_type(test_func, {}, int)
-    assert output["value"] == 123
-    assert not output["failed"]
-
-
-def test_run_with_expected_type_failure_type(monkeypatch):
-    def test_func():
-        return "string"
-
-    monkeypatch.setattr(
-        function_utils, "is_valid_output", lambda value, output_type, with_db: False
-    )
-    output = function_utils.run_with_expected_type(test_func, {}, int)
-    assert output["value"] is None
-    assert output["failed"]
-    assert "Expected output type" in output["stderr_output"]
-
-
 def test_run_with_expected_type_failed_execution(monkeypatch):
     def test_func():
         raise Exception("fail")

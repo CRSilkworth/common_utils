@@ -23,6 +23,7 @@ import typing
 import typing_extensions
 import sqlite3
 import plotly.graph_objects as go
+import torch
 
 TextOrint = TypeVar("TextOrint", Text, int)
 
@@ -67,10 +68,9 @@ SimParams = typing.Dict[Text, typing.Hashable]
 FrozenSimParams = Tuple[Tuple[Text, typing.Hashable], ...]
 AllSimParams = typing.Iterable[SimParams]
 SimValues = Dict[FrozenSimParams, Allowed]
-SimValue = Tuple[SimParams, Allowed]
 
 
-chunked_type_map = {AllSimParams: SimParams, SimValues: SimValue, Allowed: Allowed}
+chunked_type_map = {AllSimParams: SimParams, SimValues: Allowed, Allowed: Allowed}
 
 
 class GCSPath(str):
@@ -92,33 +92,30 @@ def hash_schema(schema):
     return hashlib.md5(str(schema).encode()).hexdigest()
 
 
-def describe_json_schema(
-    obj, definitions=None, path="", with_db: bool = True, max_len: int = 32
-):
+def describe_json_schema(obj, definitions=None, path="", max_len: int = 32):
     if definitions is None:
         definitions = {}
 
-    if with_db:
-        import torch
+    import torch
 
-        if isinstance(obj, torch.nn.Module):
-            import inspect
+    if isinstance(obj, torch.nn.Module):
+        import inspect
 
-            try:
-                sig = inspect.signature(obj.__class__.__init__)
-                args_info = {
-                    k: str(v.annotation) if v.annotation != inspect._empty else "Any"
-                    for k, v in sig.parameters.items()
-                    if k != "self"
-                }
-            except Exception:
-                args_info = {}
-
-            schema = {
-                "x-type": "torch.nn.Module",
-                "type": "object",
-                "properties": {"class": obj.__class__.__name__, "args": args_info},
+        try:
+            sig = inspect.signature(obj.__class__.__init__)
+            args_info = {
+                k: str(v.annotation) if v.annotation != inspect._empty else "Any"
+                for k, v in sig.parameters.items()
+                if k != "self"
             }
+        except Exception:
+            args_info = {}
+
+        schema = {
+            "x-type": "torch.nn.Module",
+            "type": "object",
+            "properties": {"class": obj.__class__.__name__, "args": args_info},
+        }
 
     if isinstance(obj, dict):
         # Represent dict as array of [key, value] pairs
@@ -128,10 +125,10 @@ def describe_json_schema(
             for k, v in obj.items():
                 k = str(k)
                 key_schema, definitions = describe_json_schema(
-                    k, definitions, f"{path}/key/{k}", with_db=with_db
+                    k, definitions, f"{path}/key/{k}"
                 )
                 val_schema, definitions = describe_json_schema(
-                    v, definitions, f"{path}/value/{k}", with_db=with_db
+                    v, definitions, f"{path}/value/{k}"
                 )
 
                 properties[k] = {"key": key_schema, "value": val_schema}
@@ -146,10 +143,10 @@ def describe_json_schema(
             # Get the schema from the *first* key and value
             first_key, first_val = next(iter(obj.items()))
             key_schema, definitions = describe_json_schema(
-                first_key, definitions, path + "/key", with_db=with_db
+                first_key, definitions, path + "/key"
             )
             val_schema, definitions = describe_json_schema(
-                first_val, definitions, path + "/value", with_db=with_db
+                first_val, definitions, path + "/value"
             )
 
             schema = {
@@ -165,7 +162,7 @@ def describe_json_schema(
     elif isinstance(obj, list):
         if obj:
             items_schema, definitions = describe_json_schema(
-                obj[0], definitions, path + "/items", with_db=with_db
+                obj[0], definitions, path + "/items"
             )
             schema = {
                 "x-type": "list",
@@ -180,7 +177,7 @@ def describe_json_schema(
         x_type = "frozenset" if isinstance(obj, frozenset) else "set"
         if obj:
             items_schema, definitions = describe_json_schema(
-                next(iter(obj)), definitions, path + "/items", with_db=with_db
+                next(iter(obj)), definitions, path + "/items"
             )
             schema = {
                 "x-type": x_type,
@@ -242,10 +239,8 @@ def describe_json_schema(
     return {"$ref": f"#/definitions/{key}"}, definitions
 
 
-def describe_allowed(obj, with_db: bool = True, definitions=None):
-    schema, definitions = describe_json_schema(
-        obj, with_db=with_db, definitions=definitions
-    )
+def describe_allowed(obj, definitions=None):
+    schema, definitions = describe_json_schema(obj, definitions=definitions)
     return {
         "$schema": "http://json-schema.org/draft-07/schema#",
         **schema,
@@ -279,7 +274,7 @@ def is_allowed_type(obj) -> bool:
     return False
 
 
-def serialize_typehint(t: type, with_db: bool = True) -> str:
+def serialize_typehint(t: type) -> str:
     """Serialize a type hint to a string (prefer registered name over full path)."""
     if isinstance(t, str):
         return t
@@ -287,7 +282,7 @@ def serialize_typehint(t: type, with_db: bool = True) -> str:
     if isinstance(t, TypeVar):
         return f"TypeVar({t.__name__})"
 
-    known_types = get_known_types(with_db=with_db)
+    known_types = get_known_types()
 
     for k, v in known_types.items():
         if v == t:
@@ -300,8 +295,8 @@ def serialize_typehint(t: type, with_db: bool = True) -> str:
     args = get_args(t)
 
     if origin:
-        origin_str = serialize_typehint(origin, with_db=with_db)
-        args_str = ", ".join(serialize_typehint(arg, with_db=with_db) for arg in args)
+        origin_str = serialize_typehint(origin)
+        args_str = ", ".join(serialize_typehint(arg) for arg in args)
         return f"{origin_str}[{args_str}]"
 
     if hasattr(t, "__module__") and hasattr(t, "__qualname__"):
@@ -312,9 +307,7 @@ def serialize_typehint(t: type, with_db: bool = True) -> str:
     return str(t)
 
 
-def get_known_types(
-    custom_types: Optional[Dict[Text, Any]] = None, with_db: bool = True
-):
+def get_known_types(custom_types: Optional[Dict[Text, Any]] = None):
     known_types = {
         # Built-ins
         **vars(builtins),
@@ -349,7 +342,6 @@ def get_known_types(
         "utils.type_utils.SimParams": SimParams,
         "utils.type_utils.FrozenSimParams": FrozenSimParams,
         "utils.type_utils.SimValues": SimValues,
-        "utils.type_utils.SimValue": SimValue,
         "utils.type_utils.Allowed": Allowed,
         "utils.type_utils.GCSPath": GCSPath,
         "typing.Hashable": typing.Hashable,
@@ -357,50 +349,47 @@ def get_known_types(
         "typing.Tuple": typing.Tuple,
     }
 
-    if with_db:
-        from pymongo.mongo_client import MongoClient as PyMongoClient
-        from psycopg2.extensions import connection as Psycopg2Connection
-        from google.cloud.bigquery import Client as BigQueryClient
-        import torch
-        import pymongo
+    from pymongo.mongo_client import MongoClient as PyMongoClient
+    from psycopg2.extensions import connection as Psycopg2Connection
+    from google.cloud.bigquery import Client as BigQueryClient
+    import torch
+    import pymongo
 
-        known_types.update(
-            {
-                "pymongo": __import__("pymongo"),
-                "pymongo.mongo_client": pymongo.mongo_client,
-                "pymongo.synchronous.mongo_client": pymongo.mongo_client,
-                "pymongo.mongo_client.MongoClient": PyMongoClient,
-                "pymongo.synchronous.mongo_client.MongoClient": PyMongoClient,
-                "psycopg2": __import__("psycopg2"),
-                "psycopg2.extensions.connection": Psycopg2Connection,
-                "google": __import__("google"),
-                "google.cloud": __import__("google.cloud", fromlist=["bigquery"]),
-                "google.cloud.bigquery": __import__(
-                    "google.cloud.bigquery", fromlist=["client"]
-                ),
-                "google.cloud.bigquery.client.Client": BigQueryClient,
-                "torch": torch,
-                "torch.nn": torch.nn,
-                "nn": torch.nn,
-                "torch.nn.Module": torch.nn.Module,
-                "torch.nn.modules.module.Module": torch.nn.Module,
-            }
-        )
+    known_types.update(
+        {
+            "pymongo": __import__("pymongo"),
+            "pymongo.mongo_client": pymongo.mongo_client,
+            "pymongo.synchronous.mongo_client": pymongo.mongo_client,
+            "pymongo.mongo_client.MongoClient": PyMongoClient,
+            "pymongo.synchronous.mongo_client.MongoClient": PyMongoClient,
+            "psycopg2": __import__("psycopg2"),
+            "psycopg2.extensions.connection": Psycopg2Connection,
+            "google": __import__("google"),
+            "google.cloud": __import__("google.cloud", fromlist=["bigquery"]),
+            "google.cloud.bigquery": __import__(
+                "google.cloud.bigquery", fromlist=["client"]
+            ),
+            "google.cloud.bigquery.client.Client": BigQueryClient,
+            "torch": torch,
+            "torch.nn": torch.nn,
+            "nn": torch.nn,
+            "torch.nn.Module": torch.nn.Module,
+            "torch.nn.modules.module.Module": torch.nn.Module,
+        }
+    )
 
     if custom_types:
         known_types.update(custom_types)
     return known_types
 
 
-def deserialize_typehint(
-    s: str, custom_types: dict = None, with_db: bool = True
-) -> type:
+def deserialize_typehint(s: str, custom_types: dict = None) -> type:
     """Deserialize a string back into a type hint."""
 
     if not isinstance(s, str):
         raise TypeError(f"Expected a string, got {type(s).__name__}: {s}")
 
-    known_types = get_known_types(custom_types=custom_types, with_db=with_db)
+    known_types = get_known_types(custom_types=custom_types)
 
     if s.startswith("TypeVar(") and s.endswith(")"):
         name = s[len("TypeVar(") : -1]  # noqa: E203
@@ -436,7 +425,7 @@ def _resolve_forwardrefs(tp, globalns):
     return origin[resolved_args]
 
 
-def is_valid_output(value, output_type, with_db: bool = True):
+def is_valid_output(value, output_type):
     if output_type == sqlite3.Connection:
         return isinstance(value, sqlite3.Connection)
     if output_type == AllSimParams:
@@ -470,30 +459,9 @@ def is_valid_output(value, output_type, with_db: bool = True):
                 return False
 
         return True
-    if output_type == SimValue:
-        if not isinstance(value, tuple) or not len(value) == 2:
-            return False
-        frzn, alwd = value
 
-        if not isinstance(frzn, dict):
-            return False
-        try:
-            for k, v in frzn.items():
-                if not isinstance(k, str):
-                    return False
-                hash(v)
-        except TypeError:
-            return False
-
-        if not is_allowed_type(alwd):
-            return False
-
-        return True
-    if with_db:
-        import torch
-
-        if output_type == torch.nn.Module:
-            return isinstance(value, torch.nn.Module)
+    if output_type == torch.nn.Module:
+        return isinstance(value, torch.nn.Module)
 
     origin = get_origin(output_type)
     args = get_args(output_type)

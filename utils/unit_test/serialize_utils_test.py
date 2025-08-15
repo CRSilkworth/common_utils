@@ -185,7 +185,7 @@ def test_encode_obj_with_db_dict_special(monkeypatch):
     monkeypatch.setitem(__import__("builtins").__dict__, "torch", DummyTorch())
 
     # Actually test encode_obj for this special case
-    result = serialize_utils.encode_obj(obj, with_db=True)
+    result = serialize_utils.encode_obj(obj)
     assert result["__kind__"] == "TorchModel"
     assert "class_def" in result["data"]
 
