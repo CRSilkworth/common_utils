@@ -12,7 +12,8 @@ def strict_zip(*gens):
     if they don't all have the same length.
     """
     if len(gens) == 1:
-        return gens[0]
+        for val in gens[0]:
+            yield val
     sentinel = object()
     iterators = [iter(g) for g in gens]
 
