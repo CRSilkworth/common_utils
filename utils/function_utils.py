@@ -144,10 +144,10 @@ def capture_output(func: Callable, *args: Any, **kwargs: Any) -> tuple:
     stderr_pipe = io.StringIO()
 
     try:
-        with contextlib.redirect_stdout(stdout_pipe), contextlib.redirect_stderr(
-            stderr_pipe
-        ):
-            result = func(*args, **kwargs)
+        # with contextlib.redirect_stdout(stdout_pipe), contextlib.redirect_stderr(
+        #     stderr_pipe
+        # ):
+        result = func(*args, **kwargs)
         failed = False
     except Exception:
         result = None
