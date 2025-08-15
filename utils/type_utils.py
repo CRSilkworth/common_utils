@@ -433,20 +433,27 @@ def is_valid_output(value, output_type):
     if output_type == SimParams:
         try:
             if not isinstance(value, dict):
+                print("not dict", value)
                 return False
             for key, value in value.items():
                 if not isinstance(key, str):
+                    print("not str", key, type(key))
+
                     return False
                 hash(value)
         except TypeError:
+            print("not hash", value, type(value))
             return False
 
         return True
     if output_type == AllSimParams:
+        print("in sim params")
         if not isinstance(value, abc_Iterable):
+            print("not iterable")
             return False
         for sim_params in value:
             if not is_valid_output(sim_params, output_type=SimParams):
+                print("not sim_params", sim_params)
                 return False
 
         return True
