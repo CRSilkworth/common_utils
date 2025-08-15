@@ -102,7 +102,7 @@ def run_docs(
 
             if skip_run:
                 continue
-
+            print(doc_full_name, att)
             header_code = ""
             if att == "model":
                 header_code = att_dict["class_def"]
