@@ -1,26 +1,6 @@
-from typing import Text, Any, List, Dict
-from utils.type_utils import Allowed
-from utils.serialize_utils import attempt_deserialize
-from utils.gcp_utils import (
-    upload_via_signed_post,
-    read_from_gcs_signed_urls,
-    request_policy,
-)
+from typing import Text, Dict
+from utils.gcp_utils import upload_via_signed_post, request_policy
 from utils.misc_utils import failed_output
-
-
-def generator_from_urls(signed_urls: List[Text], value_type: Any = Allowed):
-    value = read_from_gcs_signed_urls(signed_urls) if signed_urls else None
-
-    for file_content in value:
-        file_content, output, _ = attempt_deserialize(file_content, value_type)
-        if output:
-            raise ValueError(
-                "failed to deserialize file from generator: "
-                f"{output['stderr_output']}"
-            )
-        for item in file_content:
-            yield item
 
 
 def upload_serialized_value(

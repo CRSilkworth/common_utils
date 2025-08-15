@@ -14,6 +14,7 @@ from typing import (
     Iterable,
     Hashable,
 )
+from collections.abc import Iterable as abc_Iterable
 import numpy as np
 import pandas as pd
 from collections.abc import Mapping, Sequence
@@ -68,9 +69,9 @@ SimParams = typing.Dict[Text, typing.Hashable]
 FrozenSimParams = Tuple[Tuple[Text, typing.Hashable], ...]
 AllSimParams = typing.Iterable[SimParams]
 SimValues = Dict[FrozenSimParams, Allowed]
+SimValue = Tuple[SimParams, Allowed]
 
-
-chunked_type_map = {AllSimParams: SimParams, SimValues: Allowed, Allowed: Allowed}
+chunked_type_map = {AllSimParams: SimParams, SimValues: SimValue, Allowed: Allowed}
 
 
 class GCSPath(str):
@@ -342,6 +343,7 @@ def get_known_types(custom_types: Optional[Dict[Text, Any]] = None):
         "utils.type_utils.SimParams": SimParams,
         "utils.type_utils.FrozenSimParams": FrozenSimParams,
         "utils.type_utils.SimValues": SimValues,
+        "utils.type_utils.SimValue": SimValue,
         "utils.type_utils.Allowed": Allowed,
         "utils.type_utils.GCSPath": GCSPath,
         "typing.Hashable": typing.Hashable,
@@ -428,17 +430,24 @@ def _resolve_forwardrefs(tp, globalns):
 def is_valid_output(value, output_type):
     if output_type == sqlite3.Connection:
         return isinstance(value, sqlite3.Connection)
-    if output_type == AllSimParams:
+    if output_type == SimParams:
         try:
-            for sim_params in value:
-                if not isinstance(sim_params, dict):
+            if not isinstance(value, dict):
+                return False
+            for key, value in value.items():
+                if not isinstance(key, str):
                     return False
-                for key, value in sim_params.items():
-                    if not isinstance(key, str):
-                        return False
-                    hash(value)
+                hash(value)
         except TypeError:
             return False
+
+        return True
+    if output_type == AllSimParams:
+        if not isinstance(value, abc_Iterable):
+            return False
+        for sim_params in value:
+            if not is_valid_output(value, output_type=SimParams):
+                return False
 
         return True
     if output_type == SimValues:
@@ -457,6 +466,19 @@ def is_valid_output(value, output_type):
 
             if not is_allowed_type(alwd):
                 return False
+
+        return True
+
+    if output_type == SimValue:
+        if not isinstance(value, tuple) or not len(value) == 2:
+            return False
+        frzn, alwd = value
+
+        if not is_valid_output(frzn, SimParams):
+            return False
+
+        if not is_allowed_type(alwd):
+            return False
 
         return True
 
