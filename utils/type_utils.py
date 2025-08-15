@@ -446,7 +446,7 @@ def is_valid_output(value, output_type):
         if not isinstance(value, abc_Iterable):
             return False
         for sim_params in value:
-            if not is_valid_output(value, output_type=SimParams):
+            if not is_valid_output(sim_params, output_type=SimParams):
                 return False
 
         return True
