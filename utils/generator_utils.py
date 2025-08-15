@@ -11,6 +11,7 @@ def strict_zip(*gens):
     Zip an arbitrary number of iterables together, raising ValueError
     if they don't all have the same length.
     """
+    print(1, gens)
     if len(gens) == 1:
         print("here")
         for val in gens[0]:
