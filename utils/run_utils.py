@@ -207,6 +207,7 @@ def run_docs(
 
                 output = combine_chunk_outputs(output_chunks, att_dict, failed)
                 att_dict["value"] = output["value"]
+                att_dict["signed_urls"] = output["signed_urls"]
                 del output["value"]
                 outputs[doc_to_run][att] = output
 

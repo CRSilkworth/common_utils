@@ -71,6 +71,7 @@ def combine_chunk_outputs(chunk_output_files, att_dict, failed):
         "items": chunk_schemas[0] if chunk_schemas else {},
         "definitions": definitions if definitions else [],
     }
+    output["signed_urls"] = signed_urls
     output["_schema"] = json.dumps(schema, indent=2)
     output["preview"] = output["_schema"]
 
