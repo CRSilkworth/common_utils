@@ -48,7 +48,6 @@ def run_docs(
 
             if output:
                 outputs[doc_id][att] = output
-                print(doc_data[doc_id]["full_name"], att, "att failed")
                 continue
             else:
                 outputs[doc_id][att] = {
@@ -80,7 +79,6 @@ def run_docs(
                 continue
 
             logging.info(f"Running {att}")
-            print("try run", doc_full_name, att)
 
             # Set all the arguments to the function to run
             runner_kwargs = {}
@@ -95,17 +93,16 @@ def run_docs(
                             f"{input_doc_dict['full_name']}:"
                             f" {output['stderr_output']}"
                         )
-                        print(var_name, "failed")
                         skip_run = True
                         break
                 if skip_run:
                     break
 
                 runner_kwargs[var_name] = get_doc_object(var_name, input_doc_dict)
-            print("before skip")
+
             if skip_run:
                 continue
-            print("will run", doc_full_name, att)
+
             header_code = ""
             if att == "model":
                 header_code = att_dict["class_def"]
@@ -250,7 +247,10 @@ def get_doc_object(var_name: Text, doc_dict: Dict[Text, Dict[Text, Any]]) -> Dot
         elif isinstance(doc_dict[att], dict):
             value = doc_dict[att].get("value", None)
             if inspect.isgenerator(value):
-                obj[att] = value
+                # Recreate the generator in case it's been used.
+                obj[att] = generator_from_urls(
+                    doc_dict[att]["signed_urls"], doc_dict[att]["value_type"]
+                )
             else:
                 obj[att] = copy.deepcopy(value)
         else:
