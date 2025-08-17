@@ -77,7 +77,6 @@ def run_docs(
             att_dict = doc_data[doc_to_run][att]
             if not att_dict.get("runnable", False) or att_dict.get("empty", False):
                 continue
-            print(doc_full_name, att)
 
             logging.info(f"Running {att}")
 
