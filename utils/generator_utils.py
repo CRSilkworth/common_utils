@@ -16,14 +16,11 @@ def strict_zip(*gens):
             yield val
     sentinel = object()
     iterators = [iter(g) for g in gens]
-    num = 0
     while True:
         values = [next(it, sentinel) for it in iterators]
-        print(num)
         if all(v is sentinel for v in values):
             break  # all done
         if any(v is sentinel for v in values):
-            print(values)
             raise ValueError(
                 "Iterables have different lengths. Did all the upstream nodes "
                 "get run?"
