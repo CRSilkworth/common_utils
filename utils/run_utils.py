@@ -213,7 +213,6 @@ def run_docs(
                 del output["value"]
 
                 # Send the attribute result back to the backend
-                outputs[doc_to_run][att] = output
                 data = {
                     "docs_to_run": [doc_to_run],
                     "outputs": {doc_to_run: {att: output}},
@@ -221,6 +220,7 @@ def run_docs(
                     "auth_data": auth_data,
                     "run_completed": False,
                 }
+                print(data)
                 requests.post(
                     os.path.join(auth_data["dash_app_url"], "job-result"),
                     json=data,
@@ -231,8 +231,6 @@ def run_docs(
     # cleanup any connections
     for cleanup in cleanups:
         cleanup()
-
-    return outputs
 
 
 class DotDict(dict):
