@@ -21,6 +21,8 @@ import logging
 import copy
 import json
 import inspect
+import requests
+import os
 
 
 def run_docs(
@@ -209,7 +211,21 @@ def run_docs(
                 att_dict["value"] = output["value"]
                 att_dict["signed_urls"] = output["signed_urls"]
                 del output["value"]
+
+                # Send the attribute result back to the backend
                 outputs[doc_to_run][att] = output
+                data = {
+                    "docs_to_run": [doc_to_run],
+                    "outputs": {doc_to_run: {att: output}},
+                    "caller": kwargs.get("caller", None),
+                    "auth_data": auth_data,
+                    "run_completed": False,
+                }
+                requests.post(
+                    os.path.join(auth_data["dash_app_url"], "job-result"),
+                    json=data,
+                    headers={"Authorization": f"Bearer {auth_data['token']}"},
+                )
 
     logging.info("Cleaning up connections")
     # cleanup any connections
