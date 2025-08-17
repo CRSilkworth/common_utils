@@ -80,8 +80,8 @@ def run_docs(
             if not att_dict.get("runnable", False) or att_dict.get("empty", False):
                 continue
 
-            logging.info(f"Running {att}")
-
+            logging.info(f"Running {doc_full_name}-{att}")
+            print(f"Running {doc_full_name}-{att}")
             # Set all the arguments to the function to run
             runner_kwargs = {}
             for var_name, input_doc_id in att_dict["var_name_to_id"].items():
@@ -103,6 +103,7 @@ def run_docs(
                 runner_kwargs[var_name] = get_doc_object(var_name, input_doc_dict)
 
             if skip_run:
+                print(f"Skipping {doc_full_name}-{att}")
                 continue
 
             header_code = ""
@@ -151,7 +152,7 @@ def run_docs(
                 definitions = None
                 failed = False
                 max_chunk_file_size = run_config.get("max_chunk_file_size", 1e8)
-                for chunk_num, run_output_chunk in enumerate(run_generator):
+                for run_output_chunk in run_generator:
                     if run_output_chunk["failed"]:
                         buffer.append(run_output_chunk)
                         failed = True
@@ -220,7 +221,10 @@ def run_docs(
                     "auth_data": auth_data,
                     "run_completed": False,
                 }
+                print("-" * 10)
                 print(data)
+                print("-" * 10)
+
                 requests.post(
                     os.path.join(auth_data["dash_app_url"], "job-result"),
                     json=data,
