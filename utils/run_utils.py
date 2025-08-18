@@ -301,12 +301,14 @@ def prepare_output(attribute_name, att_dict, output, doc_id, auth_data):
     size = len(_value if _value is not None else "")
 
     if att_dict.get("gcs_stored", False):
-        upload_serialized_value(
+        policy = upload_serialized_value(
             _value, doc_id, attribute_name, att_dict["new_version"], auth_data
         )
         local_rep = (att_dict["bucket"], att_dict["new_version"])
         local_type = deserialize_typehint(att_dict["_local_type"])
         _local_rep, _ = attempt_serialize(local_rep, local_type)
+
+        output["signed_urls"] = [policy["signed_url"]]
 
     output["_local_rep"] = _local_rep
     output["_local_type"] = att_dict["_local_type"]

@@ -23,3 +23,5 @@ def upload_serialized_value(
     status = upload_via_signed_post(policy, _value)
     if status not in (200, 204):
         return failed_output(f"Failed to upload file to gcs. Got status code {status}")
+
+    return policy
