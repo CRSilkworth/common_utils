@@ -319,14 +319,14 @@ def prepare_output(attribute_name, att_dict, output, doc_id, auth_data):
     return output
 
 
-def send_output(outputs, docs_to_run, auth_data, caller):
+def send_output(outputs, docs_to_run, auth_data, caller, run_completed: bool = False):
     # Send the attribute result back to the backend
     data = {
         "docs_to_run": docs_to_run,
         "outputs": outputs,
         "caller": caller,
         "auth_data": auth_data,
-        "run_completed": False,
+        "run_completed": run_completed,
     }
     print("-" * 10)
     print(data)
