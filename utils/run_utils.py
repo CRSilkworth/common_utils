@@ -127,6 +127,14 @@ def run_docs(
                 output = run_with_expected_type(
                     func, runner_kwargs, att_dict["value_type"]
                 )
+                if output["failed"]:
+                    send_output(
+                        {doc_to_run: {att: output}},
+                        [doc_to_run],
+                        auth_data,
+                        kwargs.get("caller"),
+                    )
+                    continue
 
                 output = prepare_output(att, att_dict, output, doc_to_run, auth_data)
             else:
