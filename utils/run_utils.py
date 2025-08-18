@@ -329,9 +329,6 @@ def send_output(outputs, docs_to_run, auth_data, caller, run_completed: bool = F
         "auth_data": auth_data,
         "run_completed": run_completed,
     }
-    print("-" * 10)
-    print(data)
-    print("-" * 10)
 
     requests.post(
         os.path.join(auth_data["dash_app_url"], "job-result"),
