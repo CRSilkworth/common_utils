@@ -38,10 +38,12 @@ def run_docs(
     not_attributes = {"full_name", "name", "subclass_str"}
     outputs = {}
     cleanups = []
+    failures = {}
     run_config = run_config if run_config else {}
     logging.info("Deserializing values")
     for doc_id in doc_data:
         outputs[doc_id] = {}
+        failures[doc_id] = {}
         for att, att_dict in doc_data[doc_id].items():
             if att in not_attributes:
                 continue
@@ -50,6 +52,7 @@ def run_docs(
 
             if output:
                 outputs[doc_id][att] = output
+                failures[doc_id][att] = True
                 continue
             else:
                 outputs[doc_id][att] = {
@@ -58,6 +61,7 @@ def run_docs(
                     "stdout_output": "",
                     "stderr_output": "",
                 }
+                failures[doc_id][att] = False
             att_dict["value"] = deserialized_value
             cleanups.extend(_cleanups)
 
@@ -81,30 +85,25 @@ def run_docs(
                 continue
 
             logging.info(f"Running {doc_full_name}-{att}")
-            print(f"Running {doc_full_name}-{att}")
+            print(f"Running {doc_full_name} {att}")
             # Set all the arguments to the function to run
             runner_kwargs = {}
             for var_name, input_doc_id in att_dict["var_name_to_id"].items():
                 input_doc_dict = doc_data[input_doc_id]
 
-                attributes_output = outputs[input_doc_id]
-                for _, output in attributes_output.items():
-                    if output["failed"]:
-                        outputs[doc_to_run][att] = failed_output(
-                            "Upstream failure from "
-                            f"{input_doc_dict['full_name']}:"
-                            f" {output['stderr_output']}"
+                attribute_failures = failures[input_doc_id]
+                for _, attribute_failed in attribute_failures.items():
+                    if attribute_failed:
+                        output = failed_output(
+                            "Upstream failure from " f"{input_doc_dict['full_name']}"
                         )
+                        failures[doc_to_run][att] = True
                         skip_run = True
                         break
                 if skip_run:
                     break
 
                 runner_kwargs[var_name] = get_doc_object(var_name, input_doc_dict)
-
-            if skip_run:
-                print(f"Skipping {doc_full_name}-{att}")
-                continue
 
             header_code = ""
             if att == "model":
@@ -120,27 +119,23 @@ def run_docs(
                 global_vars=kwargs.get("globals", {}),
             )
 
-            outputs[doc_to_run][att] = output
-            if output["failed"] or not func:
+            if skip_run or output["failed"] or not func:
+                print(f"Skipping {doc_full_name}-{att}")
+                send_output(
+                    {doc_to_run: {att: output}},
+                    [doc_to_run],
+                    auth_data,
+                    kwargs.get("caller"),
+                )
                 continue
 
             logging.info(f"Running {doc_full_name}: {att}")
             if not att_dict.get("chunked", False):
-                run_output = run_with_expected_type(
+                output = run_with_expected_type(
                     func, runner_kwargs, att_dict["value_type"]
                 )
-                outputs[doc_to_run][att] = run_output
 
-                if run_output["failed"]:
-                    continue
-
-                serialized_output = prepare_output(
-                    att, att_dict, run_output, doc_to_run, auth_data
-                )
-                att_dict["value"] = run_output["value"]
-                del serialized_output["value"]
-
-                outputs[doc_to_run][att] = serialized_output
+                output = prepare_output(att, att_dict, output, doc_to_run, auth_data)
             else:
                 run_generator = run_with_generator(
                     func, runner_kwargs, att_dict["value_type"]
@@ -209,27 +204,16 @@ def run_docs(
                     )
 
                 output = combine_chunk_outputs(output_chunks, att_dict, failed)
-                att_dict["value"] = output["value"]
-                att_dict["signed_urls"] = output["signed_urls"]
-                del output["value"]
+            att_dict["value"] = output["value"]
+            att_dict["signed_urls"] = output["signed_urls"]
+            del output["value"]
 
-                # Send the attribute result back to the backend
-                data = {
-                    "docs_to_run": [doc_to_run],
-                    "outputs": {doc_to_run: {att: output}},
-                    "caller": kwargs.get("caller", None),
-                    "auth_data": auth_data,
-                    "run_completed": False,
-                }
-                print("-" * 10)
-                print(data)
-                print("-" * 10)
-
-                requests.post(
-                    os.path.join(auth_data["dash_app_url"], "job-result"),
-                    json=data,
-                    headers={"Authorization": f"Bearer {auth_data['token']}"},
-                )
+            send_output(
+                {doc_to_run: {att: output}},
+                [doc_to_run],
+                auth_data,
+                kwargs.get("caller"),
+            )
 
     logging.info("Cleaning up connections")
     # cleanup any connections
@@ -331,3 +315,23 @@ def prepare_output(attribute_name, att_dict, output, doc_id, auth_data):
     output["size_delta"] = size - att_dict["value_size"]
 
     return output
+
+
+def send_output(outputs, docs_to_run, auth_data, caller):
+    # Send the attribute result back to the backend
+    data = {
+        "docs_to_run": docs_to_run,
+        "outputs": outputs,
+        "caller": caller,
+        "auth_data": auth_data,
+        "run_completed": False,
+    }
+    print("-" * 10)
+    print(data)
+    print("-" * 10)
+
+    requests.post(
+        os.path.join(auth_data["dash_app_url"], "job-result"),
+        json=data,
+        headers={"Authorization": f"Bearer {auth_data['token']}"},
+    )
