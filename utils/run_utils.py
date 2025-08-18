@@ -51,16 +51,9 @@ def run_docs(
             deserialized_value, output, _cleanups = get_value_from_att_dict(att_dict)
 
             if output:
-                outputs[doc_id][att] = output
                 failures[doc_id][att] = True
                 continue
             else:
-                outputs[doc_id][att] = {
-                    "failed": False,
-                    "combined_output": "",
-                    "stdout_output": "",
-                    "stderr_output": "",
-                }
                 failures[doc_id][att] = False
             att_dict["value"] = deserialized_value
             cleanups.extend(_cleanups)
@@ -69,7 +62,7 @@ def run_docs(
         doc_full_name = doc_data[doc_to_run]["full_name"]
         logging.info(f"Preparing to run {doc_full_name}")
 
-        skip_run = False
+        upstream_failure = False
         attributes_to_run = (
             list(doc_data[doc_to_run].keys())
             if attributes_to_run is None
@@ -98,9 +91,9 @@ def run_docs(
                             "Upstream failure from " f"{input_doc_dict['full_name']}"
                         )
                         failures[doc_to_run][att] = True
-                        skip_run = True
+                        upstream_failure = True
                         break
-                if skip_run:
+                if upstream_failure:
                     break
 
                 runner_kwargs[var_name] = get_doc_object(var_name, input_doc_dict)
@@ -119,7 +112,7 @@ def run_docs(
                 global_vars=kwargs.get("globals", {}),
             )
 
-            if skip_run or output["failed"] or not func:
+            if upstream_failure or output["failed"] or not func:
                 print(f"Skipping {doc_full_name}-{att}")
                 send_output(
                     {doc_to_run: {att: output}},
