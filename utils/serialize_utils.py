@@ -13,10 +13,12 @@ from pymongo.mongo_client import MongoClient as PyMongoClient
 from psycopg2.extensions import connection as Psycopg2Connection
 from google.cloud.bigquery import Client as BigQueryClient
 from utils.db_utils import connect_to_biquery, connect_to_mongo, connect_to_sql
+from quickbooks import QuickBooks
 import datetime
 import traceback
 import base64
 import torch
+from utils.quickbooks_utils import QuickBooksProxy
 
 
 def encode_obj(obj: Any):
@@ -243,6 +245,8 @@ def deserialize_value(value, value_type):
             value = None
         else:
             raise ValueError(f"Unsupported db type:{value['db_type']}")
+    elif value_type == QuickBooks:
+        value = QuickBooksProxy()
 
     return value
 

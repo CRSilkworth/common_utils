@@ -17,6 +17,7 @@ from utils.chunk_utils import combine_chunk_outputs, upload_chunk_file
 from utils.value_utils import upload_serialized_value
 from utils.generator_utils import generator_from_urls
 from utils.gcp_utils import read_from_gcs_signed_url
+from quickbooks import QuickBooks
 import logging
 import copy
 import json
@@ -263,7 +264,7 @@ def get_doc_object(var_name: Text, doc_dict: Dict[Text, Dict[Text, Any]]) -> Dot
     return DotDict(obj, var_name=var_name)
 
 
-def get_value_from_att_dict(att_dict: Dict[Text, Any]):
+def get_value_from_att_dict(att_dict: Dict[Text, Any], auth_data: Dict[Text, Any]):
     local_type = deserialize_typehint(att_dict["_local_type"])
     att_dict["value_type"] = deserialize_typehint(att_dict["_value_type"])
     value, output, _cleanups = attempt_deserialize(att_dict["_local_rep"], local_type)
@@ -271,6 +272,9 @@ def get_value_from_att_dict(att_dict: Dict[Text, Any]):
     if output:
         output["size"] = size
         return value, output, _cleanups
+
+    if att_dict["value_type"] is QuickBooks:
+        value.auth_data = auth_data
 
     if att_dict.get("gcs_stored", False):
         if not att_dict.get("chunked", False):
