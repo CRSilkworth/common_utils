@@ -258,6 +258,8 @@ def get_doc_object(var_name: Text, doc_dict: Dict[Text, Dict[Text, Any]]) -> Dot
                 obj[att] = generator_from_urls(
                     doc_dict[att]["signed_urls"], doc_dict[att]["value_type"]
                 )
+            elif doc_dict[att]["value_type"] is QuickBooks:
+                obj[att] = value
             else:
                 obj[att] = copy.deepcopy(value)
         else:
