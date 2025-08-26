@@ -8,3 +8,4 @@ plotly<6.0
 typeguard<4.2
 networkx<3.2
 lxml<5.4.0
+python-quickbooks<0.10.0
