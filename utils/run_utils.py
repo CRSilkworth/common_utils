@@ -49,7 +49,9 @@ def run_docs(
             if att in not_attributes:
                 continue
 
-            deserialized_value, output, _cleanups = get_value_from_att_dict(att_dict)
+            deserialized_value, output, _cleanups = get_value_from_att_dict(
+                att_dict, auth_data
+            )
 
             if output:
                 failures[doc_id][att] = True
