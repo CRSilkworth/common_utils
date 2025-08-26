@@ -27,7 +27,7 @@ dependencies = [
     "google-cloud-storage<2.20.0",
     "mongoengine<0.30",
     "torch<3.0.0",
-    "scipy<1.11.0"
+    "scipy<1.11.0",
     "quickbooks<0.10.0"
 ]
 
