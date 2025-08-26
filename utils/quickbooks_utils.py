@@ -1,5 +1,6 @@
 from typing import Optional, Dict, Text, Any
 import requests
+import os
 
 
 def serialize_qb_result(obj):
@@ -21,13 +22,14 @@ class QuickBooksProxy:
     def query(self, q):
         """Proxy the query method to the server."""
         resp = requests.post(
-            f"{self.server_url}/qb-proxy",
+            os.path.join(self.auth_data["dash_app_url"], "qb-proxy"),
             json={
                 "auth_data": self.auth_data,
                 "method": "query",
                 "args": [q],
                 "kwargs": {},
             },
+            headers={"Authorization": f"Bearer {self.auth_data['token']}"},
         )
         resp.raise_for_status()
         return resp.json()
@@ -38,13 +40,14 @@ class QuickBooksProxy:
 
         def method(*args, **kwargs):
             resp = requests.post(
-                f"{self.server_url}/qb-proxy",
+                os.path.join(self.auth_data["dash_app_url"], "qb-proxy"),
                 json={
                     "auth_data": self.auth_data,
                     "method": name,
                     "args": args,
                     "kwargs": kwargs,
                 },
+                headers={"Authorization": f"Bearer {self.auth_data['token']}"},
             )
             resp.raise_for_status()
             return resp.json()
