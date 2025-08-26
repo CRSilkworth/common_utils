@@ -25,6 +25,7 @@ import typing_extensions
 import sqlite3
 import plotly.graph_objects as go
 import torch
+from quickbooks import QuickBooks
 
 TextOrint = TypeVar("TextOrint", Text, int)
 
@@ -372,6 +373,8 @@ def get_known_types(custom_types: Optional[Dict[Text, Any]] = None):
                 "google.cloud.bigquery", fromlist=["client"]
             ),
             "google.cloud.bigquery.client.Client": BigQueryClient,
+            "quickbooks.QuickBooks": QuickBooks,
+            "quickbooks.client.QuickBooks": QuickBooks,
             "torch": torch,
             "torch.nn": torch.nn,
             "nn": torch.nn,
