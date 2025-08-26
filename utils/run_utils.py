@@ -276,6 +276,8 @@ def get_value_from_att_dict(att_dict: Dict[Text, Any], auth_data: Dict[Text, Any
         return value, output, _cleanups
 
     if att_dict["value_type"] is QuickBooks:
+        # Just creates QuickBooksProxy
+        value, _, __ = attempt_deserialize(None, att_dict["value_type"])
         value.auth_data = auth_data
 
     if att_dict.get("gcs_stored", False):
