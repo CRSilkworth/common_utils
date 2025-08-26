@@ -373,6 +373,7 @@ def get_known_types(custom_types: Optional[Dict[Text, Any]] = None):
                 "google.cloud.bigquery", fromlist=["client"]
             ),
             "google.cloud.bigquery.client.Client": BigQueryClient,
+            "quickbooks": __import__("quickbooks"),
             "quickbooks.QuickBooks": QuickBooks,
             "quickbooks.client.QuickBooks": QuickBooks,
             "torch": torch,
