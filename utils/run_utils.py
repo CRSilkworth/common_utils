@@ -66,11 +66,13 @@ def run_docs(
         logging.info(f"Preparing to run {doc_full_name}")
 
         upstream_failure = False
+        print(attributes_to_run)
         attributes_to_run = (
             list(doc_data[doc_to_run].keys())
             if attributes_to_run is None
             else attributes_to_run
         )
+        print(attributes_to_run)
         # Run all the attributes associate with this doc
         for att in attributes_to_run:
             if att in not_attributes:
