@@ -30,7 +30,7 @@ def strict_zip(*gens):
 
 
 def generator_from_urls(signed_urls: List[Text], value_type: Any = Allowed):
-    value = read_from_gcs_signed_urls(signed_urls) if signed_urls else None
+    value = read_from_gcs_signed_urls(signed_urls) if signed_urls else []
 
     for file_content in value:
         file_content, output, _ = attempt_deserialize(file_content, value_type)
