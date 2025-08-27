@@ -7,6 +7,8 @@ import io
 import contextlib
 from utils.type_utils import is_valid_output, chunked_type_map
 import logging
+from utils.string_utils import remove_imports
+import inspect
 
 
 def create_function(
@@ -301,3 +303,9 @@ def run_with_generator(
             output["value_chunk"] = value_chunk
 
         yield output
+
+
+def body_from_function(function: Callable) -> Text:
+    return extract_function_body(
+        remove_imports(remove_indent(inspect.getsource(function)), only_top_level=True)
+    )
