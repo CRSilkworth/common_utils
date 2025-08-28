@@ -66,13 +66,11 @@ def run_docs(
         logging.info(f"Preparing to run {doc_full_name}")
 
         upstream_failure = False
-        print(attributes_to_run)
         attributes_to_run = (
             list(doc_data[doc_to_run].keys())
             if attributes_to_run is None
             else attributes_to_run
         )
-        print(attributes_to_run)
         # Run all the attributes associate with this doc
         for att in attributes_to_run:
             if att in not_attributes:
@@ -304,6 +302,7 @@ def get_value_from_att_dict(att_dict: Dict[Text, Any], auth_data: Dict[Text, Any
 
 def prepare_output(attribute_name, att_dict, output, doc_id, auth_data):
     preview = value_to_preview(output["value"])
+    print("prepare", attribute_name, preview)
 
     value = output["value"]
     _value, serialize_output = attempt_serialize(value, att_dict["value_type"])
@@ -334,6 +333,7 @@ def prepare_output(attribute_name, att_dict, output, doc_id, auth_data):
 
 def send_output(outputs, docs_to_run, auth_data, caller, run_completed: bool = False):
     # Send the attribute result back to the backend
+    print("sending", docs_to_run, outputs)
     data = {
         "docs_to_run": docs_to_run,
         "outputs": outputs,
