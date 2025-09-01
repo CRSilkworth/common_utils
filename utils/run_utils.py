@@ -330,14 +330,24 @@ def prepare_output(attribute_name, att_dict, output, doc_id, auth_data):
     return output
 
 
-def send_output(outputs, docs_to_run, auth_data, caller, run_completed: bool = False):
+def send_output(
+    outputs,
+    docs_to_run,
+    auth_data,
+    caller,
+    run_completed: bool = False,
+    run_output: Optional[Dict[Text, Any]] = None,
+):
     # Send the attribute result back to the backend
+    if not run_output:
+        run_output = {"failed": False, "message": ""}
     data = {
         "docs_to_run": docs_to_run,
         "outputs": outputs,
         "caller": caller,
         "auth_data": auth_data,
         "run_completed": run_completed,
+        "run_output": run_output,
     }
 
     requests.post(
