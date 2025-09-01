@@ -170,7 +170,6 @@ def describe_json_schema(obj, definitions=None, path="", max_len: int = 32):
                 )
                 items_schema.append(item_schema)
 
-            properties[k] = {"key": key_schema, "value": val_schema}
         else:
             items_schema, definitions = describe_json_schema(
                 obj[0], definitions, path + "/items"
@@ -191,7 +190,6 @@ def describe_json_schema(obj, definitions=None, path="", max_len: int = 32):
                 )
                 items_schema.append(item_schema)
 
-            properties[k] = {"key": key_schema, "value": val_schema}
         else:
             items_schema, definitions = describe_json_schema(
                 obj[0], definitions, path + "/items"
