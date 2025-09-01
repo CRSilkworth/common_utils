@@ -139,7 +139,14 @@ def run_docs(
                     )
                     continue
 
-                output = prepare_output(att, att_dict, output, doc_to_run, auth_data)
+                output = prepare_output(
+                    att,
+                    att_dict,
+                    output,
+                    doc_to_run,
+                    auth_data,
+                    max_len=run_config.get("preview_len", 500),
+                )
             else:
                 run_generator = run_with_generator(
                     func, runner_kwargs, att_dict["value_type"]
@@ -300,8 +307,10 @@ def get_value_from_att_dict(att_dict: Dict[Text, Any], auth_data: Dict[Text, Any
     return value, output, _cleanups
 
 
-def prepare_output(attribute_name, att_dict, output, doc_id, auth_data):
-    preview = value_to_preview(output["value"])
+def prepare_output(
+    attribute_name, att_dict, output, doc_id, auth_data, max_len: int = 500
+):
+    preview = value_to_preview(output["value"], max_len=max_len)
 
     value = output["value"]
     _value, serialize_output = attempt_serialize(value, att_dict["value_type"])
