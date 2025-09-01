@@ -162,19 +162,47 @@ def describe_json_schema(obj, definitions=None, path="", max_len: int = 32):
             }
 
     elif isinstance(obj, list):
-        if obj:
+        if len(obj) < max_len:
+            items_schema = []
+            for item_num, item in enumerate(obj):
+                item_schema, definitions = describe_json_schema(
+                    item, definitions, path + f"/items/{item_num}"
+                )
+                items_schema.append(item_schema)
+
+            properties[k] = {"key": key_schema, "value": val_schema}
+        else:
             items_schema, definitions = describe_json_schema(
                 obj[0], definitions, path + "/items"
             )
-            schema = {
-                "x-type": "list",
-                "type": "array",
-                "minItems": len(obj),
-                "maxItems": len(obj),
-                "items": items_schema,
-            }
+        schema = {
+            "x-type": "list",
+            "type": "array",
+            "minItems": len(obj),
+            "maxItems": len(obj),
+            "items": items_schema,
+        }
+    elif isinstance(obj, tuple):
+        if len(obj) < max_len:
+            items_schema = []
+            for item_num, item in enumerate(obj):
+                item_schema, definitions = describe_json_schema(
+                    item, definitions, path + f"/items/{item_num}"
+                )
+                items_schema.append(item_schema)
+
+            properties[k] = {"key": key_schema, "value": val_schema}
         else:
-            schema = {"x-type": "list", "type": "array", "items": {}}
+            items_schema, definitions = describe_json_schema(
+                obj[0], definitions, path + "/items"
+            )
+        schema = {
+            "x-type": "tuple",
+            "type": "array",
+            "minItems": len(obj),
+            "maxItems": len(obj),
+            "items": items_schema,
+        }
     elif isinstance(obj, (frozenset, set)):
         x_type = "frozenset" if isinstance(obj, frozenset) else "set"
         if obj:
