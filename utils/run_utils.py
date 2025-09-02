@@ -10,6 +10,7 @@ from utils.type_utils import (
     get_known_types,
     chunked_type_map,
     describe_allowed,
+    ModelDict,
 )
 from utils.serialize_utils import attempt_deserialize, attempt_serialize
 from utils.preview_utils import value_to_preview
@@ -267,6 +268,8 @@ def get_doc_object(var_name: Text, doc_dict: Dict[Text, Dict[Text, Any]]) -> Dot
                 )
             elif doc_dict[att]["value_type"] is QuickBooks:
                 obj[att] = value
+            elif doc_dict[att]["value_type"] is ModelDict:
+                obj[att] = value["model"]
             else:
                 obj[att] = copy.deepcopy(value)
         else:
