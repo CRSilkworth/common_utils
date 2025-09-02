@@ -66,6 +66,8 @@ Allowed = Union[
     type(None),
 ]
 
+ModelDict = Dict[Text, Union[torch.nn.Module, Text]]
+
 SimParams = typing.Dict[Text, typing.Hashable]
 FrozenSimParams = Tuple[Tuple[Text, typing.Hashable], ...]
 AllSimParams = typing.Iterable[SimParams]
@@ -366,6 +368,7 @@ def get_known_types(custom_types: Optional[Dict[Text, Any]] = None):
         "_NoneType": type(None),
         "utils.type_utils.PositionDict": PositionDict,
         "utils.type_utils.Position": Position,
+        "utils.type_utils.ModelDict": ModelDict,
         "utils.type_utils.AllSimParams": AllSimParams,
         "utils.type_utils.SimParams": SimParams,
         "utils.type_utils.FrozenSimParams": FrozenSimParams,
@@ -497,6 +500,17 @@ def is_valid_output(value, output_type):
             if not is_allowed_type(alwd):
                 return False
 
+        return True
+    if output_type == ModelDict:
+        if not isinstance(value, dict) or set(value.keys()) != set(
+            ["class_def", "model"]
+        ):
+            return False
+
+        if not isinstance(value["class_def"], str):
+            return False
+        if not isinstance(value["model"], torch.nn.Module):
+            return False
         return True
 
     if output_type == SimValue:
