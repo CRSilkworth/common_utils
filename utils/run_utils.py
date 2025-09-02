@@ -102,8 +102,8 @@ def run_docs(
                 runner_kwargs[var_name] = get_doc_object(var_name, input_doc_dict)
 
             header_code = ""
-            if att == "model":
-                header_code = att_dict["class_def"]
+            # if att == "model":
+            #     header_code = att_dict["class_def"]
 
             # Convert the functionv string to a callable function
             func, output = create_function(
