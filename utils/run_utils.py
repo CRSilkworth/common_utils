@@ -269,7 +269,7 @@ def get_doc_object(var_name: Text, doc_dict: Dict[Text, Dict[Text, Any]]) -> Dot
             elif doc_dict[att]["value_type"] is QuickBooks:
                 obj[att] = value
             elif doc_dict[att]["value_type"] is ModelDict:
-                obj[att] = value["model"]
+                obj[att] = None if value is None else value.get("model", None)
             else:
                 obj[att] = copy.deepcopy(value)
         else:
