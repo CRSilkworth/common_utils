@@ -18,6 +18,7 @@ import datetime
 import traceback
 import base64
 import torch
+from bson import ObjectId
 from utils.quickbooks_utils import QuickBooksProxy
 
 
@@ -48,6 +49,8 @@ def encode_obj(obj: Any):
             "__kind__": "PlotlyFigure",
             "data": encode_obj(obj.to_dict()),
         }
+    elif isinstance(obj, ObjectId):
+        return {"__kind__": "ObjectId", "data": str(obj)}
 
     elif isinstance(obj, pd.DataFrame):
         df = obj.copy()
@@ -115,6 +118,7 @@ def encode_obj(obj: Any):
             "__kind__": "dict",
             "data": [(encode_obj(k), encode_obj(v)) for k, v in obj.items()],
         }
+
     elif isinstance(obj, GCSPath):
         return {
             "__kind__": "GCSPath",
@@ -198,6 +202,8 @@ def decode_obj(obj: Any, known_types: Optional[Dict[Text, Any]] = None):
             return complex(obj["data"])
         elif kind == "bool":
             return bool(obj["data"])
+        elif kind == "ObjectId":
+            return ObjectId(obj["data"])
 
         else:
             return {k: decode_obj(v) for k, v in obj.items()}

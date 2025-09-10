@@ -26,6 +26,8 @@ import sqlite3
 import plotly.graph_objects as go
 import torch
 from quickbooks import QuickBooks
+import re
+import datetime
 
 TextOrint = TypeVar("TextOrint", Text, int)
 
@@ -63,18 +65,39 @@ Allowed = Union[
     np.generic,
     pd.DataFrame,
     pd.Period,
+    pd.Series,
     type(None),
 ]
 
+
+class ExportSpec(TypedDict):
+    value_type: Any
+    start_cell: Text
+
+
+ExportConfig = Dict[Union[Text, int], ExportSpec]
+ExportablePrimitive = Union[int, float, bytes, str, type(None)]
+
+Exportable = Union[
+    ExportablePrimitive,
+    List[ExportablePrimitive],
+    np.ndarray,
+    np.generic,
+    pd.DataFrame,
+    pd.Period,
+    pd.Series,
+]
 ModelDict = Dict[Text, Union[torch.nn.Module, Text]]
-
+TimeRange = Tuple[datetime.datetime, datetime.datetime]
+TimeRanges = typing.Iterable[TimeRange]
+AllTimeRanges = typing.Dict[Text, TimeRanges]
 SimParams = typing.Dict[Text, typing.Hashable]
-FrozenSimParams = Tuple[Tuple[Text, typing.Hashable], ...]
-AllSimParams = typing.Iterable[SimParams]
-SimValues = Dict[FrozenSimParams, Allowed]
-SimValue = Tuple[SimParams, Allowed]
+# FrozenSimParams = Tuple[Tuple[Text, typing.Hashable], ...]
+AllSimParams = typing.Dict[Text, SimParams]
+# SimValues = Dict[FrozenSimParams, Allowed]
+# SimValue = Tuple[SimParams, Allowed]
 
-chunked_type_map = {AllSimParams: SimParams, SimValues: SimValue, Allowed: Allowed}
+# chunked_type_map = {AllSimParams: SimParams, SimValues: SimValue, Allowed: Allowed}
 
 
 class GCSPath(str):
@@ -371,9 +394,12 @@ def get_known_types(custom_types: Optional[Dict[Text, Any]] = None):
         "utils.type_utils.ModelDict": ModelDict,
         "utils.type_utils.AllSimParams": AllSimParams,
         "utils.type_utils.SimParams": SimParams,
-        "utils.type_utils.FrozenSimParams": FrozenSimParams,
-        "utils.type_utils.SimValues": SimValues,
-        "utils.type_utils.SimValue": SimValue,
+        "utils.type_utils.TimeRange": TimeRange,
+        "utils.type_utils.TimeRanges": TimeRanges,
+        "utils.type_utils.AllTimeRanges": AllTimeRanges,
+        # "utils.type_utils.FrozenSimParams": FrozenSimParams,
+        # "utils.type_utils.SimValues": SimValues,
+        # "utils.type_utils.SimValue": SimValue,
         "utils.type_utils.Allowed": Allowed,
         "utils.type_utils.GCSPath": GCSPath,
         "typing.Hashable": typing.Hashable,
@@ -467,40 +493,83 @@ def is_valid_output(value, output_type):
         try:
             if not isinstance(value, dict):
                 return False
-            for key, value in value.items():
+            for key, v in value.items():
                 if not isinstance(key, str):
                     return False
-                hash(value)
+                hash(v)
         except TypeError:
             return False
 
         return True
-    if output_type == AllSimParams:
-        if not isinstance(value, abc_Iterable):
+    if output_type == ExportConfig:
+        if not isinstance(value, dict):
             return False
-        for sim_params in value:
+        for key, v in value.items():
+            if not isinstance(key, str) and not isinstance(key, int):
+                return False
+            if not is_valid_output(v, ExportSpec):
+                return False
+
+        return True
+    if output_type == ExportSpec:
+
+        if not isinstance(value, dict):
+            return False
+        if set(value.keys()) != set("value_type", "start_cell"):
+            return False
+
+        is_cell_code = bool(re.compile(r"^[A-Z]+[0-9]+$").match(value["start_cell"]))
+        if not is_cell_code:
+            return False
+
+        return True
+    if output_type == AllSimParams:
+        if not isinstance(value, dict):
+            return False
+        for key, sim_params in value.items():
+            if not isinstance(key, str):
+                return False
             if not is_valid_output(sim_params, output_type=SimParams):
                 return False
 
         return True
-    if output_type == SimValues:
-        if not isinstance(value, dict):
+    if output_type == TimeRanges:
+        if not isinstance(value, abc_Iterable):
             return False
-        for frzn, alwd in value.items():
-            if not isinstance(frzn, tuple):
-                return False
-            try:
-                for k, v in frzn:
-                    if not isinstance(k, str):
-                        return False
-                    hash(v)
-            except TypeError:
-                return False
-
-            if not is_allowed_type(alwd):
+        for time_range in value:
+            if not is_valid_output(time_range, output_type=TimeRange):
                 return False
 
         return True
+    if output_type == AllTimeRanges:
+        if not isinstance(value, dict):
+            return False
+        for key, v in value.items():
+            if not isinstance(key, str):
+                return False
+            if not is_valid_output(v, output_type=TimeRanges):
+                return False
+
+        return True
+    # if output_type == SimValues:
+    #     if not isinstance(value, dict):
+    #         return False
+    #     for frzn, alwd in value.items():
+    #         if not isinstance(frzn, tuple):
+    #             return False
+    #         try:
+    #             for k, v in frzn:
+    #                 if not isinstance(k, str):
+    #                     return False
+    #                 hash(v)
+    #         except TypeError:
+    #             return False
+
+    #         if not is_allowed_type(alwd):
+    #             return False
+
+    #     return True
+
     if output_type == ModelDict:
         if not isinstance(value, dict) or set(value.keys()) != set(
             ["class_def", "model"]
@@ -513,18 +582,18 @@ def is_valid_output(value, output_type):
             return False
         return True
 
-    if output_type == SimValue:
-        if not isinstance(value, tuple) or not len(value) == 2:
-            return False
-        frzn, alwd = value
+    # if output_type == SimValue:
+    #     if not isinstance(value, tuple) or not len(value) == 2:
+    #         return False
+    #     frzn, alwd = value
 
-        if not is_valid_output(frzn, SimParams):
-            return False
+    #     if not is_valid_output(frzn, SimParams):
+    #         return False
 
-        if not is_allowed_type(alwd):
-            return False
+    #     if not is_allowed_type(alwd):
+    #         return False
 
-        return True
+    #     return True
 
     if output_type == torch.nn.Module:
         return isinstance(value, torch.nn.Module)

@@ -15,9 +15,9 @@ def strict_zip(*gens):
         for val in gens[0]:
             yield val
     sentinel = object()
-    iterators = [iter(g) for g in gens]
+    generators = [iter(g) for g in gens]
     while True:
-        values = [next(it, sentinel) for it in iterators]
+        values = [next(it, sentinel) for it in generators]
         if all(v is sentinel for v in values):
             break  # all done
         if any(v is sentinel for v in values):
@@ -55,3 +55,42 @@ def sim_values_generator(sim_value_gen, chunked: bool = False):
     else:
         for key, value in sim_value_gen:
             yield value
+
+
+def merge_generators(generators):
+    """
+    Merge several flat generators keyed by
+    (sim_param_key, collection_name, time_range).
+
+    Yields:
+        (key, [val_from_iter1, val_from_iter2, ...])
+    where missing values are None.
+    """
+    # Flatten each generator
+    streams = []
+    for i, it in enumerate(generators):
+        try:
+            key, val = next(it)
+            streams.append((key, i, val, it))
+        except StopIteration:
+            continue
+
+    while streams:
+        # find smallest key across all active streams
+        min_key = min(s[0] for s in streams)
+
+        row = [None] * len(generators)
+        new_streams = []
+        for key, idx, val, stream in streams:
+            if key == min_key:
+                row[idx] = val
+                try:
+                    nxt_key, nxt_val = next(stream)
+                    new_streams.append((nxt_key, idx, nxt_val, stream))
+                except StopIteration:
+                    pass
+            else:
+                new_streams.append((key, idx, val, stream))
+
+        yield min_key, row
+        streams = new_streams
