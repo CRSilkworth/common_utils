@@ -97,12 +97,7 @@ TimeRange = Tuple[datetime.datetime, datetime.datetime]
 TimeRanges = typing.Iterable[TimeRange]
 AllTimeRanges = typing.Dict[Text, TimeRanges]
 SimParams = typing.Dict[Text, typing.Hashable]
-# FrozenSimParams = Tuple[Tuple[Text, typing.Hashable], ...]
 AllSimParams = typing.Dict[Text, SimParams]
-# SimValues = Dict[FrozenSimParams, Allowed]
-# SimValue = Tuple[SimParams, Allowed]
-
-# chunked_type_map = {AllSimParams: SimParams, SimValues: SimValue, Allowed: Allowed}
 
 
 class GCSPath(str):
@@ -405,9 +400,6 @@ def get_known_types(custom_types: Optional[Dict[Text, Any]] = None):
         "utils.type_utils.TimeRange": TimeRange,
         "utils.type_utils.TimeRanges": TimeRanges,
         "utils.type_utils.AllTimeRanges": AllTimeRanges,
-        # "utils.type_utils.FrozenSimParams": FrozenSimParams,
-        # "utils.type_utils.SimValues": SimValues,
-        # "utils.type_utils.SimValue": SimValue,
         "utils.type_utils.Allowed": Allowed,
         "utils.type_utils.GCSPath": GCSPath,
         "typing.Hashable": typing.Hashable,

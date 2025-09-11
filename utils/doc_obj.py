@@ -69,7 +69,7 @@ class DocObj(dict):
             "stdout_output": "",
             "stderr_output": "",
         }
-        for output in self.outputs[att]:
+        for output in self.outputs.get(att, {}):
             combined = {
                 "failed": combined["failed"] or output["failed"],
                 "combined_output": combined["combined_output"]
