@@ -271,7 +271,14 @@ class DocObj(dict):
         return self[att]
 
     def __setattr__(self, att, value):
-        if att not in ("doc_dict", "auth_data"):
+        if att not in (
+            "doc_id",
+            "doc_dict",
+            "auth_data",
+            "cleanups",
+            "outputs",
+            "uploaders",
+        ):
             raise AttributeError(f"Tried to set {att}, but attributes are read only")
         super().__setattr__(att, value)
 
