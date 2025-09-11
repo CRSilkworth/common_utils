@@ -4,15 +4,12 @@ from utils.type_utils import deserialize_typehint, TimeRange, Files
 from utils.downloader import BatchDownloader
 from utils.uploader import BatchUploader
 from utils.preview_utils import value_to_preview
-from pymongo.mongo_client import MongoClient as PyMongoClient
-from psycopg2.extensions import connection as Psycopg2Connection
-from google.cloud.bigquery import Client as BigQueryClient
 from quickbooks import QuickBooks
 import copy
 import requests
 import os
 import json
-from utils.type_utils import describe_json_schema
+from utils.type_utils import describe_json_schema, DBConnection
 
 
 class DocObj(dict):
@@ -40,12 +37,7 @@ class DocObj(dict):
                     value.auth_data = auth_data
                     att_dict["value"] = value
 
-                elif att_dict["value_type"] in (
-                    PyMongoClient,
-                    Psycopg2Connection,
-                    BigQueryClient,
-                    Files,
-                ):
+                elif att_dict["value_type"] in (DBConnection, Files):
                     value, output, cleanups = attempt_deserialize(
                         att_dict["_value"], att_dict["value_type"]
                     )

@@ -28,6 +28,10 @@ import torch
 from quickbooks import QuickBooks
 import re
 import datetime
+from pymongo.mongo_client import MongoClient as PyMongoClient
+from psycopg2.extensions import connection as Psycopg2Connection
+from google.cloud.bigquery import Client as BigQueryClient
+import pymongo
 
 TextOrint = TypeVar("TextOrint", Text, int)
 
@@ -87,6 +91,7 @@ Exportable = Union[
     pd.Period,
     pd.Series,
 ]
+DBConnection = Union[PyMongoClient, Psycopg2Connection, BigQueryClient]
 ModelDict = Dict[Text, Union[torch.nn.Module, Text]]
 TimeRange = Tuple[datetime.datetime, datetime.datetime]
 TimeRanges = typing.Iterable[TimeRange]
@@ -391,6 +396,7 @@ def get_known_types(custom_types: Optional[Dict[Text, Any]] = None):
         "_NoneType": type(None),
         "utils.type_utils.PositionDict": PositionDict,
         "utils.type_utils.Position": Position,
+        "utils.type_utils.DBConnection": DBConnection,
         "utils.type_utils.ModelDict": ModelDict,
         "utils.type_utils.AllSimParams": AllSimParams,
         "utils.type_utils.SimParams": SimParams,
@@ -406,12 +412,6 @@ def get_known_types(custom_types: Optional[Dict[Text, Any]] = None):
         "typing.Iterable": typing.Iterable,
         "typing.Tuple": typing.Tuple,
     }
-
-    from pymongo.mongo_client import MongoClient as PyMongoClient
-    from psycopg2.extensions import connection as Psycopg2Connection
-    from google.cloud.bigquery import Client as BigQueryClient
-    import torch
-    import pymongo
 
     known_types.update(
         {

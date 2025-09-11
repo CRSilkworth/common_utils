@@ -8,7 +8,7 @@ import io
 from utils.misc_utils import failed_output
 from dataclasses import is_dataclass, asdict
 from utils.function_utils import run_with_expected_type, create_function
-from utils.type_utils import GCSPath
+from utils.type_utils import GCSPath, DBConnection
 from pymongo.mongo_client import MongoClient as PyMongoClient
 from psycopg2.extensions import connection as Psycopg2Connection
 from google.cloud.bigquery import Client as BigQueryClient
@@ -240,7 +240,7 @@ def deserialize_value(value, value_type):
         cursor.executescript(script)
         value = conn
 
-    if value_type == Union[PyMongoClient, Psycopg2Connection, BigQueryClient] and value:
+    if value_type == DBConnection and value:
         if value["db_type"] == "mongo":
             value = connect_to_mongo(value)
         elif value["db_type"] == "bigquery":
@@ -270,7 +270,7 @@ def attempt_deserialize(value: Any, value_type: Optional[Any] = None):
     if deserialized_dict is None:
         return deserialized_dict, output, cleanups
 
-    if value_type == Union[PyMongoClient, Psycopg2Connection, BigQueryClient]:
+    if value_type == DBConnection:
         deserialized_value = deserialized_dict["connection"]
         if deserialized_dict.get("cleanup", None):
             cleanups.append(deserialized_dict["cleanup"])
