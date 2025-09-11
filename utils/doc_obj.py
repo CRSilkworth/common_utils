@@ -1,6 +1,6 @@
 from typing import Dict, Text, Any, Optional, Iterable, Set
 from utils.serialize_utils import attempt_deserialize, attempt_serialize
-from utils.type_utils import deserialize_typehint, ModelDict, TimeRange
+from utils.type_utils import deserialize_typehint, TimeRange, Files
 from utils.downloader import BatchDownloader
 from utils.uploader import BatchUploader
 from utils.preview_utils import value_to_preview
@@ -33,10 +33,6 @@ class DocObj(dict):
             if isinstance(att_dict, str):
                 self[att] = att_dict
             if isinstance(att_dict, dict):
-                self.uploaders[att] = BatchUploader(
-                    auth_data=auth_data,
-                    value_file_ref=att_dict["new_value_file_ref"],
-                )
 
                 att_dict["value_type"] = deserialize_typehint(att_dict["_value_type"])
                 if att_dict["value_type"] is (QuickBooks):
@@ -45,10 +41,10 @@ class DocObj(dict):
                     att_dict["value"] = value
 
                 elif att_dict["value_type"] in (
-                    ModelDict,
                     PyMongoClient,
                     Psycopg2Connection,
                     BigQueryClient,
+                    Files,
                 ):
                     value, output, cleanups = attempt_deserialize(
                         att_dict["_value"], att_dict["value_type"]
@@ -60,6 +56,12 @@ class DocObj(dict):
                     if cleanups:
                         self.cleanups[att] = cleanups[0]
                     att_dict["value"] = value
+                else:
+
+                    self.uploaders[att] = BatchUploader(
+                        auth_data=auth_data,
+                        value_file_ref=att_dict["new_value_file_ref"],
+                    )
 
     def add_output(self, att: Text, output: Dict[Text, Any]):
         if not output:
