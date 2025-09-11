@@ -11,6 +11,8 @@ class BatchDownloader:
         self,
         auth_data: Dict[Text, Text],
         value_file_ref: Text,
+        doc_id: Text,
+        attribute_name: Text,
         sim_param_keys: Optional[Text] = None,
         time_ranges_keys: Optional[Text] = None,
         time_range_start: Optional[Text] = None,
@@ -20,6 +22,8 @@ class BatchDownloader:
         self.auth_data = auth_data
         self.value_file_ref = value_file_ref
         self.chunked = chunked
+        self.doc_id = doc_id
+        self.attribute_name = attribute_name
         self.sim_param_keys = sim_param_keys
         self.time_ranges_keys = time_ranges_keys
         self.time_range_start = time_range_start
@@ -28,6 +32,8 @@ class BatchDownloader:
     def flat_iterator(self):
         data = {
             "auth_data": self.auth_data,
+            "doc_id": self.doc_id,
+            "attribute_name": self.attribute_name,
             "value_file_ref": str(self.value_file_ref),
             "sim_param_keys": self.sim_param_keys,
             "time_ranges_keys": self.time_ranges_keys,
@@ -35,7 +41,7 @@ class BatchDownloader:
             "time_range_end": self.time_range_end,
         }
         resp = requests.get(
-            f"{self.auth_data['dash_app_url']}/stream-batches", json=data, stream=True
+            f"{self.auth_data['dash_app_url']}/stream-batches", params=data, stream=True
         )
         for line in resp.iter_lines():
             if not line:
@@ -72,6 +78,7 @@ class BatchDownloader:
 
                 yield (sim_id, coll, tr), chunk_gen()
             else:
+                # If not chunked there is only one element in the group
                 _, _, _, _, data = next(group)
                 yield (sim_id, coll, tr), data
 

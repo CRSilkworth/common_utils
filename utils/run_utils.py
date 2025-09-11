@@ -23,7 +23,7 @@ def run_docs(
     run_config = run_config if run_config else {}
     doc_objs = {
         d: DocObj(
-            var_name=doc_data[d]["name"],
+            doc_id=d,
             doc_dict=doc_data[d],
             auth_data=auth_data,
         )
@@ -152,4 +152,7 @@ def run_docs(
     # cleanup any connections
     for doc in doc_objs.values():
         for cleanup in doc.cleanups.values():
-            cleanup()
+            try:
+                cleanup()
+            except Exception:
+                continue

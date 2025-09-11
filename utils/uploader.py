@@ -1,4 +1,4 @@
-from typing import Dict, Text
+from typing import Dict, Text, Optional
 import io
 import requests
 import json
@@ -10,6 +10,7 @@ class BatchUploader:
         auth_data: Dict[Text, Text],
         value_file_ref: Text,
         max_batch_bytes: int = 1e7,
+        run_at: Optional[Text] = None,
     ):
         self.auth_data = auth_data
         self.max_batch_bytes = max_batch_bytes
@@ -18,6 +19,7 @@ class BatchUploader:
         self.index_map = {}
         self.item_count = 0
         self.size = 0
+        self.run_at = run_at
 
     def add_chunk(
         self,
@@ -45,8 +47,16 @@ class BatchUploader:
         self.item_count += 1
         self.size += length
 
+        if length > self.max_batch_bytes:
+            return (
+                False,
+                f"_value chunk ({length}) larger than max_batch_bytes:"
+                f" ({self.max_batch_bytes})",
+            )
+
         if self.buffer.tell() >= self.max_batch_bytes:
-            self.flush_batch()
+            return self.flush_batch()
+        return True, ""
 
     def flush_batch(self):
         if self.item_count == 0:
@@ -54,24 +64,29 @@ class BatchUploader:
         self.buffer.seek(0)
         # send entire batch in one request
         files = {"batch_file": self.buffer}
-        resp = requests.post(
-            f"{self.auth_data['dash_app_url']}/upload-batch",
-            files=files,
-            data={
-                "payload": json.dumps(
-                    {
-                        "index_map": self.index_map,
-                        "auth_data": self.auth_data,
-                        "value_file_ref": self.value_file_ref,
-                    }
-                )
-            },
-        )
-        assert resp.ok, resp.text
+        try:
+            resp = requests.post(
+                f"{self.auth_data['dash_app_url']}/upload-batch",
+                files=files,
+                data={
+                    "payload": json.dumps(
+                        {
+                            "run_at": self.run_at,
+                            "index_map": self.index_map,
+                            "auth_data": self.auth_data,
+                            "value_file_ref": self.value_file_ref,
+                        }
+                    )
+                },
+            )
+        except requests.RequestException as e:
+            return False, str(e)
+
         # reset buffer
         self.buffer = io.BytesIO()
         self.index_map = {}
         self.item_count = 0
+        return resp.ok, resp.text
 
     def finalize(self):
         self.flush_batch()

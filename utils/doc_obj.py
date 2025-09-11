@@ -3,6 +3,7 @@ from utils.serialize_utils import attempt_deserialize, attempt_serialize
 from utils.type_utils import deserialize_typehint, ModelDict, TimeRange
 from utils.downloader import BatchDownloader
 from utils.uploader import BatchUploader
+from utils.preview_utils import value_to_preview
 from pymongo.mongo_client import MongoClient as PyMongoClient
 from psycopg2.extensions import connection as Psycopg2Connection
 from google.cloud.bigquery import Client as BigQueryClient
@@ -10,15 +11,19 @@ from quickbooks import QuickBooks
 import copy
 import requests
 import os
+import json
+from utils.type_utils import describe_json_schema
 
 
 class DocObj(dict):
     def __init__(
         self,
+        doc_id: Text,
         doc_dict: Dict[Text, Any],
         auth_data: Dict[Text, Any],
     ):
         super().__init__()
+        self.doc_id = doc_id
         self.auth_data = auth_data
         self.cleanups = {}
         self.outputs = {}
@@ -32,15 +37,6 @@ class DocObj(dict):
                     auth_data=auth_data,
                     value_file_ref=att_dict["new_value_file_ref"],
                 )
-                att_dict["local_type"] = deserialize_typehint(att_dict["_local_type"])
-                local_rep, output, _ = attempt_deserialize(
-                    att_dict["_local_rep"], att_dict["local_type"]
-                )
-                self.add_output(att, output)
-                if output.get("failed", False):
-                    continue
-
-                att_dict["local_rep"] = local_rep
 
                 att_dict["value_type"] = deserialize_typehint(att_dict["_value_type"])
                 if att_dict["value_type"] is (QuickBooks):
@@ -59,7 +55,6 @@ class DocObj(dict):
                     )
                     self.outputs[att] = output
                     if output.get("failed", False):
-                        self.failures.add(att)
                         continue
 
                     if cleanups:
@@ -92,7 +87,7 @@ class DocObj(dict):
             for key in combined:
                 if key == "failed":
                     continue
-                combined[key] = f"When running with {context}"
+                combined[key] = f"When running with {context}" + combined[key]
         return combined
 
     def send_output(
@@ -120,7 +115,7 @@ class DocObj(dict):
             headers={"Authorization": f"Bearer {self.auth_data['token']}"},
         )
 
-    def failures(self) -> Set[bool]:
+    def failures(self) -> Set[Text]:
         failures = set()
         for att in self.att_dicts:
             if self.get_output(att).get("failed"):
@@ -140,7 +135,7 @@ class DocObj(dict):
         iterator = self.get_iterator(
             attribute_name,
             sim_param_keys=[sim_param_key],
-            time_ranges_keyss=[time_ranges_key],
+            time_ranges_keys=[time_ranges_key],
         )
         for (_, __, time_range), value in iterator:
             yield (time_range, value)
@@ -180,6 +175,8 @@ class DocObj(dict):
             att_dict = self.att_dicts[att]
             downloader = BatchDownloader(
                 auth_data=self.auth_data,
+                doc_id=self.doc_id,
+                attribute_name=att,
                 sim_param_keys=sim_param_keys,
                 value_file_ref=self.doc_dict[att]["value_file_ref"],
                 time_ranges_keys=time_ranges_keys,
@@ -213,18 +210,29 @@ class DocObj(dict):
         value_chunk: Any,
     ):
         uploader = self.uploaders[att]
+        preview = value_to_preview(value_chunk)
+        schema = describe_json_schema(value_chunk)
         _value_chunk, output = attempt_serialize(
             value_chunk, self.att_dicts[att]["value_type"]
         )
         self.add_output(att, output)
 
-        uploader.add_chunk(
+        success, message = uploader.add_chunk(
             sim_param_key=sim_param_key,
             time_ranges_key=time_ranges_key,
             time_range=time_range,
+            preview=preview,
+            _schema=json.dumps(schema),
             chunk_num=chunk_num,
             value_chunk=_value_chunk,
         )
+        output = {
+            "failed": not success,
+            "combined_output": message,
+            "stderr_output": message,
+            "stdout_output": "",
+        }
+        self.add_output(att, output)
 
     def deserialize(
         self, att: Text, iterator: Iterable, value_type: Any, chunked=False
@@ -265,7 +273,7 @@ class DocObj(dict):
     def __setattr__(self, att, value):
         if att not in ("doc_dict", "auth_data"):
             raise AttributeError(f"Tried to set {att}, but attributes are read only")
-        self[att] = value
+        super().__setattr__(att, value)
 
     def __delattr__(self, att):
         try:
