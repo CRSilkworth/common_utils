@@ -397,6 +397,8 @@ def get_known_types(custom_types: Optional[Dict[Text, Any]] = None):
         "utils.type_utils.PositionDict": PositionDict,
         "utils.type_utils.Position": Position,
         "utils.type_utils.DBConnection": DBConnection,
+        "utils.type_utils.File": File,
+        "utils.type_utils.Files": Files,
         "utils.type_utils.ModelDict": ModelDict,
         "utils.type_utils.AllSimParams": AllSimParams,
         "utils.type_utils.SimParams": SimParams,

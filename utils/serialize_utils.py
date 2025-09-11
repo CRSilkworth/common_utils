@@ -1,4 +1,4 @@
-from typing import Union, Any, Optional, Dict, Text
+from typing import Any, Optional, Dict, Text
 import pandas as pd
 import numpy as np
 import json
@@ -9,9 +9,6 @@ from utils.misc_utils import failed_output
 from dataclasses import is_dataclass, asdict
 from utils.function_utils import run_with_expected_type, create_function
 from utils.type_utils import GCSPath, DBConnection
-from pymongo.mongo_client import MongoClient as PyMongoClient
-from psycopg2.extensions import connection as Psycopg2Connection
-from google.cloud.bigquery import Client as BigQueryClient
 from utils.db_utils import connect_to_biquery, connect_to_mongo, connect_to_sql
 from quickbooks import QuickBooks
 import datetime
