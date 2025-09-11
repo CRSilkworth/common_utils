@@ -58,6 +58,7 @@ class DocObj(dict):
                     att_dict["value"] = value
                 else:
 
+                    print(att, att_dict["value_type"])
                     self.uploaders[att] = BatchUploader(
                         auth_data=auth_data,
                         value_file_ref=att_dict["new_value_file_ref"],
