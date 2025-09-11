@@ -5,7 +5,7 @@ import re
 import traceback
 import io
 import contextlib
-from utils.type_utils import is_valid_output, chunked_type_map
+from utils.type_utils import is_valid_output
 import logging
 from utils.string_utils import remove_imports
 import inspect
@@ -276,7 +276,6 @@ def run_with_generator(
     Returns:
         Response: A response with the function result and execution details.
     """
-    chunked_output_type = chunked_type_map[output_type]
     gen, combined, stdout, stderr, fail = capture_output_generator(
         func=func, **decoded_kwargs
     )
@@ -290,9 +289,9 @@ def run_with_generator(
         }
         if output["failed"]:
             pass
-        elif not is_valid_output(value_chunk, output_type=chunked_output_type):
+        elif not is_valid_output(value_chunk, output_type=output_type):
             new_error = (
-                f"\nExpected output type of {chunked_output_type}. {value_chunk} is of"
+                f"\nExpected output type of {output_type}. {value_chunk} is of"
                 f" type {type(value_chunk).__name__}\n"
             )
             output["value_chunk"] = None
