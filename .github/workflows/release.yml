@@ -21,11 +21,13 @@ jobs:
       - name: Load .env
         uses: c-py/action-dotenv-to-setenv@v2
 
-      # Same as before ...
       - name: Inject version from VERSION_TAG into pyproject.toml
         id: inject
         run: |
           VERSION="${VERSION_TAG#v}"
+          if [[ "${GITHUB_REF_NAME}" == "dev" ]]; then
+            VERSION="${VERSION}-dev"
+          fi
           echo "Injecting version $VERSION into pyproject.toml"
           sed -i.bak -E "s/^version = \".*\"/version = \"$VERSION\"/" pyproject.toml
           cat pyproject.toml | grep version
