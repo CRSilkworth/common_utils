@@ -68,6 +68,7 @@ class DocObj(dict):
             "combined_output": "",
             "stdout_output": "",
             "stderr_output": "",
+            "new_value_file_ref": self.att_dicts[att].get("new_value_file_ref"),
         }
         for output in self.outputs.get(att, {}):
             combined = {
