@@ -76,6 +76,7 @@ class DocObj(dict):
                 + output["combined_output"],
                 "stderr_output": combined["stderr_output"] + output["stderr_output"],
                 "stdout_output": combined["stdout_output"] + output["stdout_output"],
+                "new_value_file_ref": self.att_dicts[att].get("new_value_file_ref"),
             }
         if context:
             context = "\n".join([f"{k}={v}" for k, v in context.items()])
