@@ -43,10 +43,14 @@ class BatchDownloader:
         resp = requests.get(
             f"{self.auth_data['dash_app_url']}/stream-batches", params=data, stream=True
         )
-        for line in resp.iter_lines():
-            if not line:
+        for line in resp.iter_lines(decode_unicode=True):
+            if not line.strip():
                 continue
-            batch = json.loads(line)
+            try:
+                batch = json.loads(line)
+            except json.JSONDecodeError:
+                print(f"Bad line: {line!r}")
+                continue
             batch_data = binascii.unhexlify(batch["batch_data"])
             for key, loc in batch["index_map"].items():
                 offset, length = loc["offset"], loc["length"]
