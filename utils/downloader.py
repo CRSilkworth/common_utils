@@ -85,9 +85,7 @@ class BatchDownloader:
 
     def __iter__(self):
         flat = self.flat_iterator()
-        for (sim_id, coll, tr, _chunk_num), group in groupby(
-            flat, key=itemgetter(0, 1, 2)
-        ):
+        for (sim_id, coll, tr), group in groupby(flat, key=itemgetter(0, 1, 2)):
             if self.chunked:
 
                 def chunk_gen(g=group):
