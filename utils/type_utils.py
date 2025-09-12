@@ -316,13 +316,23 @@ def is_allowed_type(obj) -> bool:
             type(None),
         ),
     ):
-        return True
+        return True, ""
 
     elif isinstance(obj, Mapping):
-        return all(is_allowed_type(k) and is_allowed_type(v) for k, v in obj.items())
+        for k, v in obj.items():
+            if not is_allowed_type(k):
+                return False, f"key '{k}' ({type(k)}) is not of allowed type"
+            if not is_allowed_type(v):
+                return False, f"value '{v}' ({type(v)}) is not of allowed type"
+
+        return True, ""
 
     elif isinstance(obj, Sequence) and not isinstance(obj, (str, bytes, bytearray)):
-        return all(is_allowed_type(item) for item in obj)
+        for k in obj:
+            if not is_allowed_type(k):
+                return False, f"item '{k}' ({type(k)}) is not of allowed type"
+
+        return True, ""
 
     return False
 
@@ -486,117 +496,101 @@ def is_valid_output(value, output_type):
     if output_type == SimParams:
         try:
             if not isinstance(value, dict):
-                return False
+                return False, f"{value} is not an instance of dict"
             for key, v in value.items():
                 if not isinstance(key, str):
-                    return False
+                    return False, f"{key} is not an instance of str"
                 hash(v)
         except TypeError:
-            return False
+            return False, f"{v} is not hashable"
 
-        return True
+        return True, ""
     if output_type == ExportConfig:
         if not isinstance(value, dict):
-            return False
+            return False, f"{value} is not an instance of dict"
         for key, v in value.items():
             if not isinstance(key, str) and not isinstance(key, int):
-                return False
-            if not is_valid_output(v, ExportSpec):
-                return False
+                return False, f"{key} is not an instance of str or int"
+            is_valid, message = is_valid_output(v, ExportSpec)
+            if not is_valid:
+                return False, message
 
-        return True
+        return True, ""
     if output_type == ExportSpec:
 
         if not isinstance(value, dict):
-            return False
+            return False, f"{value} is not an instance of dict"
         if set(value.keys()) != set("value_type", "start_cell"):
-            return False
+            return (
+                False,
+                f"{value} must contain keys: 'value_type', 'start_cell' and no others,"
+                f" Got {list(value.keys())}",
+            )
 
         is_cell_code = bool(re.compile(r"^[A-Z]+[0-9]+$").match(value["start_cell"]))
         if not is_cell_code:
-            return False
+            return False, f"{value['start_cell']} is not proper cell name"
 
-        return True
+        return True, ""
     if output_type == AllSimParams:
         if not isinstance(value, dict):
-            return False
+            return False, f"{value} is not an instance of dict"
         for key, sim_params in value.items():
             if not isinstance(key, str):
-                return False
-            if not is_valid_output(sim_params, output_type=SimParams):
-                return False
+                return False, f"{key} is not an instance of str"
+            is_valid, message = is_valid_output(sim_params, output_type=SimParams)
+            if not is_valid:
+                return False, message
 
-        return True
+        return True, ""
     if output_type == TimeRanges:
         if not isinstance(value, abc_Iterable):
-            return False
+            return False, f"{value} is not an iterable of time ranges"
         for time_range in value:
-            if not is_valid_output(time_range, output_type=TimeRange):
-                return False
+            is_valid, message = is_valid_output(time_range, output_type=TimeRange)
+            if not is_valid:
+                return False, message
     if output_type == TimeRange:
-        if not isinstance(value, tuple):
-            return False
-        if not len(value) == 2:
-            return False
+        if not isinstance(value, tuple) or not len(value) == 2:
+            return False, f"{value} is not a tuple of len 2"
         if not isinstance(value[0], datetime.datetime) or not isinstance(
             value[1], datetime.datetime
         ):
-            return False
+            return False, f"expected a 2-tuple of datetime objects, got: {value}"
 
-        return True
+        return True, ""
     if output_type == AllTimeRanges:
         if not isinstance(value, dict):
-            return False
+            return False, f"{value} is not an instance of dict"
         for key, v in value.items():
             if not isinstance(key, str):
-                return False
-            if not is_valid_output(v, output_type=TimeRanges):
-                return False
+                return False, f"{key} is not an instance of str"
+            is_valid, message = is_valid_output(v, output_type=TimeRanges)
+            if not is_valid:
+                return False, message
 
-        return True
-    # if output_type == SimValues:
-    #     if not isinstance(value, dict):
-    #         return False
-    #     for frzn, alwd in value.items():
-    #         if not isinstance(frzn, tuple):
-    #             return False
-    #         try:
-    #             for k, v in frzn:
-    #                 if not isinstance(k, str):
-    #                     return False
-    #                 hash(v)
-    #         except TypeError:
-    #             return False
-
-    #         if not is_allowed_type(alwd):
-    #             return False
-
-    #     return True
+        return True, ""
 
     if output_type == ModelDict:
         if not isinstance(value, dict) or set(value.keys()) != set(
             ["class_def", "model"]
         ):
-            return False
+            return (
+                False,
+                (
+                    f"{value} must contain keys: 'class_def', 'model' and no others,"
+                    f" Got {list(value.keys())}"
+                ),
+            )
 
         if not isinstance(value["class_def"], str):
-            return False
+            return False, f"'class_def' must be a str, got {type(value['class_def'])}"
         if not isinstance(value["model"], torch.nn.Module):
-            return False
-        return True
-
-    # if output_type == SimValue:
-    #     if not isinstance(value, tuple) or not len(value) == 2:
-    #         return False
-    #     frzn, alwd = value
-
-    #     if not is_valid_output(frzn, SimParams):
-    #         return False
-
-    #     if not is_allowed_type(alwd):
-    #         return False
-
-    #     return True
+            return (
+                False,
+                f"'model' must be of type torch.nn.Module, got {type(value['model'])}",
+            )
+        return True, ""
 
     if output_type == torch.nn.Module:
         return isinstance(value, torch.nn.Module)
@@ -612,13 +606,20 @@ def is_valid_output(value, output_type):
     if origin is Union:
         if go.Figure in args and any(is_dict_str_figure(arg) for arg in args):
             if isinstance(value, go.Figure):
-                return True
+                return True, ""
             if isinstance(value, dict):
-                return all(
-                    isinstance(k, str) and isinstance(v, go.Figure)
-                    for k, v in value.items()
+                return (
+                    all(
+                        isinstance(k, str) and isinstance(v, go.Figure)
+                        for k, v in value.items()
+                    ),
+                    "",
                 )
-            return False
+            return (
+                False,
+                "Must return either go.Figure or dictionary of keys str and values"
+                f" go.Figure. Got {value}",
+            )
 
     # Fallback
     return is_allowed_type(value)
