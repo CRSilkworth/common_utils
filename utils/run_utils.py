@@ -73,6 +73,7 @@ def run_docs(
                 allowed_modules=get_known_types(),
                 global_vars=kwargs.get("globals", {}),
             )
+            doc.add_output(att, output)
 
             if upstream_failure or output["failed"] or not func:
                 print(f"Skipping {doc.full_name}-{att}")

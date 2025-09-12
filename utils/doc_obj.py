@@ -26,7 +26,7 @@ class DocObj(dict):
         self.outputs = {}
         self.uploaders = {}
         self.doc_dict = copy.deepcopy(doc_dict)
-        for att, att_dict in doc_dict.items():
+        for att, att_dict in self.doc_dict.items():
             if isinstance(att_dict, str):
                 self[att] = att_dict
             if isinstance(att_dict, dict):
@@ -50,7 +50,6 @@ class DocObj(dict):
                     att_dict["value"] = value
                 else:
 
-                    print(att, att_dict["value_type"])
                     self.uploaders[att] = BatchUploader(
                         auth_data=auth_data,
                         value_file_ref=att_dict["new_value_file_ref"],
@@ -180,6 +179,7 @@ class DocObj(dict):
                 time_range_end=time_range[1],
                 chunked=att_dict["chunked"],
             )
+            print(att, att_dict)
 
             return self.deserialize(
                 att=att,
