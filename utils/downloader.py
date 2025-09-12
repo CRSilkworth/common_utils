@@ -40,8 +40,8 @@ class BatchDownloader:
             "time_range_start": self.time_range_start,
             "time_range_end": self.time_range_end,
         }
-        resp = requests.get(
-            f"{self.auth_data['dash_app_url']}/stream-batches", params=data, stream=True
+        resp = requests.post(
+            f"{self.auth_data['dash_app_url']}/stream-batches", json=data, stream=True
         )
         for line in resp.iter_lines(decode_unicode=True):
             if not line.strip():
