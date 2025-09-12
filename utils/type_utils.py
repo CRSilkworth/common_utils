@@ -533,6 +533,15 @@ def is_valid_output(value, output_type):
         for time_range in value:
             if not is_valid_output(time_range, output_type=TimeRange):
                 return False
+    if output_type == TimeRange:
+        if not isinstance(value, tuple):
+            return False
+        if not len(value) == 2:
+            return False
+        if not isinstance(value[0], datetime.datetime) or not isinstance(
+            value[1], datetime.datetime
+        ):
+            return False
 
         return True
     if output_type == AllTimeRanges:
