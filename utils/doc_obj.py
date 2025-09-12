@@ -31,7 +31,6 @@ class DocObj(dict):
                 self[att] = att_dict
             if isinstance(att_dict, dict):
                 att_dict["value_type"] = deserialize_typehint(att_dict["_value_type"])
-                print(att, att_dict)
                 if att_dict["value_type"] is (QuickBooks):
                     value, _, __ = attempt_deserialize(None, att_dict["value_type"])
                     value.auth_data = auth_data
@@ -54,6 +53,7 @@ class DocObj(dict):
                         auth_data=auth_data,
                         value_file_ref=att_dict["new_value_file_ref"],
                     )
+                self.doc_dict[att] = att_dict
 
     def add_output(self, att: Text, output: Dict[Text, Any]):
         if not output:

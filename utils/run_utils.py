@@ -43,7 +43,6 @@ def run_docs(
         for att, att_dict in doc.att_dicts.items():
             if not (attributes_to_run is None or att in attributes_to_run):
                 continue
-            att_dict = doc_data[doc_to_run][att]
             if not att_dict.get("runnable", False) or att_dict.get("empty", False):
                 continue
 
