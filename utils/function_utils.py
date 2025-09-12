@@ -246,17 +246,14 @@ def run_with_expected_type(
         "stderr_output": stderr_output,
         "failed": failed,
     }
+    is_valid, message = is_valid_output(value, output_type=output_type)
     if failed:
         pass
-    elif not is_valid_output(value, output_type=output_type):
-        new_error = (
-            f"\nExpected output type of {output_type}. {value} is of type "
-            f"{type(value).__name__}\n"
-        )
+    elif not is_valid:
         output["value"] = None
         output["failed"] = True
-        output["stderr_output"] += new_error
-        output["combined_output"] += new_error
+        output["stderr_output"] += message
+        output["combined_output"] += message
     else:
         output["value"] = value
 
@@ -287,17 +284,14 @@ def run_with_generator(
             "stderr_output": stderr(),
             "failed": fail(),
         }
+        is_valid, message = is_valid_output(value_chunk, output_type=output_type)
         if output["failed"]:
             pass
-        elif not is_valid_output(value_chunk, output_type=output_type):
-            new_error = (
-                f"\nExpected output type of {output_type}. {value_chunk} is of"
-                f" type {type(value_chunk).__name__}\n"
-            )
+        elif not is_valid:
             output["value_chunk"] = None
             output["failed"] = True
-            output["stderr_output"] += new_error
-            output["combined_output"] += new_error
+            output["stderr_output"] += message
+            output["combined_output"] += message
         else:
             output["value_chunk"] = value_chunk
 
