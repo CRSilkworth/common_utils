@@ -67,7 +67,6 @@ class DocObj(dict):
             "combined_output": "",
             "stdout_output": "",
             "stderr_output": "",
-            "new_value_file_ref": self.att_dicts[att].get("new_value_file_ref"),
         }
         for output in self.outputs.get(att, {}):
             combined = {
@@ -76,14 +75,14 @@ class DocObj(dict):
                 + output["combined_output"],
                 "stderr_output": combined["stderr_output"] + output["stderr_output"],
                 "stdout_output": combined["stdout_output"] + output["stdout_output"],
-                "new_value_file_ref": self.att_dicts[att].get("new_value_file_ref"),
             }
         if context:
             context = "\n".join([f"{k}={v}" for k, v in context.items()])
             for key in combined:
-                if key == "failed":
+                if key in "failed":
                     continue
-                combined[key] = f"When running with {context}" + combined[key]
+                combined[key] = f"When running with {context}:\n" + combined[key]
+        combined["new_value_file_ref"] = self.att_dicts[att].get("new_value_file_ref")
         return combined
 
     def send_output(
