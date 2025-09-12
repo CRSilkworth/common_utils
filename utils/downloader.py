@@ -69,12 +69,12 @@ class BatchDownloader:
                     time_ranges_key,
                     (
                         (
-                            datetime.fromisoformat(time_range_start)
+                            datetime.datetime.fromisoformat(time_range_start)
                             if time_range_start is not None
                             else None
                         ),
                         (
-                            datetime.fromisoformat(time_range_end)
+                            datetime.datetime.fromisoformat(time_range_end)
                             if time_range_end is not None
                             else None
                         ),
