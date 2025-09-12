@@ -30,8 +30,8 @@ class DocObj(dict):
             if isinstance(att_dict, str):
                 self[att] = att_dict
             if isinstance(att_dict, dict):
-
                 att_dict["value_type"] = deserialize_typehint(att_dict["_value_type"])
+                print(att, att_dict)
                 if att_dict["value_type"] is (QuickBooks):
                     value, _, __ = attempt_deserialize(None, att_dict["value_type"])
                     value.auth_data = auth_data
