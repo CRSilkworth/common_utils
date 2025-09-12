@@ -76,6 +76,7 @@ def run_docs(
 
             if upstream_failure or output["failed"] or not func:
                 print(f"Skipping {doc.full_name}-{att}")
+                print(upstream_failure, output, func)
                 doc.send_output(att, caller=kwargs.get("caller"))
                 continue
 
