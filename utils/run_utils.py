@@ -91,14 +91,14 @@ def run_docs(
                 for input_att, input_att_dict in input_doc.att_dicts.items():
                     if not input_att_dict.get("generator", False):
                         continue
-                    all_gens[input_doc_id, input_att] = input_doc.get_iterator(
+                    all_gens[(input_doc_id, input_att)] = input_doc.get_iterator(
                         input_att,
                         sim_param_keys=doc.att_dicts[att]["sim_param_keys"],
                         time_ranges_keys=doc.att_dicts[att]["time_ranges_keys"],
                     )
             merged = merge_generators(all_gens.values())
             for (sim_param_key, time_ranges_key, time_range), values in merged:
-                for input_doc_id, input_att, value in zip(all_gens.keys(), values):
+                for (input_doc_id, input_att), value in zip(all_gens.keys(), values):
                     doc_objs[input_doc_id][input_att] = value
                 runner_kwargs["sim_param_key"] = sim_param_key
                 runner_kwargs["time_ranges_key"] = time_ranges_key
