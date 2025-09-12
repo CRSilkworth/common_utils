@@ -179,7 +179,6 @@ class DocObj(dict):
                 time_range_end=time_range[1],
                 chunked=att_dict["chunked"],
             )
-            print(att, att_dict)
 
             return self.deserialize(
                 att=att,

@@ -4,6 +4,7 @@ import json
 import binascii
 from operator import itemgetter
 from itertools import groupby
+import datetime
 
 
 class BatchDownloader:
@@ -66,7 +67,18 @@ class BatchDownloader:
                 yield (
                     sim_param_key,
                     time_ranges_key,
-                    (time_range_start, time_range_end),
+                    (
+                        (
+                            datetime.fromisoformat(time_range_start)
+                            if time_range_start is not None
+                            else None
+                        ),
+                        (
+                            datetime.fromisoformat(time_range_end)
+                            if time_range_end is not None
+                            else None
+                        ),
+                    ),
                     chunk_num,
                     _value_chunk,
                 )
