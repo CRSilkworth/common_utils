@@ -250,10 +250,12 @@ def run_with_expected_type(
     if failed:
         pass
     elif not is_valid:
+        error = f"Expected output of {output_type}, but output validation"
+        f" failed:\n{message}"
         output["value"] = None
         output["failed"] = True
-        output["stderr_output"] += message
-        output["combined_output"] += message
+        output["stderr_output"] += error
+        output["combined_output"] += error
     else:
         output["value"] = value
 
@@ -288,10 +290,12 @@ def run_with_generator(
         if output["failed"]:
             pass
         elif not is_valid:
-            output["value_chunk"] = None
+            error = f"Expected output of {output_type}, but output validation"
+            f" failed:\n{message}"
+            output["value"] = None
             output["failed"] = True
-            output["stderr_output"] += message
-            output["combined_output"] += message
+            output["stderr_output"] += error
+            output["combined_output"] += error
         else:
             output["value_chunk"] = value_chunk
 

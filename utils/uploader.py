@@ -1,4 +1,5 @@
 from typing import Dict, Text, Optional
+from utils.type_utils import TimeRange
 import io
 import requests
 import json
@@ -23,11 +24,13 @@ class BatchUploader:
 
     def add_chunk(
         self,
-        sim_param_key,
-        time_ranges_key,
-        time_range,
-        chunk_num,
-        _value_chunk,
+        sim_param_key: Text,
+        time_ranges_key: Text,
+        time_range: TimeRange,
+        chunk_num: int,
+        _value_chunk: Text,
+        preview: Optional[Text] = None,
+        _schema: Optional[Text] = None,
     ):
         data = _value_chunk.encode("utf-8")
         offset = self.buffer.tell()
@@ -42,7 +45,12 @@ class BatchUploader:
             ]
         )
         length = len(data)
-        self.index_map[key] = {"offset": offset, "length": length}
+        self.index_map[key] = {
+            "offset": offset,
+            "length": length,
+            "preview": preview,
+            "_schema": _schema,
+        }
 
         self.item_count += 1
         self.size += length

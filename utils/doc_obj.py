@@ -216,10 +216,10 @@ class DocObj(dict):
             sim_param_key=sim_param_key,
             time_ranges_key=time_ranges_key,
             time_range=time_range,
+            _value_chunk=_value_chunk,
+            chunk_num=chunk_num,
             preview=preview,
             _schema=json.dumps(schema),
-            chunk_num=chunk_num,
-            value_chunk=_value_chunk,
         )
         output = {
             "failed": not success,
