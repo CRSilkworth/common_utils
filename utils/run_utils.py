@@ -192,4 +192,7 @@ def sims_time_ranges_iter(
             if time_ranges_keys and time_ranges_key not in time_ranges_keys:
                 continue
             for time_range in time_ranges:
+                print(
+                    "yielding", (sim_param_key, time_ranges_key, time_range), sim_params
+                )
                 yield (sim_param_key, time_ranges_key, time_range), sim_params
