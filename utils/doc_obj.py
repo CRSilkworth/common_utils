@@ -82,8 +82,7 @@ class DocObj(dict):
                 if not combined[key]:
                     continue
                 combined[key] = f"When running with {context}:\n" + combined[key]
-        print("output")
-        combined["new_value_file_ref"] = self.att_dicts[att].get("new_value_file_ref")
+        combined["new_value_file_ref"] = self.uploaders[att].value_file_ref
         return combined
 
     def send_output(
@@ -120,8 +119,6 @@ class DocObj(dict):
 
     @property
     def att_dicts(self):
-        print("-" * 10)
-        print({k: v for k, v in self.doc_dict.items() if isinstance(v, dict)})
         return {k: v for k, v in self.doc_dict.items() if isinstance(v, dict)}
 
     def time_series(
