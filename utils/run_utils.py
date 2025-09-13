@@ -184,7 +184,12 @@ def sims_time_ranges_iter(
     # NOTE: Must contain __TRUE__ AND __WHOLE__ if user removed them put them back in.
     if "__TRUE__" not in sims:
         sims["__TRUE__"] = {}
-    all_time_ranges["__WHOLE__"] = [(datetime.datetime.min, datetime.datetime.max)]
+    # mongo only supports upto milliseconds, so to be consistent knock off the micro
+    # seconds here.
+    dt_max = datetime.datetime.max
+    all_time_ranges["__WHOLE__"] = [
+        (datetime.datetime.min, dt_max.replace(microsecond=999))
+    ]
     for sim_param_key, sim_params in sims.items():
         if sim_param_keys and sim_param_key not in sim_param_keys:
             continue
