@@ -30,6 +30,7 @@ def run_docs(
         for d in doc_data
     }
 
+    calc_graph_doc = doc_objs[auth_data["calc_graph_id"]]
     for doc_to_run in docs_to_run:
         doc = doc_objs[doc_to_run]
 
@@ -81,7 +82,13 @@ def run_docs(
 
             logging.info(f"Running {doc.full_name}: {att}")
 
-            all_gens = {}
+            all_gens = {
+                (calc_graph_doc.doc_id, "sims_all_time_ranges"): sims_time_ranges_iter(
+                    calc_graph_doc=calc_graph_doc,
+                    sim_param_keys=att_dict["sim_params_keys"],
+                    time_ranges_keys=att_dict["time_ranges_keys"],
+                )
+            }
             runner_kwargs = {}
             for var_name, input_doc_id in att_dict["var_name_to_id"].items():
                 input_doc = doc_objs[input_doc_id]
@@ -94,6 +101,7 @@ def run_docs(
                         sim_param_keys=doc.att_dicts[att]["sim_param_keys"],
                         time_ranges_keys=doc.att_dicts[att]["time_ranges_keys"],
                     )
+
             merged = merge_generators(all_gens.values())
             for (sim_param_key, time_ranges_key, time_range), values in merged:
                 for (input_doc_id, input_att), value in zip(all_gens.keys(), values):
@@ -156,3 +164,23 @@ def run_docs(
                 cleanup()
             except Exception:
                 continue
+
+
+def sims_time_ranges_iter(
+    calc_graph_doc: DocObj,
+    sim_param_keys: List[Text] = None,
+    time_ranges_keys: List[Text] = None,
+):
+    sims = next(calc_graph_doc["sims"].get_iterator())
+    all_time_ranges = next(calc_graph_doc["all_time_ranges"].get_iterator())
+
+    print("sims", sims)
+    print("all_time_ranges_keys", all_time_ranges)
+    for sim_param_key, sim_params in sims.items():
+        if sim_param_keys and sim_param_key not in sim_param_keys:
+            continue
+        for time_ranges_key, time_ranges in all_time_ranges.items():
+            if time_ranges_keys and time_ranges_key not in time_ranges_keys:
+                continue
+            for time_range in time_ranges:
+                yield (sim_param_key, time_ranges_key, time_range), sim_params
