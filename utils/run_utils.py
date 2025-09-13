@@ -156,6 +156,12 @@ def run_docs(
                     "time_ranges_key": time_ranges_key,
                     "time_range": time_range,
                 }
+                print(
+                    "SENDING BOTTOM",
+                    doc.doc_id,
+                    att,
+                    (sim_param_key, time_ranges_key, time_range),
+                )
                 doc.send_output(att, caller=kwargs.get("caller"), context=context)
     logging.info("Cleaning up connections")
     # cleanup any connections
@@ -179,8 +185,6 @@ def sims_time_ranges_iter(
     if "__TRUE__" not in sims:
         sims["__TRUE__"] = {}
     all_time_ranges["__WHOLE__"] = [(datetime.datetime.min, datetime.datetime.max)]
-    print("sims", sims)
-    print("all_time_ranges_keys", all_time_ranges)
     for sim_param_key, sim_params in sims.items():
         if sim_param_keys and sim_param_key not in sim_param_keys:
             continue
