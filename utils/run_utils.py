@@ -171,8 +171,8 @@ def sims_time_ranges_iter(
     sim_param_keys: List[Text] = None,
     time_ranges_keys: List[Text] = None,
 ):
-    sims = next(calc_graph_doc["sims"].get_iterator())
-    all_time_ranges = next(calc_graph_doc["all_time_ranges"].get_iterator())
+    sims = next(calc_graph_doc.get_iterator("sims"))
+    all_time_ranges = next(calc_graph_doc.get_iterator("all_time_ranges"))
 
     print("sims", sims)
     print("all_time_ranges_keys", all_time_ranges)
