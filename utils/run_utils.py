@@ -188,7 +188,7 @@ def sims_time_ranges_iter(
     # seconds here.
     dt_max = datetime.datetime.max
     all_time_ranges["__WHOLE__"] = [
-        (datetime.datetime.min, dt_max.replace(microsecond=999))
+        (datetime.datetime.min, dt_max.replace(microsecond=999000))
     ]
     for sim_param_key, sim_params in sims.items():
         if sim_param_keys and sim_param_key not in sim_param_keys:
