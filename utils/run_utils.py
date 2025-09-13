@@ -8,6 +8,7 @@ from utils.function_utils import (
 from utils.type_utils import get_known_types
 from utils.generator_utils import merge_generators
 from utils.doc_obj import DocObj
+import datetime
 import logging
 
 
@@ -174,6 +175,10 @@ def sims_time_ranges_iter(
     _, sims = next(calc_graph_doc.get_iterator("sims"))
     __, all_time_ranges = next(calc_graph_doc.get_iterator("all_time_ranges"))
 
+    # NOTE: Must contain __TRUE__ AND __WHOLE__ if user removed them put them back in.
+    if "__TRUE__" not in sims:
+        sims["__TRUE__"] = {}
+    all_time_ranges["__WHOLE__"] = [(datetime.datetime.min, datetime.datetime.max)]
     print("sims", sims)
     print("all_time_ranges_keys", all_time_ranges)
     for sim_param_key, sim_params in sims.items():
