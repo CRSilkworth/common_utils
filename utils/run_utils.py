@@ -85,7 +85,7 @@ def run_docs(
             all_gens = {
                 (calc_graph_doc.doc_id, "sims_all_time_ranges"): sims_time_ranges_iter(
                     calc_graph_doc=calc_graph_doc,
-                    sim_param_keys=att_dict["sim_params_keys"],
+                    sim_param_keys=att_dict["sim_param_keys"],
                     time_ranges_keys=att_dict["time_ranges_keys"],
                 )
             }
