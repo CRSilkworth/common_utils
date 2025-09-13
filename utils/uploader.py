@@ -39,8 +39,16 @@ class BatchUploader:
             [
                 sim_param_key,
                 time_ranges_key,
-                time_range[0].isoformat() if time_range[0] is not None else None,
-                time_range[1].isoformat() if time_range[1] is not None else None,
+                (
+                    time_range[0].isoformat(timespec="microseconds")
+                    if time_range[0] is not None
+                    else None
+                ),
+                (
+                    time_range[1].isoformat(timespec="microseconds")
+                    if time_range[1] is not None
+                    else None
+                ),
                 chunk_num,
             ]
         )

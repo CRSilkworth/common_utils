@@ -75,16 +75,16 @@ def encode_obj(obj: Any):
         }
 
     elif isinstance(obj, pd.Timestamp):
-        return {"__kind__": "Timestamp", "data": obj.isoformat()}
+        return {"__kind__": "Timestamp", "data": obj.isoformat(timespec="microseconds")}
 
     elif isinstance(obj, datetime.datetime):
-        return {"__kind__": "datetime", "data": obj.isoformat()}
+        return {"__kind__": "datetime", "data": obj.isoformat(timespec="microseconds")}
 
     elif isinstance(obj, datetime.date):
-        return {"__kind__": "date", "data": obj.isoformat()}
+        return {"__kind__": "date", "data": obj.isoformat(timespec="microseconds")}
 
     elif isinstance(obj, datetime.time):
-        return {"__kind__": "time", "data": obj.isoformat()}
+        return {"__kind__": "time", "data": obj.isoformat(timespec="microseconds")}
 
     elif isinstance(obj, pd.Index):
         return {"__kind__": "Index", "data": obj.tolist()}
