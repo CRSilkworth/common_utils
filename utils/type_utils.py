@@ -70,6 +70,7 @@ Allowed = Union[
     pd.DataFrame,
     pd.Period,
     pd.Series,
+    datetime.datetime,
     type(None),
 ]
 
