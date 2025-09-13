@@ -250,8 +250,10 @@ def run_with_expected_type(
     if failed:
         pass
     elif not is_valid:
-        error = f"Expected output of {output_type}, but output validation"
-        f" failed:\n{message}"
+        error = (
+            f"Expected output of {output_type}, but output validation"
+            f" failed:\n{message}"
+        )
         output["value"] = None
         output["failed"] = True
         output["stderr_output"] += error
@@ -290,8 +292,10 @@ def run_with_generator(
         if output["failed"]:
             pass
         elif not is_valid:
-            error = f"Expected output of {output_type}, but output validation"
-            f" failed:\n{message}"
+            error = (
+                f"Expected output of {output_type}, but output validation"
+                f" failed:\n{message}"
+            )
             output["value"] = None
             output["failed"] = True
             output["stderr_output"] += error

@@ -156,12 +156,7 @@ def run_docs(
                     "time_ranges_key": time_ranges_key,
                     "time_range": time_range,
                 }
-                print(
-                    "SENDING BOTTOM",
-                    doc.doc_id,
-                    att,
-                    (sim_param_key, time_ranges_key, time_range),
-                )
+
                 doc.send_output(att, caller=kwargs.get("caller"), context=context)
     logging.info("Cleaning up connections")
     # cleanup any connections
@@ -197,7 +192,4 @@ def sims_time_ranges_iter(
             if time_ranges_keys and time_ranges_key not in time_ranges_keys:
                 continue
             for time_range in time_ranges:
-                print(
-                    "yielding", (sim_param_key, time_ranges_key, time_range), sim_params
-                )
                 yield (sim_param_key, time_ranges_key, time_range), sim_params
