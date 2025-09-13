@@ -82,7 +82,8 @@ class DocObj(dict):
                 if not combined[key]:
                     continue
                 combined[key] = f"When running with {context}:\n" + combined[key]
-        combined["new_value_file_ref"] = self.uploaders[att].value_file_ref
+        if att in self.uploaders:
+            combined["new_value_file_ref"] = self.uploaders[att].value_file_ref
         return combined
 
     def send_output(
