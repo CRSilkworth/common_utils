@@ -82,6 +82,7 @@ class DocObj(dict):
                 if key in "failed":
                     continue
                 combined[key] = f"When running with {context}:\n" + combined[key]
+        print(att, self.att_dicts[att])
         combined["new_value_file_ref"] = self.att_dicts[att].get("new_value_file_ref")
         return combined
 

@@ -123,7 +123,6 @@ def run_docs(
                         )
 
                 else:
-                    print(att, att_dict)
                     output = run_with_expected_type(
                         func, runner_kwargs, att_dict["value_type"]
                     )
