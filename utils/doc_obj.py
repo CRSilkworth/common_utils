@@ -30,6 +30,11 @@ class DocObj(dict):
             if isinstance(att_dict, str):
                 self[att] = att_dict
             if isinstance(att_dict, dict):
+                print(att)
+                print(att_dict)
+                print(self.att_dicts[att])
+                print("-" * 10)
+
                 att_dict["value_type"] = deserialize_typehint(att_dict["_value_type"])
                 if att_dict["value_type"] is (QuickBooks):
                     value, _, __ = attempt_deserialize(None, att_dict["value_type"])
@@ -53,7 +58,6 @@ class DocObj(dict):
                         auth_data=auth_data,
                         value_file_ref=att_dict["new_value_file_ref"],
                     )
-                self.doc_dict[att] = att_dict
 
     def add_output(self, att: Text, output: Dict[Text, Any]):
         if not output:
@@ -82,7 +86,6 @@ class DocObj(dict):
                 if key in "failed":
                     continue
                 combined[key] = f"When running with {context}:\n" + combined[key]
-        print(att, self.att_dicts[att])
         combined["new_value_file_ref"] = self.att_dicts[att].get("new_value_file_ref")
         return combined
 
