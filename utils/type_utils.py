@@ -314,6 +314,7 @@ def is_allowed_type(obj) -> bool:
             np.generic,
             pd.DataFrame,
             pd.Period,
+            datetime.datetime,
             type(None),
         ),
     ):
