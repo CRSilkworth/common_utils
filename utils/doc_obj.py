@@ -30,10 +30,6 @@ class DocObj(dict):
             if isinstance(att_dict, str):
                 self[att] = att_dict
             if isinstance(att_dict, dict):
-                print(att)
-                print(att_dict)
-                print(self.att_dicts[att])
-                print("-" * 10)
 
                 att_dict["value_type"] = deserialize_typehint(att_dict["_value_type"])
                 if att_dict["value_type"] is (QuickBooks):
@@ -82,10 +78,11 @@ class DocObj(dict):
             }
         if context:
             context = "\n".join([f"{k}={v}" for k, v in context.items()])
-            for key in combined:
-                if key in "failed":
+            for key in ("combined_output", "stderr_output", "stdout_output"):
+                if not combined[key]:
                     continue
                 combined[key] = f"When running with {context}:\n" + combined[key]
+        print("output")
         combined["new_value_file_ref"] = self.att_dicts[att].get("new_value_file_ref")
         return combined
 
@@ -123,6 +120,8 @@ class DocObj(dict):
 
     @property
     def att_dicts(self):
+        print("-" * 10)
+        print({k: v for k, v in self.doc_dict.items() if isinstance(v, dict)})
         return {k: v for k, v in self.doc_dict.items() if isinstance(v, dict)}
 
     def time_series(
