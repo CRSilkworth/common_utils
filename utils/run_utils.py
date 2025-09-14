@@ -344,7 +344,7 @@ def sims_time_ranges_iter(
     all_time_ranges["__WHOLE__"] = [
         (datetime.datetime.min, dt_max.replace(microsecond=999000))
     ]
-    for sim_iter_num, sim_params in sims.items():
+    for sim_iter_num, sim_params in enumerate(sims):
         if sim_iter_nums and sim_iter_num not in sim_iter_nums:
             continue
         for time_ranges_key, time_ranges in all_time_ranges.items():
@@ -370,7 +370,7 @@ def sims_time_range_end_iter(
     all_time_ranges["__WHOLE__"] = [(datetime.datetime.min, dt_max)]
 
     results = []
-    for sim_iter_num, sim_params in sims.items():
+    for sim_iter_num, sim_params in enumerate(sims):
         if sim_iter_nums and sim_iter_num not in sim_iter_nums:
             continue
         for time_ranges_key, time_ranges in all_time_ranges.items():
