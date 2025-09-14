@@ -126,11 +126,11 @@ class DocObj(dict):
         self,
         attribute_name: Text,
         time_ranges_key: Optional[Text] = "__WHOLE__",
-        sim_param_key: Optional[Text] = "__TRUE__",
+        sim_iter_num: Optional[int] = 0,
     ):
         iterator = self.get_iterator(
             attribute_name,
-            sim_param_keys=[sim_param_key],
+            sim_iter_nums=[sim_iter_num],
             time_ranges_keys=[time_ranges_key],
         )
         for (_, __, time_range), value in iterator:
@@ -149,13 +149,13 @@ class DocObj(dict):
             time_range_start=time_range_start,
             time_range_end=time_range_end,
         )
-        for (sim_param_key, __, time_range), value in iterator:
-            yield (sim_param_key, time_range, value)
+        for (sim_iter_num, __, time_range), value in iterator:
+            yield (sim_iter_num, time_range, value)
 
     def get_iterator(
         self,
         att: Text,
-        sim_param_keys: Optional[Text] = None,
+        sim_iter_nums: Optional[Text] = None,
         time_ranges_keys: Optional[Text] = None,
         time_range: Optional[TimeRange] = None,
     ):
@@ -173,7 +173,7 @@ class DocObj(dict):
                 auth_data=self.auth_data,
                 doc_id=self.doc_id,
                 attribute_name=att,
-                sim_param_keys=sim_param_keys,
+                sim_iter_nums=sim_iter_nums,
                 value_file_ref=self.doc_dict[att]["value_file_ref"],
                 time_ranges_keys=time_ranges_keys,
                 time_range_start=time_range[0],
@@ -199,7 +199,7 @@ class DocObj(dict):
     def upload_chunk(
         self,
         att: Text,
-        sim_param_key: Text,
+        sim_iter_num: int,
         time_ranges_key: Text,
         time_range: TimeRange,
         chunk_num: int,
@@ -214,7 +214,7 @@ class DocObj(dict):
         self.add_output(att, output)
 
         success, message = uploader.add_chunk(
-            sim_param_key=sim_param_key,
+            sim_iter_num=sim_iter_num,
             time_ranges_key=time_ranges_key,
             time_range=time_range,
             _value_chunk=_value_chunk,

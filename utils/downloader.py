@@ -14,7 +14,7 @@ class BatchDownloader:
         value_file_ref: Text,
         doc_id: Text,
         attribute_name: Text,
-        sim_param_keys: Optional[Text] = None,
+        sim_iter_nums: Optional[Text] = None,
         time_ranges_keys: Optional[Text] = None,
         time_range_start: Optional[Text] = None,
         time_range_end: Optional[Text] = None,
@@ -25,7 +25,7 @@ class BatchDownloader:
         self.chunked = chunked
         self.doc_id = doc_id
         self.attribute_name = attribute_name
-        self.sim_param_keys = sim_param_keys
+        self.sim_iter_nums = sim_iter_nums
         self.time_ranges_keys = time_ranges_keys
         self.time_range_start = time_range_start
         self.time_range_end = time_range_end
@@ -36,7 +36,7 @@ class BatchDownloader:
             "doc_id": self.doc_id,
             "attribute_name": self.attribute_name,
             "value_file_ref": str(self.value_file_ref),
-            "sim_param_keys": self.sim_param_keys,
+            "sim_iter_nums": self.sim_iter_nums,
             "time_ranges_keys": self.time_ranges_keys,
             "time_range_start": self.time_range_start,
             "time_range_end": self.time_range_end,
@@ -56,7 +56,7 @@ class BatchDownloader:
             for key, loc in batch["index_map"].items():
                 offset, length = loc["offset"], loc["length"]
                 (
-                    sim_param_key,
+                    sim_iter_num,
                     time_ranges_key,
                     time_range_start,
                     time_range_end,
@@ -65,7 +65,7 @@ class BatchDownloader:
                 chunk = batch_data[offset : offset + length]  # noqa: E203
                 _value_chunk = chunk.decode("utf-8")
                 yield (
-                    sim_param_key,
+                    sim_iter_num,
                     time_ranges_key,
                     (
                         (
@@ -100,7 +100,7 @@ class BatchDownloader:
 
     # def nested_iterator(self):
     #     flat = self.flat_iterator()
-    #     for sim_param_key, sim_param_group in groupby(flat, key=itemgetter(0)):
+    #     for sim_iter_num, sim_param_group in groupby(flat, key=itemgetter(0)):
 
     #         def tr_name_gen(group=sim_param_group):
     #             for collection_name, collection_group in groupby(
@@ -122,4 +122,4 @@ class BatchDownloader:
 
     #                 yield collection_name, tr_gen()
 
-    #         yield sim_param_key, tr_name_gen()
+    #         yield sim_iter_num, tr_name_gen()

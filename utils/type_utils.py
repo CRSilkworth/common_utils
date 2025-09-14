@@ -98,7 +98,7 @@ TimeRange = Tuple[datetime.datetime, datetime.datetime]
 TimeRanges = typing.Iterable[TimeRange]
 AllTimeRanges = typing.Dict[Text, TimeRanges]
 SimParams = typing.Dict[Text, typing.Hashable]
-AllSimParams = typing.Dict[Text, SimParams]
+AllSimParams = List[SimParams]
 
 
 class GCSPath(str):
@@ -535,11 +535,9 @@ def is_valid_output(value, output_type):
 
         return True, ""
     if output_type == AllSimParams:
-        if not isinstance(value, dict):
-            return False, f"{value} is not an instance of dict"
-        for key, sim_params in value.items():
-            if not isinstance(key, str):
-                return False, f"{key} is not an instance of str"
+        if not isinstance(value, list):
+            return False, f"{value} is not an instance of list"
+        for sim_params in value:
             is_valid, message = is_valid_output(sim_params, output_type=SimParams)
             if not is_valid:
                 return False, message

@@ -24,7 +24,7 @@ class BatchUploader:
 
     def add_chunk(
         self,
-        sim_param_key: Text,
+        sim_iter_num: Text,
         time_ranges_key: Text,
         time_range: TimeRange,
         chunk_num: int,
@@ -37,18 +37,10 @@ class BatchUploader:
         self.buffer.write(data)
         key = json.dumps(
             [
-                sim_param_key,
+                sim_iter_num,
                 time_ranges_key,
-                (
-                    time_range[0].isoformat(timespec="microseconds")
-                    if time_range[0] is not None
-                    else None
-                ),
-                (
-                    time_range[1].isoformat(timespec="microseconds")
-                    if time_range[1] is not None
-                    else None
-                ),
+                (time_range[0].isoformat() if time_range[0] is not None else None),
+                (time_range[1].isoformat() if time_range[1] is not None else None),
                 chunk_num,
             ]
         )
