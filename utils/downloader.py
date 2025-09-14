@@ -16,8 +16,8 @@ class BatchDownloader:
         attribute_name: Text,
         sim_iter_nums: Optional[Text] = None,
         time_ranges_keys: Optional[Text] = None,
-        time_range_start: Optional[Text] = None,
-        time_range_end: Optional[Text] = None,
+        time_range_start: Optional[datetime.datetime] = None,
+        time_range_end: Optional[datetime.datetime] = None,
         chunked: bool = False,
     ):
         self.auth_data = auth_data
@@ -38,8 +38,12 @@ class BatchDownloader:
             "value_file_ref": str(self.value_file_ref),
             "sim_iter_nums": self.sim_iter_nums,
             "time_ranges_keys": self.time_ranges_keys,
-            "time_range_start": self.time_range_start,
-            "time_range_end": self.time_range_end,
+            "time_range_start": (
+                self.time_range_start.isoformat() if self.time_range_start else None
+            ),
+            "time_range_end": (
+                self.time_range_end.isoformat() if self.time_range_end else None
+            ),
         }
         resp = requests.post(
             f"{self.auth_data['dash_app_url']}/stream-batches", json=data, stream=True
