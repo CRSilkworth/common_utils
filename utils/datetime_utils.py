@@ -2,6 +2,9 @@ import datetime as dt
 
 EPOCH = dt.datetime(1970, 1, 1)
 
+dt_min = dt.datetime.min
+dt_max = dt.datetime.max
+
 
 def datetime_to_float(d: dt.datetime) -> float:
     """Convert datetime to float seconds since epoch, works for min/max."""
