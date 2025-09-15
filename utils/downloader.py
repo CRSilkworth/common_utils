@@ -45,48 +45,48 @@ class BatchDownloader:
                 self.time_range_end.isoformat() if self.time_range_end else None
             ),
         }
-        print("stream", data)
         resp = requests.post(
             f"{self.auth_data['dash_app_url']}/stream-batches", json=data, stream=True
         )
-        for line in resp.iter_lines(decode_unicode=True):
-            if not line.strip():
-                continue
-            try:
-                batch = json.loads(line)
-            except json.JSONDecodeError:
-                print(f"Bad line: {line!r}")
-                continue
-            batch_data = binascii.unhexlify(batch["batch_data"])
-            for key, loc in batch["index_map"].items():
-                offset, length = loc["offset"], loc["length"]
-                (
-                    sim_iter_num,
-                    time_ranges_key,
-                    time_range_start,
-                    time_range_end,
-                    chunk_num,
-                ) = json.loads(key)
-                chunk = batch_data[offset : offset + length]  # noqa: E203
-                _value_chunk = chunk.decode("utf-8")
-                yield (
-                    sim_iter_num,
-                    time_ranges_key,
+        for chunk in resp.iter_content(chunk_size=None, decode_unicode=True):
+            for line in chunk.splitlines():
+                if not line.strip():
+                    continue
+                try:
+                    batch = json.loads(line)
+                except json.JSONDecodeError:
+                    print(f"Bad line: {line!r}")
+                    continue
+                batch_data = binascii.unhexlify(batch["batch_data"])
+                for key, loc in batch["index_map"].items():
+                    offset, length = loc["offset"], loc["length"]
                     (
+                        sim_iter_num,
+                        time_ranges_key,
+                        time_range_start,
+                        time_range_end,
+                        chunk_num,
+                    ) = json.loads(key)
+                    chunk = batch_data[offset : offset + length]  # noqa: E203
+                    _value_chunk = chunk.decode("utf-8")
+                    yield (
+                        sim_iter_num,
+                        time_ranges_key,
                         (
-                            datetime.datetime.fromisoformat(time_range_start)
-                            if time_range_start is not None
-                            else None
+                            (
+                                datetime.datetime.fromisoformat(time_range_start)
+                                if time_range_start is not None
+                                else None
+                            ),
+                            (
+                                datetime.datetime.fromisoformat(time_range_end)
+                                if time_range_end is not None
+                                else None
+                            ),
                         ),
-                        (
-                            datetime.datetime.fromisoformat(time_range_end)
-                            if time_range_end is not None
-                            else None
-                        ),
-                    ),
-                    chunk_num,
-                    _value_chunk,
-                )
+                        chunk_num,
+                        _value_chunk,
+                    )
 
     def __iter__(self):
         flat = self.flat_iterator()

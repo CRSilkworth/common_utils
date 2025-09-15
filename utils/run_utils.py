@@ -359,6 +359,10 @@ def sims_time_range_end_iter(
     sim_iter_nums: List[str] = None,
     time_ranges_keys: List[str] = None,
 ):
+    print(
+        calc_graph_doc.doc_id,
+        calc_graph_doc.att_dicts["sims"],
+    )
     _, sims = next(calc_graph_doc.get_iterator("sims"))
     __, all_time_ranges = next(calc_graph_doc.get_iterator("all_time_ranges"))
 
