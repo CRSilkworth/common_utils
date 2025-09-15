@@ -45,6 +45,7 @@ class BatchDownloader:
                 self.time_range_end.isoformat() if self.time_range_end else None
             ),
         }
+        print("stream", data)
         resp = requests.post(
             f"{self.auth_data['dash_app_url']}/stream-batches", json=data, stream=True
         )
