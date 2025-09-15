@@ -48,12 +48,12 @@ class BatchDownloader:
         resp = requests.post(
             f"{self.auth_data['dash_app_url']}/stream-batches", json=data, stream=True
         )
-        for chunk in resp.iter_content(chunk_size=None, decode_unicode=True):
+        for chunk in resp.iter_content(chunk_size=None):
             for line in chunk.splitlines():
                 if not line.strip():
                     continue
                 try:
-                    batch = json.loads(line)
+                    batch = json.loads(line.decode("utf-8"))
                 except json.JSONDecodeError:
                     print(f"Bad line: {line!r}")
                     continue
