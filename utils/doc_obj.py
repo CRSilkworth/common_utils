@@ -193,9 +193,6 @@ class DocObj(dict):
 
         self.doc_dict[att]["value_file_ref"] = self.doc_dict[att]["new_value_file_ref"]
 
-        # Just in case someone tries to upload it to the . have it throw an error
-        del self.doc_dict[att]["new_value_file_ref"]
-
     def upload_chunk(
         self,
         att: Text,
