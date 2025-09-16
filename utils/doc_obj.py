@@ -64,9 +64,9 @@ class DocObj(dict):
     def get_output(self, att: Text, **context) -> Dict[Text, Any]:
         combined = {
             "failed": False,
-            "combined_output": "",
-            "stdout_output": "",
-            "stderr_output": "",
+            "combined_output": [],
+            "stdout_output": [],
+            "stderr_output": [],
         }
         for output in self.outputs.get(att, {}):
             combined = {
@@ -76,6 +76,12 @@ class DocObj(dict):
                 "stderr_output": combined["stderr_output"] + output["stderr_output"],
                 "stdout_output": combined["stdout_output"] + output["stdout_output"],
             }
+            combined["combined_output"].append(output["combined_output"])
+            combined["stdout_output"].append(output["stdout_output"])
+            combined["stderr_output"].append(output["stderr_output"])
+        combined["combined_output"] = "\n".join(combined["combined_output"])
+        combined["stderr_output"] = "\n".join(combined["stderr_output"])
+        combined["stdout_output"] = "\n".join(combined["stdout_output"])
         if context:
             context = "\n".join([f"{k}={v}" for k, v in context.items()])
             for key in ("combined_output", "stderr_output", "stdout_output"):

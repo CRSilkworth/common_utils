@@ -340,7 +340,7 @@ def run_sims(
             if not att_dict.get("runnable", False) or att_dict.get("empty", False):
                 continue
 
-            doc.send_output(att, caller=kwargs.get("caller"), context=context)
+            doc.send_output(att, caller=kwargs.get("caller"))
     logging.info("Cleaning up connections")
     # cleanup any connections
     for doc in doc_objs.values():
