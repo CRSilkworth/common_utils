@@ -31,11 +31,12 @@ class BatchDownloader:
         self.time_range_end = time_range_end
 
     def flat_iterator(self):
+        print(self.value_file_ref)
         data = {
             "auth_data": self.auth_data,
             "doc_id": self.doc_id,
             "attribute_name": self.attribute_name,
-            "value_file_ref": str(self.value_file_ref),
+            "value_file_ref": self.value_file_ref,
             "sim_iter_nums": self.sim_iter_nums,
             "time_ranges_keys": self.time_ranges_keys,
             "time_range_start": (
