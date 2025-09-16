@@ -235,6 +235,7 @@ class DocObj(dict):
         self, att: Text, iterator: Iterable, value_type: Any, chunked=False
     ):
         for key, _value in iterator:
+            print(key, _value)
             if chunked:
 
                 def value_chunk_gen(_value=_value):

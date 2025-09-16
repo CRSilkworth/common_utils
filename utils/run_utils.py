@@ -199,7 +199,10 @@ def run_sims(
             att_dict["value_file_ref"] = att_dict["new_value_file_ref"]
 
     calc_graph_doc = doc_objs[auth_data["calc_graph_id"]]
-    iterator = sims_time_range_end_iter(calc_graph_doc=calc_graph_doc)
+    iterator = sims_time_range_end_iter(
+        calc_graph_doc=calc_graph_doc,
+        is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
+    )
     for (sim_iter_num, time_ranges_key, time_range), sim_params in iterator:
 
         for doc_to_run in docs_to_run:
@@ -365,9 +368,17 @@ def sims_time_ranges_iter(
     calc_graph_doc: DocObj,
     sim_iter_nums: List[Text] = None,
     time_ranges_keys: List[Text] = None,
+    is_calc_graph_run: bool = False,
 ):
-    _, sims = next(calc_graph_doc.get_iterator("sims"))
-    __, all_time_ranges = next(calc_graph_doc.get_iterator("all_time_ranges"))
+    if is_calc_graph_run:
+        sims = {"0": {}}
+        all_time_ranges = {}
+    else:
+        _, sims = next(calc_graph_doc.get_iterator("sims"))
+        __, all_time_ranges = next(calc_graph_doc.get_iterator("all_time_ranges"))
+
+        if not sims:
+            sims = {"0": {}}
 
     # NOTE: Must contain sims[0] AND __WHOLE__ if user removed them put them back in.
     if not sims:
@@ -392,13 +403,18 @@ def sims_time_range_end_iter(
     calc_graph_doc: DocObj,
     sim_iter_nums: List[str] = None,
     time_ranges_keys: List[str] = None,
+    is_calc_graph_run: bool = False,
 ):
 
-    _, sims = next(calc_graph_doc.get_iterator("sims"))
-    __, all_time_ranges = next(calc_graph_doc.get_iterator("all_time_ranges"))
+    if is_calc_graph_run:
+        sims = {"0": {}}
+        all_time_ranges = {}
+    else:
+        _, sims = next(calc_graph_doc.get_iterator("sims"))
+        __, all_time_ranges = next(calc_graph_doc.get_iterator("all_time_ranges"))
 
-    if not sims:
-        sims = {"0": {}}  # fallback
+        if not sims:
+            sims = {"0": {}}
 
     # Normalize datetime.max → millisecond precision
     dt_max = datetime.datetime.max.replace(microsecond=999000)
