@@ -111,7 +111,6 @@ def run_docs(
                 runner_kwargs["time_ranges_key"] = time_ranges_key
                 runner_kwargs["time_range"] = time_range
 
-                print(runner_kwargs)
                 failed = False
                 if att_dict["chunked"]:
                     run_generator = run_with_generator(
@@ -225,6 +224,7 @@ def run_sims(
                         )
                         doc.add_output(att, output)
                         upstream_failure = True
+                        print("upstream failure": input_doc.failures())
                         break
 
                 if upstream_failure:
@@ -264,6 +264,8 @@ def run_sims(
                 runner_kwargs["sim_iter_num"] = sim_iter_num
                 runner_kwargs["time_ranges_key"] = time_ranges_key
                 runner_kwargs["time_range"] = time_range
+
+                print((sim_iter_num, time_ranges_key, time_range), runner_kwargs)
                 merged = merge_generators(all_gens.values())
                 for _, values in merged:
                     for (input_doc_id, input_att), value in zip(
