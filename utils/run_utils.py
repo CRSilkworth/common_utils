@@ -224,7 +224,7 @@ def run_sims(
                         )
                         doc.add_output(att, output)
                         upstream_failure = True
-                        print("upstream failure": input_doc.failures())
+                        print("upstream failure", input_doc.failures())
                         break
 
                 if upstream_failure:
