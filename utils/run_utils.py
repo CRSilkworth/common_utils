@@ -197,6 +197,7 @@ def run_sims(
                 continue
 
             att_dict["value_file_ref"] = att_dict["new_value_file_ref"]
+            print(doc.full_name, att, len(list(doc.get_iterator())))
 
     calc_graph_doc = doc_objs[auth_data["calc_graph_id"]]
     iterator = sims_time_range_end_iter(calc_graph_doc=calc_graph_doc)
