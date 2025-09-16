@@ -187,7 +187,7 @@ def run_sims(
         for d in doc_data
     }
 
-    for doc in doc_objs:
+    for doc in doc_objs.values():
         if doc.doc_id not in docs_to_run:
             continue
         for att, att_dict in doc.att_dicts.items():
