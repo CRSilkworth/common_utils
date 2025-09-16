@@ -247,7 +247,6 @@ def run_sims(
 
                 logging.info(f"Running {doc.full_name}: {att}")
 
-                all_gens = {}
                 runner_kwargs = {}
                 for var_name, input_doc_id in att_dict["var_name_to_id"].items():
                     input_doc = doc_objs[input_doc_id]
@@ -255,77 +254,77 @@ def run_sims(
                     for input_att, input_att_dict in input_doc.att_dicts.items():
                         if not input_att_dict.get("generator", False):
                             continue
-                        all_gens[(input_doc_id, input_att)] = input_doc.get_iterator(
-                            input_att,
-                            sim_iter_nums=[sim_iter_num],
-                            time_ranges_keys=[time_ranges_key],
-                            time_range=time_range,
-                        )
+                        if not input_att_dict.get("chunked", False):
+                            doc_objs[input_doc_id][input_att] = input_doc.get_iterator(
+                                input_att,
+                                sim_iter_nums=[sim_iter_num],
+                                time_ranges_keys=[time_ranges_key],
+                                time_range=time_range,
+                            )
+                        else:
+                            value = input_doc.get_iterator(
+                                input_att,
+                                sim_iter_nums=[sim_iter_num],
+                                time_ranges_keys=[time_ranges_key],
+                                time_range=time_range,
+                            )
+                            try:
+                                doc_objs[input_doc_id][input_att] = next(value)
+                            except StopIteration:
+                                doc_objs[input_doc_id][input_att] = None
+
                 runner_kwargs["sim_iter_num"] = sim_iter_num
                 runner_kwargs["time_ranges_key"] = time_ranges_key
                 runner_kwargs["time_range"] = time_range
 
-                print(
-                    (sim_iter_num, time_ranges_key, time_range, doc_to_run, att),
-                    all_gens,
-                )
-                merged = merge_generators(all_gens.values())
-                for _, values in merged:
-                    for (input_doc_id, input_att), value in zip(
-                        all_gens.keys(), values
-                    ):
-                        doc_objs[input_doc_id][input_att] = value
-
-                    failed = False
-                    if att_dict["chunked"]:
-                        run_generator = run_with_generator(
-                            func, runner_kwargs, att_dict["value_type"]
-                        )
-                        for chun_num, run_output_chunk in enumerate(run_generator):
-                            doc.add_output(att, run_output_chunk)
-                            if run_output_chunk["failed"]:
-                                failed = True
-                                break
-
-                            doc.upload_chunk(
-                                att=att,
-                                sim_iter_num=sim_iter_num,
-                                time_ranges_key=time_ranges_key,
-                                time_range=time_range,
-                                chunk_num=chun_num,
-                                value_chunk=run_output_chunk["value"],
-                            )
-
-                    else:
-                        print(
-                            (sim_iter_num, time_ranges_key, time_range, doc_to_run, att)
-                        )
-                        output = run_with_expected_type(
-                            func, runner_kwargs, att_dict["value_type"]
-                        )
-                        doc.add_output(att, output)
-                        if not output["failed"]:
-                            doc.upload_chunk(
-                                att=att,
-                                sim_iter_num=sim_iter_num,
-                                time_ranges_key=time_ranges_key,
-                                time_range=time_range,
-                                chunk_num=0,
-                                value_chunk=output["value"],
-                            )
-                        else:
+                failed = False
+                if att_dict["chunked"]:
+                    run_generator = run_with_generator(
+                        func, runner_kwargs, att_dict["value_type"]
+                    )
+                    for chun_num, run_output_chunk in enumerate(run_generator):
+                        doc.add_output(att, run_output_chunk)
+                        if run_output_chunk["failed"]:
                             failed = True
-                    # If it succeeds then switch to using the new value file/clear old
-                    # values.
-                    if not failed:
-                        doc.finalize_value_update(att)
-                    context = {
-                        "sim_iter_num": sim_iter_num,
-                        "time_ranges_key": time_ranges_key,
-                        "time_range": time_range,
-                    }
+                            break
 
-                    doc.send_output(att, caller=kwargs.get("caller"), context=context)
+                        doc.upload_chunk(
+                            att=att,
+                            sim_iter_num=sim_iter_num,
+                            time_ranges_key=time_ranges_key,
+                            time_range=time_range,
+                            chunk_num=chun_num,
+                            value_chunk=run_output_chunk["value"],
+                        )
+
+                else:
+                    print((sim_iter_num, time_ranges_key, time_range, doc_to_run, att))
+                    output = run_with_expected_type(
+                        func, runner_kwargs, att_dict["value_type"]
+                    )
+                    doc.add_output(att, output)
+                    if not output["failed"]:
+                        doc.upload_chunk(
+                            att=att,
+                            sim_iter_num=sim_iter_num,
+                            time_ranges_key=time_ranges_key,
+                            time_range=time_range,
+                            chunk_num=0,
+                            value_chunk=output["value"],
+                        )
+                    else:
+                        failed = True
+                # If it succeeds then switch to using the new value file/clear old
+                # values.
+                if not failed:
+                    doc.finalize_value_update(att)
+                context = {
+                    "sim_iter_num": sim_iter_num,
+                    "time_ranges_key": time_ranges_key,
+                    "time_range": time_range,
+                }
+
+                doc.send_output(att, caller=kwargs.get("caller"), context=context)
     logging.info("Cleaning up connections")
     # cleanup any connections
     for doc in doc_objs.values():
