@@ -131,6 +131,11 @@ class DocObj(dict):
         time_ranges_key: Optional[Text] = "__WHOLE__",
         sim_iter_num: Optional[int] = 0,
     ):
+        print(
+            attribute_name,
+            self.doc_dict[attribute_name]["value_file_ref"],
+            self.doc_dict[attribute_name]["new_value_file_ref"],
+        )
         iterator = self.get_iterator(
             attribute_name,
             sim_iter_nums=[sim_iter_num],
