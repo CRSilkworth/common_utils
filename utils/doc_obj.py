@@ -177,6 +177,7 @@ class DocObj(dict):
             if "value" in self.doc_dict[att]:
                 return self.doc_dict[att]["value"]
             att_dict = self.att_dicts[att]
+            print(self.full_name, self.doc_dict[att]["value_file_ref"])
             downloader = BatchDownloader(
                 auth_data=self.auth_data,
                 doc_id=self.doc_id,
