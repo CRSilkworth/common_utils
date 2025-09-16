@@ -254,7 +254,7 @@ def run_sims(
                     for input_att, input_att_dict in input_doc.att_dicts.items():
                         if not input_att_dict.get("generator", False):
                             continue
-                        if not input_att_dict.get("chunked", False):
+                        if input_att_dict.get("chunked", False):
                             doc_objs[input_doc_id][input_att] = input_doc.get_iterator(
                                 input_att,
                                 sim_iter_nums=[sim_iter_num],
@@ -298,7 +298,6 @@ def run_sims(
                         )
 
                 else:
-                    print((sim_iter_num, time_ranges_key, time_range, doc_to_run, att))
                     output = run_with_expected_type(
                         func, runner_kwargs, att_dict["value_type"]
                     )
