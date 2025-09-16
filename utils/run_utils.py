@@ -323,7 +323,23 @@ def run_sims(
                     "time_range": time_range,
                 }
 
-                doc.send_output(att, caller=kwargs.get("caller"), context=context)
+    for doc_to_run in docs_to_run:
+        doc = doc_objs[doc_to_run]
+
+        upstream_failure = False
+        attributes_to_run = (
+            list(doc_data[doc_to_run].keys())
+            if attributes_to_run is None
+            else attributes_to_run
+        )
+        # Run all the attributes associate with this doc
+        for att, att_dict in doc.att_dicts.items():
+            if not (attributes_to_run is None or att in attributes_to_run):
+                continue
+            if not att_dict.get("runnable", False) or att_dict.get("empty", False):
+                continue
+
+            doc.send_output(att, caller=kwargs.get("caller"), context=context)
     logging.info("Cleaning up connections")
     # cleanup any connections
     for doc in doc_objs.values():

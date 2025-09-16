@@ -190,7 +190,6 @@ class DocObj(dict):
 
     def finalize_value_update(self, att: Text):
         self.uploaders[att].flush_batch()
-
         self.doc_dict[att]["value_file_ref"] = self.doc_dict[att]["new_value_file_ref"]
 
     def upload_chunk(
