@@ -111,6 +111,7 @@ def run_docs(
                 runner_kwargs["time_ranges_key"] = time_ranges_key
                 runner_kwargs["time_range"] = time_range
 
+                print(runner_kwargs)
                 failed = False
                 if att_dict["chunked"]:
                     run_generator = run_with_generator(
