@@ -1,10 +1,73 @@
-from typing import Dict, Text, Optional
+from typing import Dict, Text, Optional, List
 import requests
 import json
 import binascii
 from operator import itemgetter
 from itertools import groupby
 import datetime
+from utils.type_utils import TimeRange
+
+
+def download_slice(
+    auth_data,
+    value_file_refs: Optional[List[Text]] = None,
+    sim_iter_nums: Optional[Text] = None,
+    time_ranges_keys: Optional[Text] = None,
+    time_range: Optional[TimeRange] = None,
+    time_range_end: Optional[datetime.datetime] = None,
+):
+    data = {
+        "auth_data": auth_data,
+        "value_file_refs": value_file_refs,
+        "sim_iter_nums": sim_iter_nums,
+        "time_ranges_keys": time_ranges_keys,
+        "time_range_start": (time_range[0].isoformat() if time_range else None),
+        "time_range_end": (time_range[1].isoformat() if time_range[1] else None),
+    }
+    resp = requests.post(
+        f"{auth_data['dash_app_url']}/stream-batches", json=data, stream=True
+    )
+    for chunk in resp.iter_content(chunk_size=None):
+        for line in chunk.splitlines():
+            if not line.strip():
+                continue
+            try:
+                batch = json.loads(line.decode("utf-8"))
+            except json.JSONDecodeError:
+                print(f"Bad line: {line!r}")
+                continue
+            batch_data = binascii.unhexlify(batch["batch_data"])
+            for key, loc in batch["index_map"].items():
+                offset, length = loc["offset"], loc["length"]
+                (
+                    value_file_refs,
+                    sim_iter_num,
+                    time_ranges_key,
+                    time_range_start,
+                    time_range_end,
+                    chunk_num,
+                ) = json.loads(key)
+                chunk = batch_data[offset : offset + length]  # noqa: E203
+                _value_chunk = chunk.decode("utf-8")
+                yield (
+                    value_file_refs,
+                    sim_iter_num,
+                    time_ranges_key,
+                    (
+                        (
+                            datetime.datetime.fromisoformat(time_range_start)
+                            if time_range_start is not None
+                            else None
+                        ),
+                        (
+                            datetime.datetime.fromisoformat(time_range_end)
+                            if time_range_end is not None
+                            else None
+                        ),
+                    ),
+                    chunk_num,
+                    _value_chunk,
+                )
 
 
 class BatchDownloader:
