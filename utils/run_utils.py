@@ -187,6 +187,17 @@ def run_sims(
         for d in doc_data
     }
 
+    for doc in doc_objs:
+        if doc.doc_id not in docs_to_run:
+            continue
+        for att, att_dict in doc.att_dicts.items():
+            if not (attributes_to_run is None or att in attributes_to_run):
+                continue
+            if not att_dict.get("runnable", False) or att_dict.get("empty", False):
+                continue
+
+            att_dict["value_file_ref"] = att_dict["new_value_file_ref"]
+
     calc_graph_doc = doc_objs[auth_data["calc_graph_id"]]
     iterator = sims_time_range_end_iter(calc_graph_doc=calc_graph_doc)
     for (sim_iter_num, time_ranges_key, time_range), sim_params in iterator:
