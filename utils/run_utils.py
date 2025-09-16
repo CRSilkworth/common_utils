@@ -265,7 +265,6 @@ def run_sims(
                 runner_kwargs["time_ranges_key"] = time_ranges_key
                 runner_kwargs["time_range"] = time_range
 
-                print((sim_iter_num, time_ranges_key, time_range), runner_kwargs)
                 merged = merge_generators(all_gens.values())
                 for _, values in merged:
                     for (input_doc_id, input_att), value in zip(
@@ -294,6 +293,9 @@ def run_sims(
                             )
 
                     else:
+                        print(
+                            (sim_iter_num, time_ranges_key, time_range, doc_to_run, att)
+                        )
                         output = run_with_expected_type(
                             func, runner_kwargs, att_dict["value_type"]
                         )
