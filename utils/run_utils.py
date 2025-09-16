@@ -196,6 +196,7 @@ def run_sims(
             if not att_dict.get("runnable", False) or att_dict.get("empty", False):
                 continue
 
+            att_dict["value_file_ref"] = att_dict["new_value_file_ref"]
             print(
                 doc.full_name,
                 att,
@@ -203,7 +204,6 @@ def run_sims(
                 doc.att_dicts[att]["new_value_file_ref"],
                 len(list(doc.get_iterator(att))),
             )
-            att_dict["value_file_ref"] = att_dict["new_value_file_ref"]
 
     calc_graph_doc = doc_objs[auth_data["calc_graph_id"]]
     iterator = sims_time_range_end_iter(calc_graph_doc=calc_graph_doc)
