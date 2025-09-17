@@ -51,18 +51,20 @@ def encode_obj(obj: Any):
 
     elif isinstance(obj, pd.DataFrame):
         df = obj.copy()
-        for col in df.columns:
-            if isinstance(df[col].dtype, pd.PeriodDtype):
-                df[col] = df[col].astype(str)
-            elif isinstance(df[col].dtype, pd.DatetimeTZDtype):
-                df[col] = df[col].astype(str)
-        return {"__kind__": "DataFrame", "data": df.to_json(orient="split")}
+        data = []
+        for idx in df.index:
+            row = {"index": encode_obj(idx), "columns": {}}
+            for col in df.columns:
+                row["columns"][col] = encode_obj(df.at(idx, col))
+            data.append(row)
+        return {"__kind__": "DataFrame", "data": data}
 
     elif isinstance(obj, pd.Series):
         s = obj.copy()
-        if isinstance(s.dtype, pd.PeriodDtype):
-            s = s.astype(str)
-        return {"__kind__": "Series", "data": s.to_json(orient="split")}
+        data = []
+        for idx, value in s.items():
+            {"index": encode_obj(idx), "value": encode_obj(value)}
+        return {"__kind__": "Series", "data": data}
 
     elif isinstance(obj, pd.Period):
         return {"__kind__": "Period", "data": str(obj), "freq": obj.freqstr}
@@ -75,16 +77,16 @@ def encode_obj(obj: Any):
         }
 
     elif isinstance(obj, pd.Timestamp):
-        return {"__kind__": "Timestamp", "data": obj.isoformat(timespec="milliseconds")}
+        return {"__kind__": "Timestamp", "data": obj.isoformat()}
 
     elif isinstance(obj, datetime.datetime):
-        return {"__kind__": "datetime", "data": obj.isoformat(timespec="milliseconds")}
+        return {"__kind__": "datetime", "data": obj.isoformat()}
 
     elif isinstance(obj, datetime.date):
-        return {"__kind__": "date", "data": obj.isoformat(timespec="milliseconds")}
+        return {"__kind__": "date", "data": obj.isoformat()}
 
     elif isinstance(obj, datetime.time):
-        return {"__kind__": "time", "data": obj.isoformat(timespec="milliseconds")}
+        return {"__kind__": "time", "data": obj.isoformat()}
 
     elif isinstance(obj, pd.Index):
         return {"__kind__": "Index", "data": obj.tolist()}
@@ -157,9 +159,23 @@ def decode_obj(obj: Any, known_types: Optional[Dict[Text, Any]] = None):
                 )
             return {"model": output["value"], "class_def": class_def}
         elif kind == "DataFrame":
-            return pd.read_json(obj["data"], orient="split")
+            index = []
+            columns = {}
+            for row in obj["data"]:
+                index.append(decode_obj(row["index"]))
+                for col in row["columns"]:
+                    columns.setdefault(col, [])
+                    columns[col].append(decode_obj(row["columns"][col]))
+            df = pd.DataFrame(columns, index=index)
+            return df
         elif kind == "Series":
-            return pd.read_json(obj["data"], orient="split", typ="series")
+            index = []
+            values = []
+            for row in obj["data"]:
+                index.append(decode_obj(row["index"]))
+                values.append(decode_obj(row["value"]))
+            s = pd.Series(values, index=index)
+            return s
         elif kind == "Period":
             return pd.Period(obj["data"], freq=obj["freq"])
         elif kind == "PeriodIndex":

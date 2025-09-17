@@ -88,6 +88,7 @@ def run_docs(
                     calc_graph_doc=calc_graph_doc,
                     sim_iter_nums=att_dict["sim_iter_nums"],
                     time_ranges_keys=att_dict["time_ranges_keys"],
+                    is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
                 )
             }
             runner_kwargs = {}
@@ -331,11 +332,6 @@ def run_sims(
                 # values.
                 if not failed:
                     doc.finalize_value_update(att)
-                context = {
-                    "sim_iter_num": sim_iter_num,
-                    "time_ranges_key": time_ranges_key,
-                    "time_range": time_range,
-                }
 
     for doc_to_run in docs_to_run:
         doc = doc_objs[doc_to_run]

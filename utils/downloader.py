@@ -94,7 +94,6 @@ class BatchDownloader:
         self.time_range_end = time_range_end
 
     def flat_iterator(self):
-        print(self.value_file_ref)
         data = {
             "auth_data": self.auth_data,
             "doc_id": self.doc_id,

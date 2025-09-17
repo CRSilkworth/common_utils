@@ -70,9 +70,9 @@ class DocObj(dict):
         }
         for output in self.outputs.get(att, {}):
             combined["failed"].append(output["failed"])
-            combined["combined_output"].append(output["combined_output"])
-            combined["stdout_output"].append(output["stdout_output"])
-            combined["stderr_output"].append(output["stderr_output"])
+            combined["combined_output"].append(output["combined_output"].strip())
+            combined["stdout_output"].append(output["stdout_output"].strip())
+            combined["stderr_output"].append(output["stderr_output"].strip())
 
         combined["failed"] = any(combined["failed"])
         combined["combined_output"] = "\n".join(combined["combined_output"])
@@ -235,7 +235,6 @@ class DocObj(dict):
         self, att: Text, iterator: Iterable, value_type: Any, chunked=False
     ):
         for key, _value in iterator:
-            print(key, _value)
             if chunked:
 
                 def value_chunk_gen(_value=_value):
