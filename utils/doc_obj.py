@@ -48,7 +48,7 @@ class DocObj(dict):
                     if cleanups:
                         self.cleanups[att] = cleanups[0]
                     att_dict["value"] = value
-                else:
+                elif att_dict.get("runnable"):
 
                     self.uploaders[att] = BatchUploader(
                         auth_data=auth_data,
@@ -75,9 +75,15 @@ class DocObj(dict):
             combined["stderr_output"].append(output["stderr_output"].strip())
 
         combined["failed"] = any(combined["failed"])
-        combined["combined_output"] = "\n".join(combined["combined_output"])
-        combined["stderr_output"] = "\n".join(combined["stderr_output"])
-        combined["stdout_output"] = "\n".join(combined["stdout_output"])
+        combined["combined_output"] = "\n".join(
+            [s for s in combined["combined_output"] if s]
+        )
+        combined["stderr_output"] = "\n".join(
+            [s for s in combined["stderr_output"] if s]
+        )
+        combined["stdout_output"] = "\n".join(
+            [s for s in combined["stdout_output"] if s]
+        )
 
         if context:
             context = "\n".join([f"{k}={v}" for k, v in context.items()])
