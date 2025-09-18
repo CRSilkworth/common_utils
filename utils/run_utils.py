@@ -410,16 +410,26 @@ def sims_time_range_end_iter(
     is_calc_graph_run: bool = False,
 ):
 
+    dt_max = datetime.datetime.max
     if is_calc_graph_run:
         sims = {"0": {}}
         all_time_ranges = {}
     else:
-        _, sims = next(calc_graph_doc.get_iterator("sims"))
-        __, all_time_ranges = next(calc_graph_doc.get_iterator("all_time_ranges"))
-
-        if not sims:
+        try:
+            _, sims = next(calc_graph_doc.get_iterator("sims"))
+        except StopIteration:
             sims = {"0": {}}
+        try:
+            __, all_time_ranges = next(calc_graph_doc.get_iterator("all_time_ranges"))
+        except StopIteration:
+            all_time_ranges = {
+                "__WHOLE__": [
+                    (datetime.datetime.min, dt_max.replace(microsecond=999000))
+                ]
+            }
 
+    if not sims:
+        sims = [{}]
     # Normalize datetime.max → millisecond precision
     dt_max = datetime.datetime.max.replace(microsecond=999000)
     all_time_ranges["__WHOLE__"] = [(datetime.datetime.min, dt_max)]
