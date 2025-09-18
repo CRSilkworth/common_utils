@@ -366,22 +366,30 @@ def sims_time_ranges_iter(
     time_ranges_keys: List[Text] = None,
     is_calc_graph_run: bool = False,
 ):
+    dt_max = datetime.datetime.max
     if is_calc_graph_run:
         sims = {"0": {}}
         all_time_ranges = {}
     else:
-        _, sims = next(calc_graph_doc.get_iterator("sims"))
-        __, all_time_ranges = next(calc_graph_doc.get_iterator("all_time_ranges"))
-
-        if not sims:
+        try:
+            _, sims = next(calc_graph_doc.get_iterator("sims"))
+        except StopIteration:
             sims = {"0": {}}
+        try:
+            __, all_time_ranges = next(calc_graph_doc.get_iterator("all_time_ranges"))
+        except StopIteration:
+            all_time_ranges = {
+                "__WHOLE__": [
+                    (datetime.datetime.min, dt_max.replace(microsecond=999000))
+                ]
+            }
 
     # NOTE: Must contain sims[0] AND __WHOLE__ if user removed them put them back in.
     if not sims:
         sims = [{}]
     # mongo only supports upto milliseconds, so to be consistent knock off the micro
     # seconds here.
-    dt_max = datetime.datetime.max
+
     all_time_ranges["__WHOLE__"] = [
         (datetime.datetime.min, dt_max.replace(microsecond=999000))
     ]
