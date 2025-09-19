@@ -225,6 +225,17 @@ def run_sims(
                     continue
                 if time_ranges_key not in att_dict["time_ranges_keys"]:
                     continue
+                block_key = (
+                    sim_iter_num,
+                    time_ranges_key,
+                    time_range[0].isoformat(),
+                    time_range[1].isoformat(),
+                    0,
+                )
+                if block_key in att_dict["overrides"]:
+                    print(block_key, "overriden")
+                    continue
+                print(block_key, "not_overriden")
 
                 logging.info(f"Running {doc.full_name}-{att}")
                 print(f"Running {doc.full_name} {att}")
