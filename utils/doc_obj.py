@@ -53,6 +53,7 @@ class DocObj(dict):
                     self.uploaders[att] = BatchUploader(
                         auth_data=auth_data,
                         value_file_ref=att_dict["new_value_file_ref"],
+                        old_value_file_ref=att_dict["old_value_file_ref"],
                     )
 
     def add_output(self, att: Text, output: Dict[Text, Any]):
@@ -211,14 +212,37 @@ class DocObj(dict):
         time_range: TimeRange,
         chunk_num: int,
         value_chunk: Any,
+        overriden: bool = False,
     ):
         uploader = self.uploaders[att]
-        preview = value_to_preview(value_chunk)
-        schema = describe_json_schema(value_chunk)
-        _value_chunk, output = attempt_serialize(
-            value_chunk, self.att_dicts[att]["value_type"]
-        )
-        self.add_output(att, output)
+        if not overriden:
+            preview = value_to_preview(value_chunk)
+            _schema = json.dumps(describe_json_schema(value_chunk))
+            _value_chunk, output = attempt_serialize(
+                value_chunk, self.att_dicts[att]["value_type"]
+            )
+            self.add_output(att, output)
+        else:
+            preview = ""
+            _schema = ""
+            _value_chunk = ""
+            message = (
+                f"value corresponding to "
+                f"doc_name={self.full_name}, "
+                f"sim_iter_num={sim_iter_num}"
+                f"time_ranges_key={time_ranges_key},"
+                f"time_range={time_range}, "
+                f"chunk_num={chunk_num}, "
+            )
+            self.add_output(
+                att,
+                {
+                    "failed": False,
+                    "combined_output": message,
+                    "stdout": message,
+                    "stderr": "",
+                },
+            )
 
         success, message = uploader.add_chunk(
             sim_iter_num=sim_iter_num,
@@ -227,7 +251,8 @@ class DocObj(dict):
             _value_chunk=_value_chunk,
             chunk_num=chunk_num,
             preview=preview,
-            _schema=json.dumps(schema),
+            _schema=_schema,
+            overriden=overriden,
         )
         output = {
             "failed": not success,

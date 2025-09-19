@@ -10,12 +10,14 @@ class BatchUploader:
         self,
         auth_data: Dict[Text, Text],
         value_file_ref: Text,
+        old_value_file_ref: Text,
         max_batch_bytes: int = 1e7,
         run_at: Optional[Text] = None,
     ):
         self.auth_data = auth_data
         self.max_batch_bytes = max_batch_bytes
         self.value_file_ref = value_file_ref
+        self.old_value_file_ref = old_value_file_ref
         self.buffer = io.BytesIO()
         self.index_map = {}
         self.item_count = 0
@@ -31,6 +33,7 @@ class BatchUploader:
         _value_chunk: Text,
         preview: Optional[Text] = None,
         _schema: Optional[Text] = None,
+        overriden: bool = False,
     ):
         data = _value_chunk.encode("utf-8")
         offset = self.buffer.tell()
@@ -50,6 +53,7 @@ class BatchUploader:
             "length": length,
             "preview": preview,
             "_schema": _schema,
+            "overriden": overriden,
         }
 
         self.item_count += 1
@@ -83,6 +87,7 @@ class BatchUploader:
                             "index_map": self.index_map,
                             "auth_data": self.auth_data,
                             "value_file_ref": self.value_file_ref,
+                            "old_value_file_ref": self.old_value_file_ref,
                         }
                     )
                 },

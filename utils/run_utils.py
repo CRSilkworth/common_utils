@@ -197,6 +197,7 @@ def run_sims(
             if not att_dict.get("runnable", False) or att_dict.get("empty", False):
                 continue
 
+            att_dict["old_value_file_ref"] = att_dict["value_file_ref"]
             att_dict["value_file_ref"] = att_dict["new_value_file_ref"]
 
     calc_graph_doc = doc_objs[auth_data["calc_graph_id"]]
@@ -251,9 +252,16 @@ def run_sims(
                     time_range[1].isoformat(),
                     0,
                 ]
-                print(att, att_dict["overrides"])
                 if block_key in att_dict["overrides"]:
-                    print(block_key, "overriden")
+                    doc.upload_chunk(
+                        att=att,
+                        sim_iter_num=sim_iter_num,
+                        time_ranges_key=time_ranges_key,
+                        time_range=time_range,
+                        chunk_num=0,
+                        value_chunk=None,
+                        overriden=True,
+                    )
                     continue
                 print(block_key, "not_overriden")
 
@@ -309,7 +317,7 @@ def run_sims(
                     run_generator = run_with_generator(
                         func, runner_kwargs, att_dict["value_type"]
                     )
-                    for chun_num, run_output_chunk in enumerate(run_generator):
+                    for chunk_num, run_output_chunk in enumerate(run_generator):
                         doc.add_output(att, run_output_chunk)
                         if run_output_chunk["failed"]:
                             failed = True
@@ -320,7 +328,7 @@ def run_sims(
                             sim_iter_num=sim_iter_num,
                             time_ranges_key=time_ranges_key,
                             time_range=time_range,
-                            chunk_num=chun_num,
+                            chunk_num=chunk_num,
                             value_chunk=run_output_chunk["value"],
                         )
 
