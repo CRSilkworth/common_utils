@@ -239,8 +239,8 @@ class DocObj(dict):
                 {
                     "failed": False,
                     "combined_output": message,
-                    "stdout": message,
-                    "stderr": "",
+                    "stdout_output": message,
+                    "stderr_output": "",
                 },
             )
 
