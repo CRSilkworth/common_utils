@@ -48,7 +48,7 @@ class DocObj(dict):
                     if cleanups:
                         self.cleanups[att] = cleanups[0]
                     att_dict["value"] = value
-                elif att_dict.get("runnable"):
+                elif att_dict.get("runnable") and att_dict.get("new_value_file_ref"):
 
                     self.uploaders[att] = BatchUploader(
                         auth_data=auth_data,
