@@ -53,7 +53,7 @@ class DocObj(dict):
                     self.uploaders[att] = BatchUploader(
                         auth_data=auth_data,
                         value_file_ref=att_dict["new_value_file_ref"],
-                        old_value_file_ref=att_dict["old_value_file_ref"],
+                        old_value_file_ref=att_dict["value_file_ref"],
                     )
 
     def add_output(self, att: Text, output: Dict[Text, Any]):
