@@ -63,10 +63,12 @@ def run_sims(
     )
 
     for (sim_iter_num, time_range, time_ranges_key), data_dict in iterator:
+        print("begin", (sim_iter_num, time_range, time_ranges_key), data_dict)
         # Fill step values
 
         for doc_to_run in docs_to_run:
             doc = doc_objs[doc_to_run]
+            print("doc_to_run", doc_to_run)
 
             upstream_failure = False
             attributes_to_run = (
@@ -84,7 +86,7 @@ def run_sims(
                     continue
                 if time_ranges_key not in att_dict["time_ranges_keys"]:
                     continue
-
+                print("att", att_dict["value_file_ref"])
                 logging.info(f"Running {doc.full_name}-{att}")
                 print(f"Running {doc.full_name} {att}")
                 # Set all the arguments to the function to run
@@ -111,15 +113,6 @@ def run_sims(
                     0,
                 ]
                 if block_key in att_dict["overrides"]:
-                    print(
-                        "override",
-                        doc_to_run,
-                        att,
-                        sim_iter_num,
-                        time_ranges_key,
-                        time_range,
-                        0,
-                    )
                     doc.upload_chunk(
                         att=att,
                         sim_iter_num=sim_iter_num,
@@ -180,15 +173,7 @@ def run_sims(
                         if run_output_chunk["failed"]:
                             failed = True
                             break
-                        print(
-                            "chunk",
-                            doc_to_run,
-                            att,
-                            sim_iter_num,
-                            time_ranges_key,
-                            time_range,
-                            chunk_num,
-                        )
+
                         doc.upload_chunk(
                             att=att,
                             sim_iter_num=sim_iter_num,

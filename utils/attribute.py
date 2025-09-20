@@ -21,6 +21,11 @@ class Attribute:
         self.value_type = value_type
         self.chunked = chunked
 
+    def set_context(self, **kwargs):
+        self.sim_iter_num = kwargs.get("sim_iter_num", None)
+        self.time_ranges_key = kwargs.get("time_ranges_key", None)
+        self.time_range = kwargs.get("time_range", None)
+
     def deserialize(self, iterator: Iterable):
         if self.chunked:
             for key, _value in iterator:
