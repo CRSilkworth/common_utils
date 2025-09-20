@@ -128,10 +128,9 @@ def merge_key_and_data_iterators(
 
         if data_key == key:
             # only yield groups that intersect this data_dict
-            for group in value_file_groups:
-                if any(vf_id in data_dict for vf_id in group):
-                    out_dict = {vf_id: data_dict.get(vf_id) for vf_id in group}
-                    yield key, out_dict
+            for group, group_idx in value_file_groups:
+                out_dict = {vf_id: data_dict.get(vf_id) for vf_id in group}
+                yield key, group_idx, out_dict
 
             # advance data_iterator
             try:
