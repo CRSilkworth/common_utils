@@ -75,12 +75,6 @@ def run_sims(
             continue
         if time_ranges_key not in att_dict["time_ranges_keys"]:
             continue
-        print("-" * 10)
-        print(
-            (doc.full_name, att, sim_iter_num, time_range, time_ranges_key), group_idx
-        )
-        print(data_dict)
-        print("-" * 10)
 
         logging.info(f"Running {doc.full_name}-{att}")
         print(f"Running {doc.full_name} {att}")
