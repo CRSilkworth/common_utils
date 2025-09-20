@@ -85,9 +85,11 @@ class Attribute:
         time_range: Optional[TimeRange] = None,
     ) -> List[Tuple[TimeRange, Any]]:
         time_ranges_key = time_ranges_key or self.time_ranges_key
+
+        # NOTE: No restriction on taking multiple time ranges
         time_range = time_range or self.time_range
 
-        # Only take data that has been 'completed' already
+        # Get all previous sims
         sim_iter_nums = list(range(self.sim_iter_num))
 
         return self.get_iterator(
