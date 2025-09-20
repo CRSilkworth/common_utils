@@ -19,16 +19,15 @@ def stream_subgraph_by_key(
         f"{auth_data['dash_app_url']}/stream-by-key", json=data, stream=True
     )
     current_key = None
-    data_dict = {}
 
+    data_dict = {}
     buffer = b""
+
     for chunk in resp.iter_content(chunk_size=8192):
         buffer += chunk
         while b"\n" in buffer:
             line_bytes, buffer = buffer.split(b"\n", 1)
-
-            line = line_bytes.decode("utf-8")
-            batch = json.loads(line)
+            batch = json.loads(line_bytes.decode("utf-8"))
             batch_data = bytes.fromhex(batch["batch_data"])
             index_map = batch["index_map"]
 
@@ -40,27 +39,21 @@ def stream_subgraph_by_key(
                 tr_end = datetime.datetime.fromisoformat(end_iso)
                 key = (sim_iter, (tr_start, tr_end), tr_key, group_idx)
 
-                # extract the block bytes
                 offset, length = loc["offset"], loc["length"]
-                block_bytes = batch_data[offset : offset + length]  # noqa: E203
+                block_bytes = batch_data[offset : offset + length]
 
                 if key != current_key:
                     if current_key is not None:
-                        # drop group idx to be consisent with other iterators
-                        # yield_key = tuple(list(current_key[:-1]))
-
                         yield current_key, data_dict
-                    # start new key
                     current_key = key
                     data_dict = {}
 
+                # Merge into current key
                 data_dict[vf_id] = block_bytes
 
-        # yield last key
-        if data_dict:
-            # drop group idx to be consisent with other iterators
-            # yield_key = tuple(list(current_key[:-1]))
-            yield current_key, data_dict
+    # yield the last key at the very end
+    if data_dict:
+        yield current_key, data_dict
 
 
 class BatchDownloader:
