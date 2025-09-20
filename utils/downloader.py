@@ -38,8 +38,8 @@ def stream_subgraph_by_key(
                     index_key
                 )
                 print(sim_iter, tr_key, start_iso, end_iso, chunk_num, vf_id)
-                tr_start = datetime.fromisoformat(start_iso)
-                tr_end = datetime.fromisoformat(end_iso)
+                tr_start = datetime.datetime.fromisoformat(start_iso)
+                tr_end = datetime.datetime.fromisoformat(end_iso)
                 key = (sim_iter, (tr_start, tr_end), tr_key)
 
                 # extract the block bytes
