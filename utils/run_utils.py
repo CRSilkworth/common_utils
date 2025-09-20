@@ -50,29 +50,12 @@ def run_sims(
     value_file_ref_groups, index_to_doc_id_att = get_value_file_ref_groups(
         docs_to_run, doc_objs, attributes_to_run
     )
-    print(value_file_ref_groups)
-    key_iterator = get_key_iterator(
-        calc_graph_doc=calc_graph_doc,
-        is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
-    )
-    print("-" * 10)
-    print("key")
-    for d in key_iterator:
-        print(d)
-    print("-" * 10)
+
     key_iterator = get_key_iterator(
         calc_graph_doc=calc_graph_doc,
         is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
     )
 
-    data_iterator = stream_subgraph_by_key(
-        auth_data=auth_data, value_file_ref_groups=value_file_ref_groups
-    )
-    print("-" * 10)
-    print("data")
-    for d in data_iterator:
-        print(d)
-    print("-" * 10)
     data_iterator = stream_subgraph_by_key(
         auth_data=auth_data, value_file_ref_groups=value_file_ref_groups
     )
@@ -81,14 +64,22 @@ def run_sims(
     )
 
     for (sim_iter_num, time_range, time_ranges_key), group_idx, data_dict in iterator:
+        print(
+            "begin",
+            (sim_iter_num, time_range, time_ranges_key),
+            group_idx,
+            data_dict.keys(),
+        )
         # Fill step values
         doc_to_run, att = index_to_doc_id_att[group_idx]
         doc = doc_objs[doc_to_run]
         att_dict = doc.att_dicts[att]
 
         if sim_iter_num not in att_dict["sim_iter_nums"]:
+            print(sim_iter_num, att_dict["sim_iter_nums"])
             continue
         if time_ranges_key not in att_dict["time_ranges_keys"]:
+            print(time_ranges_key, att_dict["time_ranges_keys"])
             continue
 
         logging.info(f"Running {doc.full_name}-{att}")
@@ -110,7 +101,8 @@ def run_sims(
                 break
 
         if upstream_failure:
-            break
+            print("upstream")
+            continue
         block_key = [
             sim_iter_num,
             time_ranges_key,
@@ -119,6 +111,7 @@ def run_sims(
             0,
         ]
         if block_key in att_dict["overrides"]:
+            print("override")
             doc.upload_chunk(
                 att=att,
                 sim_iter_num=sim_iter_num,
@@ -171,6 +164,7 @@ def run_sims(
 
         failed = False
         if att_dict["chunked"]:
+            print("chunked")
             run_generator = run_with_generator(
                 func, runner_kwargs, att_dict["value_type"]
             )
