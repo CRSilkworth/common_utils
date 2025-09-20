@@ -37,7 +37,6 @@ def stream_subgraph_by_key(
                 sim_iter, tr_key, start_iso, end_iso, chunk_num, vf_id = json.loads(
                     index_key
                 )
-                print(sim_iter, tr_key, start_iso, end_iso, chunk_num, vf_id)
                 tr_start = datetime.datetime.fromisoformat(start_iso)
                 tr_end = datetime.datetime.fromisoformat(end_iso)
                 key = (sim_iter, (tr_start, tr_end), tr_key)

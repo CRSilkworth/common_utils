@@ -63,7 +63,6 @@ def run_sims(
     )
 
     for (sim_iter_num, time_range, time_ranges_key), data_dict in iterator:
-        print((sim_iter_num, time_range, time_ranges_key), data_dict)
         # Fill step values
 
         for doc_to_run in docs_to_run:
@@ -122,7 +121,6 @@ def run_sims(
                         overriden=True,
                     )
                     continue
-                print(block_key, "not_overriden")
 
                 # Convert the functionv string to a callable function
                 func, output = create_function(
