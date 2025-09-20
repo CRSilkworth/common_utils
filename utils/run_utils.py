@@ -172,7 +172,6 @@ def run_sims(
             for chunk_num, run_output_chunk in enumerate(run_generator):
                 doc.add_output(att, run_output_chunk)
                 if run_output_chunk["failed"]:
-                    failed = True
                     break
 
                 doc.upload_chunk(
@@ -183,6 +182,7 @@ def run_sims(
                     chunk_num=chunk_num,
                     value_chunk=run_output_chunk["value"],
                 )
+                doc.finalize_value_update(att)
 
         else:
             output = run_with_expected_type(func, runner_kwargs, att_dict["value_type"])
@@ -205,12 +205,8 @@ def run_sims(
                     chunk_num=0,
                     value_chunk=output["value"],
                 )
-            else:
-                failed = True
-        # If it succeeds then switch to using the new value file/clear old
-        # values.
-        if not failed:
-            doc.finalize_value_update(att)
+                doc.finalize_value_update(att)
+                time.sleep(2)
 
     for doc_to_run in docs_to_run:
         doc = doc_objs[doc_to_run]
