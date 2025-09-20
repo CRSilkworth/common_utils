@@ -281,7 +281,6 @@ def get_key_iterator(
             if time_ranges_keys and time_ranges_key not in time_ranges_keys:
                 continue
             for time_range in time_ranges:
-                results.append((sim_iter_num, time_range, time_ranges_key))
                 for group_idx, _ in enumerate(value_ref_groups):
                     results.append(
                         (sim_iter_num, time_range, time_ranges_key, group_idx)
