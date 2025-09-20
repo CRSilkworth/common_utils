@@ -67,6 +67,12 @@ class Attribute:
         time_ranges_key = time_ranges_key or self.time_ranges_key
         time_range = time_range or self.time_range
 
+        return self.get_iterator(
+            sim_iter_num=sim_iter_num,
+            time_ranges_key=time_ranges_key,
+            time_range=time_range,
+        )
+
     def get_iterator(
         self,
         sim_iter_nums: Optional[Text] = None,
