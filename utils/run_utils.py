@@ -66,13 +66,7 @@ def run_sims(
     )
 
     for (sim_iter_num, time_range, time_ranges_key), group_idx, data_dict in iterator:
-        print(
-            "begin",
-            (sim_iter_num, time_range, time_ranges_key),
-            group_idx,
-            data_dict["68ce55d4b03a5261b6ce53d2"],
-            data_dict["68ce55d4b03a5261b6ce53d5"],
-        )
+
         doc_to_run, att = index_to_doc_id_att[group_idx]
         doc = doc_objs[doc_to_run]
         att_dict = doc.att_dicts[att]
