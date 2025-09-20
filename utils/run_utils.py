@@ -157,10 +157,7 @@ def run_sims(
                             )
                         else:
                             value = data_dict.get(input_att_dict["value_file_ref"])
-                            try:
-                                doc_objs[input_doc_id][input_att] = next(value)
-                            except StopIteration:
-                                doc_objs[input_doc_id][input_att] = None
+                            doc_objs[input_doc_id][input_att] = value
 
                 runner_kwargs["sim_iter_num"] = sim_iter_num
                 runner_kwargs["time_ranges_key"] = time_ranges_key
