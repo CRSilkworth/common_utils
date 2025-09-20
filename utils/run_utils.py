@@ -312,6 +312,7 @@ def get_value_file_ref_groups(docs_to_run, doc_objs, attributes_to_run):
                 for input_att, input_att_dict in input_doc.att_dicts.items():
                     if not input_att_dict.get("generator", False):
                         continue
-                    print(var_name, input_att, input_att_dict["value_file_ref"])
+                    if not input_att_dict.get("value_file_ref"):
+                        continue
                     value_file_ref_groups[-1].append(input_att_dict["value_file_ref"])
     return value_file_ref_groups
