@@ -23,7 +23,6 @@ def stream_subgraph_by_key(
 
     buffer = b""
     for chunk in resp.iter_content(chunk_size=8192):
-        print("stream", chunk)
         buffer += chunk
         while b"\n" in buffer:
             line_bytes, buffer = buffer.split(b"\n", 1)

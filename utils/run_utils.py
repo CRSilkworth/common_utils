@@ -111,6 +111,15 @@ def run_sims(
                     0,
                 ]
                 if block_key in att_dict["overrides"]:
+                    print(
+                        "override",
+                        doc_to_run,
+                        att,
+                        sim_iter_num,
+                        time_ranges_key,
+                        time_range,
+                        0,
+                    )
                     doc.upload_chunk(
                         att=att,
                         sim_iter_num=sim_iter_num,
@@ -171,7 +180,15 @@ def run_sims(
                         if run_output_chunk["failed"]:
                             failed = True
                             break
-
+                        print(
+                            "chunk",
+                            doc_to_run,
+                            att,
+                            sim_iter_num,
+                            time_ranges_key,
+                            time_range,
+                            chunk_num,
+                        )
                         doc.upload_chunk(
                             att=att,
                             sim_iter_num=sim_iter_num,
@@ -187,6 +204,15 @@ def run_sims(
                     )
                     doc.add_output(att, output)
                     if not output["failed"]:
+                        print(
+                            "upload",
+                            doc_to_run,
+                            att,
+                            sim_iter_num,
+                            time_ranges_key,
+                            time_range,
+                            chunk_num,
+                        )
                         doc.upload_chunk(
                             att=att,
                             sim_iter_num=sim_iter_num,
