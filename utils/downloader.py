@@ -33,12 +33,12 @@ def stream_subgraph_by_key(
             index_map = batch["index_map"]
 
             for index_key, loc in index_map.items():
-                sim_iter, tr_key, start_iso, end_iso, chunk_num, vf_id = json.loads(
-                    index_key
+                sim_iter, tr_key, start_iso, end_iso, chunk_num, vf_id, group_idx = (
+                    json.loads(index_key)
                 )
                 tr_start = datetime.datetime.fromisoformat(start_iso)
                 tr_end = datetime.datetime.fromisoformat(end_iso)
-                key = (sim_iter, (tr_start, tr_end), tr_key)
+                key = (sim_iter, (tr_start, tr_end), tr_key, group_idx)
 
                 # extract the block bytes
                 offset, length = loc["offset"], loc["length"]
@@ -46,8 +46,9 @@ def stream_subgraph_by_key(
 
                 if key != current_key:
                     if current_key is not None:
-                        # yield completed key dict
-                        yield current_key, data_dict
+                        # drop group idx to be consisent with other iterators
+                        yield_key = tuple(list(current_key[:-1]))
+                        yield yield_key, data_dict
                     # start new key
                     current_key = key
                     data_dict = {}
@@ -56,6 +57,8 @@ def stream_subgraph_by_key(
 
         # yield last key
         if data_dict:
+            # drop group idx to be consisent with other iterators
+            yield_key = tuple(list(current_key[:-1]))
             yield current_key, data_dict
 
 
@@ -125,16 +128,8 @@ class BatchDownloader:
                         sim_iter_num,
                         time_ranges_key,
                         (
-                            (
-                                datetime.datetime.fromisoformat(time_range_start)
-                                if time_range_start is not None
-                                else None
-                            ),
-                            (
-                                datetime.datetime.fromisoformat(time_range_end)
-                                if time_range_end is not None
-                                else None
-                            ),
+                            datetime.datetime.fromisoformat(time_range_start),
+                            datetime.datetime.fromisoformat(time_range_end),
                         ),
                         chunk_num,
                         _value_chunk,
