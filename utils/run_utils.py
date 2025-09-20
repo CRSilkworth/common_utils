@@ -55,6 +55,7 @@ def run_sims(
     key_iterator = get_key_iterator(
         calc_graph_doc=calc_graph_doc,
         is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
+        value_ref_groups=value_file_ref_groups,
     )
     print("-" * 10)
     print("key")
@@ -64,6 +65,7 @@ def run_sims(
     key_iterator = get_key_iterator(
         calc_graph_doc=calc_graph_doc,
         is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
+        value_ref_groups=value_file_ref_groups,
     )
 
     data_iterator = stream_subgraph_by_key(
