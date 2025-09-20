@@ -103,49 +103,42 @@ def merge_key_and_data_iterators(
 ) -> Iterator[Tuple[Tuple, int, Dict[str, Optional[bytes]]]]:
     """
     Merge streamed data with full key iterator, yielding one dict per VF group.
-    Missing blocks in a group are filled with None.
+    Ensures every (key, group_idx) is output exactly once. Missing data is None.
 
     Args:
-        key_iterator: iterator of all step keys (sim_iter, (tr_start, tr_end), tr_key)
-        data_iterator: iterator yielding (key, {vf_id: bytes})
-        value_file_groups: list of VF id groups, e.g. [["vf_1","vf_2"], ["vf_1","vf_3","vf_4"]]
+        key_iterator: iterator of all step keys
+        data_iterator: iterator yielding (step, {vf_id: bytes})
+        value_file_groups: list of VF id groups, e.g. [["vf_1","vf_2"], ["vf_1","vf_3",
+        "vf_4"]]
 
     Yields:
-        (key, group_idx, {vf_id: bytes or None}) for each group that applies to that key
+        (step, group_idx, {vf_id: bytes or None})
     """
     try:
         data_key, data_dict = next(data_iterator)
     except StopIteration:
         data_key, data_dict = None, {}
 
-    print("start", data_key)
-
     for key in key_iterator:
-        print("key", key)
-
-        # Advance data_iterator *once* if it's behind
-        if data_key is not None and data_key < key:
+        # align data_iterator to this key
+        while data_key is not None and data_key < key:
             try:
                 data_key, data_dict = next(data_iterator)
             except StopIteration:
                 data_key, data_dict = None, {}
-            print("data_key", data_key)
 
-        for group_idx, group in enumerate(value_file_groups):
-            # Default all values to None
-            out_dict = {vf_id: None for vf_id in group}
-
-            if data_key == key:
-                # Fill in any available data for this group
-                for vf_id in group:
-                    if vf_id in data_dict:
-                        out_dict[vf_id] = data_dict[vf_id]
-
-            yield key, group_idx, out_dict
-
-        # If current data_key matched key, advance iterator for next round
         if data_key == key:
+            # real data available
+            current_data = data_dict
             try:
                 data_key, data_dict = next(data_iterator)
             except StopIteration:
                 data_key, data_dict = None, {}
+        else:
+            # no data for this key
+            current_data = {}
+
+        # Always yield once per group
+        for group_idx, group in enumerate(value_file_groups):
+            out_dict = {vf_id: current_data.get(vf_id) for vf_id in group}
+            yield key, group_idx, out_dict
