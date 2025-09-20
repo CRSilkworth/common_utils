@@ -71,7 +71,27 @@ class Attribute:
 
         # Only take data that has been 'completed' already
         if time_range[1] >= self.time_range[0]:
-            time_range[1] = 
+            time_range[1] = self.time_range[0]
+
+        return self.get_iterator(
+            sim_iter_num=sim_iter_num,
+            time_ranges_key=time_ranges_key,
+            time_range=time_range,
+        )
+
+    def sims(
+        self,
+        sim_iter_num: Optional[int] = None,
+        time_ranges_key: Optional[Text] = None,
+        time_range: Optional[TimeRange] = None,
+    ) -> List[Tuple[TimeRange, Any]]:
+        sim_iter_num = sim_iter_num or self.sim_iter_num
+        time_ranges_key = time_ranges_key or self.time_ranges_key
+        time_range = time_range or self.time_range
+
+        # Only take data that has been 'completed' already
+        if time_range[1] >= self.time_range[0]:
+            time_range[1] = self.time_range[0]
 
         return self.get_iterator(
             sim_iter_num=sim_iter_num,
