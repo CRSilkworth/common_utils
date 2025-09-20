@@ -211,7 +211,7 @@ def run_sims(
                             sim_iter_num,
                             time_ranges_key,
                             time_range,
-                            chunk_num,
+                            0,
                         )
                         doc.upload_chunk(
                             att=att,
