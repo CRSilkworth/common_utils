@@ -59,10 +59,7 @@ def run_sims(
     data_iterator = stream_subgraph_by_key(
         auth_data=auth_data, value_file_ref_groups=value_file_ref_groups
     )
-    print("-" * 10)
-    for d in data_iterator:
-        print(d)
-    print("-" * 10)
+
     iterator = merge_key_and_data_iterators(
         key_iterator, data_iterator, value_file_ref_groups
     )
@@ -72,9 +69,9 @@ def run_sims(
             "begin",
             (sim_iter_num, time_range, time_ranges_key),
             group_idx,
-            data_dict.keys(),
+            data_dict["68ce55d4b03a5261b6ce53d2"],
+            data_dict["68ce55d4b03a5261b6ce53d5"],
         )
-        # Fill step values
         doc_to_run, att = index_to_doc_id_att[group_idx]
         doc = doc_objs[doc_to_run]
         att_dict = doc.att_dicts[att]
