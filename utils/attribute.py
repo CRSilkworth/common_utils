@@ -74,8 +74,8 @@ class Attribute:
             time_range[1] = self.time_range[0]
 
         return self.get_iterator(
-            sim_iter_num=sim_iter_num,
-            time_ranges_key=time_ranges_key,
+            sim_iter_nums=[sim_iter_num],
+            time_ranges_keys=[time_ranges_key],
             time_range=time_range,
         )
 
@@ -84,7 +84,6 @@ class Attribute:
         time_ranges_key: Optional[Text] = None,
         time_range: Optional[TimeRange] = None,
     ) -> List[Tuple[TimeRange, Any]]:
-        sim_iter_num = sim_iter_num or self.sim_iter_num
         time_ranges_key = time_ranges_key or self.time_ranges_key
         time_range = time_range or self.time_range
 
@@ -92,8 +91,8 @@ class Attribute:
         sim_iter_nums = list(range(self.sim_iter_num))
 
         return self.get_iterator(
-            sim_iter_num=sim_iter_num,
-            time_ranges_key=time_ranges_key,
+            sim_iter_nums=sim_iter_nums,
+            time_ranges_keys=[time_ranges_key],
             time_range=time_range,
         )
 
