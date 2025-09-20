@@ -205,9 +205,6 @@ def run_sims(
                     chunk_num=0,
                     value_chunk=output["value"],
                 )
-                import time
-
-                time.sleep(2)
                 doc.finalize_value_update(att)
 
     for doc_to_run in docs_to_run:

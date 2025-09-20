@@ -106,7 +106,9 @@ def merge_key_and_data_iterators(
     except StopIteration:
         data_key, data_dict = None, {}
 
+    print("start", data_key)
     for key in key_iterator:
+        print("key", key)
         for group_idx, group in enumerate(value_file_groups):
             # align data_iterator with (key, group_idx)
             while data_key is not None and (data_key[:-1], data_key[-1]) < (
@@ -117,7 +119,7 @@ def merge_key_and_data_iterators(
                     data_key, data_dict = next(data_iterator)
                 except StopIteration:
                     data_key, data_dict = None, {}
-
+                print("data_key", data_key)
             if (
                 data_key is not None
                 and data_key[:-1] == key
