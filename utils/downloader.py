@@ -40,7 +40,7 @@ def stream_subgraph_by_key(
                 key = (sim_iter, (tr_start, tr_end), tr_key, group_idx)
 
                 offset, length = loc["offset"], loc["length"]
-                block_bytes = batch_data[offset : offset + length]
+                block_bytes = batch_data[offset : offset + length]  # noqa: E203
 
                 if key != current_key:
                     if current_key is not None:

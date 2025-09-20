@@ -114,31 +114,20 @@ def merge_key_and_data_iterators(
     Yields:
         (step, group_idx, {vf_id: bytes or None})
     """
-    try:
-        data_key, data_dict = next(data_iterator)
-    except StopIteration:
-        data_key, data_dict = None, {}
+    data_key, data_dict = None, {}
 
     for key in key_iterator:
-        # align data_iterator to this key
-        while data_key is not None and data_key < key:
+        if data_key is None or data_key < key:
             try:
                 data_key, data_dict = next(data_iterator)
             except StopIteration:
                 data_key, data_dict = None, {}
 
         if data_key == key:
-            # real data available
             current_data = data_dict
-            try:
-                data_key, data_dict = next(data_iterator)
-            except StopIteration:
-                data_key, data_dict = None, {}
         else:
-            # no data for this key
             current_data = {}
 
-        # Always yield once per group
         print("+" * 10)
         print(key)
         print(data_key)
