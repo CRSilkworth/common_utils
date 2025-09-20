@@ -84,8 +84,12 @@ def run_sims(
                     continue
                 if time_ranges_key not in att_dict["time_ranges_keys"]:
                     continue
-                print("begin", (sim_iter_num, time_range, time_ranges_key), data_dict)
-                print("doc_to_run", doc_to_run)
+                print(
+                    "begin",
+                    (sim_iter_num, time_range, time_ranges_key),
+                    data_dict.keys(),
+                )
+                print("doc_to_run", doc.full_name)
                 print("att", att_dict["value_file_ref"])
                 logging.info(f"Running {doc.full_name}-{att}")
                 print(f"Running {doc.full_name} {att}")
@@ -191,7 +195,7 @@ def run_sims(
                     if not output["failed"]:
                         print(
                             "upload",
-                            doc_to_run,
+                            doc.full_name,
                             att,
                             sim_iter_num,
                             time_ranges_key,
