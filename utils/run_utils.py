@@ -1,5 +1,6 @@
 from typing import Text, Dict, Any, Optional, List
 from utils.misc_utils import failed_output
+from utils.serialize_utils import attempt_deserialize
 from utils.function_utils import (
     create_function,
     run_with_expected_type,
@@ -153,7 +154,11 @@ def run_sims(
                     )
                 else:
                     value = data_dict.get(input_att_dict["value_file_ref"])
-                    doc_objs[input_doc_id][input_att] = value
+
+                    doc_objs[input_doc_id][input_att], output, _ = attempt_deserialize(
+                        value, input_att_dict["value_type"]
+                    )
+                    doc_objs[input_doc_id].add_output(att, output)
 
         runner_kwargs["sim_iter_num"] = sim_iter_num
         runner_kwargs["time_ranges_key"] = time_ranges_key
