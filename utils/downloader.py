@@ -1,73 +1,65 @@
-from typing import Dict, Text, Optional, List
+from typing import Dict, Text, Optional, List, Tuple
 import requests
 import json
 import binascii
 from operator import itemgetter
 from itertools import groupby
 import datetime
-from utils.type_utils import TimeRange
 
 
-def download_slice(
+def stream_subgraph_by_key(
     auth_data,
-    value_file_refs: Optional[List[Text]] = None,
-    sim_iter_nums: Optional[Text] = None,
-    time_ranges_keys: Optional[Text] = None,
-    time_range: Optional[TimeRange] = None,
-    time_range_end: Optional[datetime.datetime] = None,
+    value_file_ref_groups: List[Tuple[Text]],
 ):
     data = {
         "auth_data": auth_data,
-        "value_file_refs": value_file_refs,
-        "sim_iter_nums": sim_iter_nums,
-        "time_ranges_keys": time_ranges_keys,
-        "time_range_start": (time_range[0].isoformat() if time_range else None),
-        "time_range_end": (time_range[1].isoformat() if time_range[1] else None),
+        "value_file_ref_groups": value_file_ref_groups,
     }
     resp = requests.post(
-        f"{auth_data['dash_app_url']}/stream-batches", json=data, stream=True
+        f"{auth_data['dash_app_url']}/stream-by-key", json=data, stream=True
     )
-    for chunk in resp.iter_content(chunk_size=None):
-        for line in chunk.splitlines():
-            if not line.strip():
-                continue
-            try:
-                batch = json.loads(line.decode("utf-8"))
-            except json.JSONDecodeError:
-                print(f"Bad line: {line!r}")
-                continue
-            batch_data = binascii.unhexlify(batch["batch_data"])
-            for key, loc in batch["index_map"].items():
-                offset, length = loc["offset"], loc["length"]
-                (
-                    value_file_refs,
-                    sim_iter_num,
-                    time_ranges_key,
-                    time_range_start,
-                    time_range_end,
-                    chunk_num,
-                ) = json.loads(key)
-                chunk = batch_data[offset : offset + length]  # noqa: E203
-                _value_chunk = chunk.decode("utf-8")
-                yield (
-                    value_file_refs,
-                    sim_iter_num,
-                    time_ranges_key,
-                    (
-                        (
-                            datetime.datetime.fromisoformat(time_range_start)
-                            if time_range_start is not None
-                            else None
-                        ),
-                        (
-                            datetime.datetime.fromisoformat(time_range_end)
-                            if time_range_end is not None
-                            else None
-                        ),
-                    ),
-                    chunk_num,
-                    _value_chunk,
+    current_key = None
+    data_dict = {}
+
+    buffer = b""
+    for chunk in resp.iter_content(chunk_size=8192):
+        print("stream", chunk)
+        buffer += chunk
+        while b"\n" in buffer:
+            line_bytes, buffer = buffer.split(b"\n", 1)
+
+            line = line_bytes.decode("utf-8")
+            batch = json.loads(line)
+            batch_data = bytes.fromhex(batch["batch_data"])
+            index_map = batch["index_map"]
+
+            for index_key, loc in index_map.items():
+                # index_key format: [sim_iter, time_range_key, start_iso, end_iso,
+                # chunk_num, vf_id]
+                sim_iter, tr_key, start_iso, end_iso, chunk_num, vf_id = json.loads(
+                    index_key
                 )
+                tr_start = datetime.fromisoformat(start_iso) if start_iso else None
+                tr_end = datetime.fromisoformat(end_iso) if end_iso else None
+                key = (sim_iter, (tr_start, tr_end), tr_key)
+
+                # extract the block bytes
+                offset, length = loc["offset"], loc["length"]
+                block_bytes = batch_data[offset : offset + length]  # noqa: E203
+
+                if key != current_key:
+                    if current_key is not None:
+                        # yield completed key dict
+                        yield current_key, data_dict
+                    # start new key
+                    current_key = key
+                    data_dict = {}
+
+                data_dict[vf_id] = block_bytes
+
+        # yield last key
+        if data_dict:
+            yield current_key, data_dict
 
 
 class BatchDownloader:
