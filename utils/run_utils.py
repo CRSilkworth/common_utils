@@ -73,6 +73,7 @@ def run_sims(
     print("data")
     for k in data_iterator:
         print(k)
+    print("-" * 10)
     data_iterator = stream_subgraph_by_key(
         auth_data=auth_data, value_file_ref_groups=value_file_ref_groups
     )
@@ -80,7 +81,7 @@ def run_sims(
         key_iterator, data_iterator, value_file_ref_groups
     )
 
-    for (sim_iter_num, time_range, time_ranges_key), group_idx, data_dict in iterator:
+    for (sim_iter_num, time_range, time_ranges_key, group_idx), data_dict in iterator:
 
         doc_to_run, att = index_to_doc_id_att[group_idx]
         doc = doc_objs[doc_to_run]
@@ -247,6 +248,7 @@ def get_key_iterator(
     calc_graph_doc: DocObj,
     sim_iter_nums: List[str] = None,
     time_ranges_keys: List[str] = None,
+    value_ref_groups: List[List[str]] = None,
     is_calc_graph_run: bool = False,
 ):
 
@@ -278,6 +280,10 @@ def get_key_iterator(
                 continue
             for time_range in time_ranges:
                 results.append((sim_iter_num, time_range, time_ranges_key))
+                for group_idx, _ in enumerate(value_ref_groups):
+                    results.append(
+                        (sim_iter_num, time_range, time_ranges_key, group_idx)
+                    )
 
     # Sort by (sim_iter_num, end, start, time_ranges_key)
     results.sort(
@@ -286,6 +292,7 @@ def get_key_iterator(
             x[1][0],  # time_range_start
             x[1][1],  # time_range_end
             x[2],  # time_ranges_key
+            x[3],
         )
     )
 

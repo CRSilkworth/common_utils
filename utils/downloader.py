@@ -47,8 +47,9 @@ def stream_subgraph_by_key(
                 if key != current_key:
                     if current_key is not None:
                         # drop group idx to be consisent with other iterators
-                        yield_key = tuple(list(current_key[:-1]))
-                        yield yield_key, data_dict
+                        # yield_key = tuple(list(current_key[:-1]))
+
+                        yield current_key, data_dict
                     # start new key
                     current_key = key
                     data_dict = {}
@@ -58,8 +59,8 @@ def stream_subgraph_by_key(
         # yield last key
         if data_dict:
             # drop group idx to be consisent with other iterators
-            yield_key = tuple(list(current_key[:-1]))
-            yield yield_key, data_dict
+            # yield_key = tuple(list(current_key[:-1]))
+            yield current_key, data_dict
 
 
 class BatchDownloader:

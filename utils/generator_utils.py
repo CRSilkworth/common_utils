@@ -139,6 +139,11 @@ def merge_key_and_data_iterators(
             current_data = {}
 
         # Always yield once per group
-        for group_idx, group in enumerate(value_file_groups):
-            out_dict = {vf_id: current_data.get(vf_id) for vf_id in group}
-            yield key, group_idx, out_dict
+        print("+" * 10)
+        print(key)
+        print(data_key)
+        print("+" * 10)
+        group_idx = key[-1]
+        group = value_file_groups[group_idx]
+        out_dict = {vf_id: current_data.get(vf_id) for vf_id in group}
+        yield key, group_idx, out_dict
