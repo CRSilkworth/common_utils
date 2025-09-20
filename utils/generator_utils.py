@@ -99,22 +99,11 @@ def merge_generators(generators):
 def merge_key_and_data_iterators(
     key_iterator: Iterator[Tuple],
     data_iterator: Iterator[Tuple[Tuple, Dict[str, bytes]]],
-    value_file_groups: List[
-        List[str]
-    ],  # << list of groups, e.g. [["vf_1","vf_2"], ["vf_1","vf_3","vf_4"]]
+    value_file_groups: List[List[str]],
 ) -> Iterator[Tuple[Tuple, Dict[str, Optional[bytes]]]]:
     """
     Merge streamed data with full key iterator, but yield one dict *per VF group*.
     Missing blocks in a group are filled with None.
-
-    Args:
-        key_iterator: iterator of all step keys
-        data_iterator: iterator yielding (step, {vf_id: bytes})
-        value_file_groups: list of VF id groups, e.g. [["vf_1","vf_2"], ["vf_1",
-        "vf_3","vf_4"]]
-
-    Yields:
-        (step, {vf_id: bytes or None}) for each group of VF ids
     """
     try:
         data_key, data_dict = next(data_iterator)
@@ -122,25 +111,17 @@ def merge_key_and_data_iterators(
         data_key, data_dict = None, {}
 
     for key in key_iterator:
-        # align data_iterator with current key
-        while data_key is not None and data_key < key:
+        # collect all data_dicts for this key
+        collected: Dict[str, bytes] = {}
+        while data_key == key:
+            collected.update(data_dict)
             try:
                 data_key, data_dict = next(data_iterator)
             except StopIteration:
                 data_key, data_dict = None, {}
+                break
 
         # prepare outputs, one dict per group
         for group in value_file_groups:
-            out_dict = {vf_id: None for vf_id in group}
-            if data_key == key:
-                for vf_id in group:
-                    if vf_id in data_dict:
-                        out_dict[vf_id] = data_dict[vf_id]
+            out_dict = {vf_id: collected.get(vf_id, None) for vf_id in group}
             yield key, out_dict
-
-        # only advance data_iterator if we consumed it
-        if data_key == key:
-            try:
-                data_key, data_dict = next(data_iterator)
-            except StopIteration:
-                data_key, data_dict = None, {}

@@ -20,6 +20,9 @@ class Attribute:
         self._val = None
         self.value_type = value_type
         self.chunked = chunked
+        self.sim_iter_num = None
+        self.time_ranges_key = None
+        self.time_range = None
 
     def set_context(self, **kwargs):
         self.sim_iter_num = kwargs.get("sim_iter_num", None)
@@ -58,8 +61,11 @@ class Attribute:
         self,
         sim_iter_num: Optional[int] = None,
         time_ranges_key: Optional[Text] = None,
+        time_range: Optional[TimeRange] = None,
     ) -> List[Tuple[TimeRange, Any]]:
-        pass
+        sim_iter_num = sim_iter_num or self.sim_iter_num
+        time_ranges_key = time_ranges_key or self.time_ranges_key
+        time_range = time_range or self.time_range
 
     def get_iterator(
         self,
