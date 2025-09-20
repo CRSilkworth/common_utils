@@ -56,11 +56,26 @@ def run_sims(
         calc_graph_doc=calc_graph_doc,
         is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
     )
+    print("-" * 10)
+    print("key")
+    for k in key_iterator:
+        print(k)
+
+    key_iterator = get_key_iterator(
+        calc_graph_doc=calc_graph_doc,
+        is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
+    )
 
     data_iterator = stream_subgraph_by_key(
         auth_data=auth_data, value_file_ref_groups=value_file_ref_groups
     )
-
+    print("-" * 10)
+    print("data")
+    for k in data_iterator:
+        print(k)
+    data_iterator = stream_subgraph_by_key(
+        auth_data=auth_data, value_file_ref_groups=value_file_ref_groups
+    )
     iterator = merge_key_and_data_iterators(
         key_iterator, data_iterator, value_file_ref_groups
     )
@@ -182,15 +197,15 @@ def run_sims(
             output = run_with_expected_type(func, runner_kwargs, att_dict["value_type"])
             doc.add_output(att, output)
             if not output["failed"]:
-                print(
-                    "upload",
-                    doc.full_name,
-                    att,
-                    sim_iter_num,
-                    time_ranges_key,
-                    time_range,
-                    0,
-                )
+                # print(
+                #     "upload",
+                #     doc.full_name,
+                #     att,
+                #     sim_iter_num,
+                #     time_ranges_key,
+                #     time_range,
+                #     0,
+                # )
                 doc.upload_chunk(
                     att=att,
                     sim_iter_num=sim_iter_num,
