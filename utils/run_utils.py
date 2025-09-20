@@ -85,6 +85,8 @@ def run_sims(
 
         logging.info(f"Running {doc.full_name}-{att}")
         print(f"Running {doc.full_name} {att}")
+
+        upstream_failure = False
         # Set all the arguments to the function to run
         for var_name, input_doc_id in att_dict["var_name_to_id"].items():
             input_doc = doc_objs[input_doc_id]
