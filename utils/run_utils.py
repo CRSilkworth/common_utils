@@ -76,10 +76,8 @@ def run_sims(
         att_dict = doc.att_dicts[att]
 
         if sim_iter_num not in att_dict["sim_iter_nums"]:
-            print(sim_iter_num, att_dict["sim_iter_nums"])
             continue
         if time_ranges_key not in att_dict["time_ranges_keys"]:
-            print(time_ranges_key, att_dict["time_ranges_keys"])
             continue
 
         logging.info(f"Running {doc.full_name}-{att}")
@@ -101,7 +99,6 @@ def run_sims(
                 break
 
         if upstream_failure:
-            print("upstream")
             continue
         block_key = [
             sim_iter_num,
@@ -111,7 +108,6 @@ def run_sims(
             0,
         ]
         if block_key in att_dict["overrides"]:
-            print("override")
             doc.upload_chunk(
                 att=att,
                 sim_iter_num=sim_iter_num,
@@ -164,7 +160,6 @@ def run_sims(
 
         failed = False
         if att_dict["chunked"]:
-            print("chunked")
             run_generator = run_with_generator(
                 func, runner_kwargs, att_dict["value_type"]
             )

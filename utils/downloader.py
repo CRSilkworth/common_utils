@@ -59,7 +59,7 @@ def stream_subgraph_by_key(
         if data_dict:
             # drop group idx to be consisent with other iterators
             yield_key = tuple(list(current_key[:-1]))
-            yield current_key, data_dict
+            yield yield_key, data_dict
 
 
 class BatchDownloader:
