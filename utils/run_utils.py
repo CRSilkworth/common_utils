@@ -273,10 +273,10 @@ def get_key_iterator(
     # Sort by (sim_iter_num, end, start, time_ranges_key)
     results.sort(
         key=lambda x: (
-            x[0][0],  # sim_iter_num
-            x[0][1][0],  # time_range_start
-            x[0][1][1],  # time_range_end
-            x[0][2],  # time_ranges_key
+            x[0],  # sim_iter_num
+            x[1][0],  # time_range_start
+            x[1][1],  # time_range_end
+            x[2],  # time_ranges_key
         )
     )
 
