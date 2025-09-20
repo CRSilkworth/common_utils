@@ -1,4 +1,4 @@
-from typing import Text, Iterable, Any, Optional, Dict
+from typing import Text, Iterable, Any, Optional, Dict, List, Tuple
 from utils.serialize_utils import attempt_deserialize
 from utils.type_utils import TimeRange
 from utils.downloader import BatchDownloader
@@ -53,6 +53,13 @@ class Attribute:
 
     def _set_val(self, val: Any):
         self._val = val
+
+    def time_series(
+        self,
+        sim_iter_num: Optional[int] = None,
+        time_ranges_key: Optional[Text] = None,
+    ) -> List[Tuple[TimeRange, Any]]:
+        pass
 
     def get_iterator(
         self,

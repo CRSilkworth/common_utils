@@ -51,6 +51,8 @@ def run_sims(
         docs_to_run, doc_objs, attributes_to_run
     )
 
+    print(value_file_ref_groups)
+
     key_iterator = get_key_iterator(
         calc_graph_doc=calc_graph_doc,
         is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
