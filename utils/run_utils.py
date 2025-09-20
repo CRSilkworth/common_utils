@@ -59,6 +59,10 @@ def run_sims(
     data_iterator = stream_subgraph_by_key(
         auth_data=auth_data, value_file_ref_groups=value_file_ref_groups
     )
+    print("-" * 10)
+    for d in data_iterator:
+        print(d)
+    print("-" * 10)
     iterator = merge_key_and_data_iterators(
         key_iterator, data_iterator, value_file_ref_groups
     )
