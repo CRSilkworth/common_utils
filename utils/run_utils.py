@@ -84,7 +84,11 @@ def run_sims(
 
     for (sim_iter_num, time_range, time_ranges_key), data_dict in iterator:
         # Fill step values
-
+        print(
+            "begin",
+            (sim_iter_num, time_range, time_ranges_key),
+            data_dict.keys(),
+        )
         for doc_to_run in docs_to_run:
             doc = doc_objs[doc_to_run]
 
@@ -104,11 +108,7 @@ def run_sims(
                     continue
                 if time_ranges_key not in att_dict["time_ranges_keys"]:
                     continue
-                print(
-                    "begin",
-                    (sim_iter_num, time_range, time_ranges_key),
-                    data_dict.keys(),
-                )
+
                 print("doc_to_run", doc.full_name)
                 print("att", att_dict["value_file_ref"])
                 logging.info(f"Running {doc.full_name}-{att}")

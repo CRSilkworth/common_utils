@@ -10,12 +10,14 @@ class Attribute:
         self,
         name: Text,
         auth_data: Dict[Text, Text],
+        doc_id: Text,
         value_type: Any,
         value_file_ref: Text,
         chunked: bool = False,
     ):
         self.name = name
         self.auth_data = auth_data
+        self.doc_id = doc_id
         self.value_file_ref = value_file_ref
         self._val = None
         self.value_type = value_type
