@@ -119,15 +119,18 @@ def merge_key_and_data_iterators(
         data_key, data_dict = None, {}
 
     print("start", data_key)
+
     for key in key_iterator:
         print("key", key)
-        # Align data_iterator with current key
-        while data_key is not None and data_key < key:
+
+        # Advance data_iterator *once* if it's behind
+        if data_key is not None and data_key < key:
             try:
                 data_key, data_dict = next(data_iterator)
             except StopIteration:
                 data_key, data_dict = None, {}
             print("data_key", data_key)
+
         for group_idx, group in enumerate(value_file_groups):
             # Default all values to None
             out_dict = {vf_id: None for vf_id in group}
@@ -140,7 +143,7 @@ def merge_key_and_data_iterators(
 
             yield key, group_idx, out_dict
 
-        # If current data_key matched key, advance iterator
+        # If current data_key matched key, advance iterator for next round
         if data_key == key:
             try:
                 data_key, data_dict = next(data_iterator)
