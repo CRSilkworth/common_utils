@@ -102,8 +102,16 @@ def merge_key_and_data_iterators(
     value_file_groups: List[List[str]],
 ) -> Iterator[Tuple[Tuple, Dict[str, Optional[bytes]]]]:
     """
-    Merge streamed data with full key iterator, but yield one dict *per VF group*.
+    Merge streamed data with full key iterator, yielding one dict per VF group.
     Missing blocks in a group are filled with None.
+
+    Args:
+        key_iterator: iterator of all step keys
+        data_iterator: iterator yielding (step, {vf_id: bytes})
+        value_file_groups: list of VF id groups, e.g. [["vf_1","vf_2"], ["vf_1","vf_3","vf_4"]]
+
+    Yields:
+        (step, {vf_id: bytes or None}) for each group that applies to that key
     """
     try:
         data_key, data_dict = next(data_iterator)
@@ -111,17 +119,22 @@ def merge_key_and_data_iterators(
         data_key, data_dict = None, {}
 
     for key in key_iterator:
-        # collect all data_dicts for this key
-        collected: Dict[str, bytes] = {}
-        while data_key == key:
-            collected.update(data_dict)
+        # align data_iterator with current key
+        while data_key is not None and data_key < key:
             try:
                 data_key, data_dict = next(data_iterator)
             except StopIteration:
                 data_key, data_dict = None, {}
-                break
 
-        # prepare outputs, one dict per group
-        for group in value_file_groups:
-            out_dict = {vf_id: collected.get(vf_id, None) for vf_id in group}
-            yield key, out_dict
+        if data_key == key:
+            # only yield groups that intersect this data_dict
+            for group in value_file_groups:
+                if any(vf_id in data_dict for vf_id in group):
+                    out_dict = {vf_id: data_dict.get(vf_id) for vf_id in group}
+                    yield key, out_dict
+
+            # advance data_iterator
+            try:
+                data_key, data_dict = next(data_iterator)
+            except StopIteration:
+                data_key, data_dict = None, {}
