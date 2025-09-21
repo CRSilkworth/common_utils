@@ -6,6 +6,7 @@ from operator import itemgetter
 from itertools import groupby
 import datetime
 import io
+import time
 
 
 def stream_subgraph_by_key(auth_data, value_file_ref_groups):
@@ -16,10 +17,11 @@ def stream_subgraph_by_key(auth_data, value_file_ref_groups):
     resp = requests.post(
         f"{auth_data['dash_app_url']}/stream-by-key", json=data, stream=True
     )
-
+    timer = time.time()
     # wrap response in a text buffer to read line by line
     for line in resp.iter_lines(decode_unicode=True):
         print(line)
+        print(time.time() - timer)
         if not line.strip():
             continue
         batch = json.loads(line.strip())
