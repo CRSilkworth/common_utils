@@ -25,7 +25,7 @@ def stream_subgraph_by_key(auth_data, value_file_ref_groups):
 
         data_dict = {}
         current_key = None
-
+        print(index_map)
         for index_key, loc in index_map.items():
             sim_iter, tr_key, start_iso, end_iso, chunk_num, vf_id, group_idx = (
                 json.loads(index_key)
