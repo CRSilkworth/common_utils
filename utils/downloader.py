@@ -18,6 +18,7 @@ def stream_subgraph_by_key(auth_data, value_file_ref_groups):
     )
 
     # wrap response in a text buffer to read line by line
+    print(io.TextIOWrapper(resp.raw, encoding="utf-8"))
     for line in io.TextIOWrapper(resp.raw, encoding="utf-8"):
         batch = json.loads(line.strip())
         batch_data = bytes.fromhex(batch["batch_data"])
@@ -25,10 +26,9 @@ def stream_subgraph_by_key(auth_data, value_file_ref_groups):
 
         data_dict = {}
         current_key = None
-        print(index_map)
         for index_key, loc in index_map.items():
-            sim_iter, tr_key, start_iso, end_iso, chunk_num, vf_id, group_idx = (
-                json.loads(index_key)
+            sim_iter, tr_key, start_iso, end_iso, _, vf_id, group_idx = json.loads(
+                index_key
             )
             tr_start = datetime.datetime.fromisoformat(start_iso)
             tr_end = datetime.datetime.fromisoformat(end_iso)
