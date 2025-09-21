@@ -1,16 +1,14 @@
-from typing import Dict, Text, Optional, List, Tuple
+from typing import Dict, Text, Optional
 import requests
 import json
 import binascii
 from operator import itemgetter
 from itertools import groupby
 import datetime
+import io
 
 
-def stream_subgraph_by_key(
-    auth_data,
-    value_file_ref_groups: List[Tuple[Text]],
-):
+def stream_subgraph_by_key(auth_data, value_file_ref_groups):
     data = {
         "auth_data": auth_data,
         "value_file_ref_groups": value_file_ref_groups,
@@ -18,42 +16,38 @@ def stream_subgraph_by_key(
     resp = requests.post(
         f"{auth_data['dash_app_url']}/stream-by-key", json=data, stream=True
     )
-    current_key = None
 
-    data_dict = {}
-    buffer = b""
+    # wrap response in a text buffer to read line by line
+    for line in io.TextIOWrapper(resp.raw, encoding="utf-8"):
+        batch = json.loads(line.strip())
+        batch_data = bytes.fromhex(batch["batch_data"])
+        index_map = batch["index_map"]
 
-    for chunk in resp.iter_content(chunk_size=8192):
-        buffer += chunk
-        while b"\n" in buffer:
-            line_bytes, buffer = buffer.split(b"\n", 1)
-            batch = json.loads(line_bytes.decode("utf-8"))
-            batch_data = bytes.fromhex(batch["batch_data"])
-            index_map = batch["index_map"]
+        data_dict = {}
+        current_key = None
 
-            for index_key, loc in index_map.items():
-                sim_iter, tr_key, start_iso, end_iso, chunk_num, vf_id, group_idx = (
-                    json.loads(index_key)
-                )
-                tr_start = datetime.datetime.fromisoformat(start_iso)
-                tr_end = datetime.datetime.fromisoformat(end_iso)
-                key = (sim_iter, (tr_start, tr_end), tr_key, group_idx)
+        for index_key, loc in index_map.items():
+            sim_iter, tr_key, start_iso, end_iso, chunk_num, vf_id, group_idx = (
+                json.loads(index_key)
+            )
+            tr_start = datetime.datetime.fromisoformat(start_iso)
+            tr_end = datetime.datetime.fromisoformat(end_iso)
+            key = (sim_iter, (tr_start, tr_end), tr_key, group_idx)
 
-                offset, length = loc["offset"], loc["length"]
-                block_bytes = batch_data[offset : offset + length]  # noqa: E203
+            offset, length = loc["offset"], loc["length"]
+            block_bytes = batch_data[offset : offset + length]  # noqa: E203
 
-                if key != current_key:
-                    if current_key is not None:
-                        yield current_key, data_dict
-                    current_key = key
-                    data_dict = {}
+            if key != current_key:
+                if current_key is not None:
+                    yield current_key, data_dict
+                current_key = key
+                data_dict = {}
 
-                # Merge into current key
-                data_dict[vf_id] = block_bytes
+            data_dict[vf_id] = block_bytes
 
-    # yield the last key at the very end
-    if data_dict:
-        yield current_key, data_dict
+        # yield the last key in this batch
+        if data_dict:
+            yield current_key, data_dict
 
 
 class BatchDownloader:

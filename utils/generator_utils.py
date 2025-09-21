@@ -131,6 +131,7 @@ def merge_key_and_data_iterators(
         print("+" * 10)
         print(key)
         print(data_key)
+        print(current_data)
         print("+" * 10)
         group_idx = key[-1]
         group = value_file_groups[group_idx]
