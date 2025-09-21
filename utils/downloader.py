@@ -19,6 +19,7 @@ def stream_subgraph_by_key(auth_data, value_file_ref_groups):
 
     # wrap response in a text buffer to read line by line
     for line in resp.iter_lines(decode_unicode=True):
+        print(line)
         if not line.strip():
             continue
         batch = json.loads(line.strip())
