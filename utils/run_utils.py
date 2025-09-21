@@ -52,16 +52,6 @@ def run_sims(
         docs_to_run, doc_objs, attributes_to_run
     )
 
-    # key_iterator = get_key_iterator(
-    #     calc_graph_doc=calc_graph_doc,
-    #     is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
-    #     value_ref_groups=value_file_ref_groups,
-    # )
-    # print("-" * 10)
-    # print("key")
-    # for k in key_iterator:
-    #     print(k)
-
     key_iterator = get_key_iterator(
         calc_graph_doc=calc_graph_doc,
         is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
@@ -71,14 +61,6 @@ def run_sims(
     data_iterator = stream_subgraph_by_key(
         auth_data=auth_data, value_file_ref_groups=value_file_ref_groups
     )
-    # print("-" * 10)
-    # print("data")
-    # for k in data_iterator:
-    #     print(k)
-    # print("-" * 10)
-    # data_iterator = stream_subgraph_by_key(
-    #     auth_data=auth_data, value_file_ref_groups=value_file_ref_groups
-    # )
     iterator = merge_key_and_data_iterators(
         key_iterator, data_iterator, value_file_ref_groups
     )
@@ -176,7 +158,6 @@ def run_sims(
         runner_kwargs["time_ranges_key"] = time_ranges_key
         runner_kwargs["time_range"] = time_range
 
-        failed = False
         if att_dict["chunked"]:
             run_generator = run_with_generator(
                 func, runner_kwargs, att_dict["value_type"]
@@ -200,15 +181,6 @@ def run_sims(
             output = run_with_expected_type(func, runner_kwargs, att_dict["value_type"])
             doc.add_output(att, output)
             if not output["failed"]:
-                # print(
-                #     "upload",
-                #     doc.full_name,
-                #     att,
-                #     sim_iter_num,
-                #     time_ranges_key,
-                #     time_range,
-                #     0,
-                # )
                 doc.upload_chunk(
                     att=att,
                     sim_iter_num=sim_iter_num,
@@ -314,9 +286,9 @@ def get_value_file_ref_groups(docs_to_run, doc_objs, attributes_to_run):
 
             value_file_ref_groups.append([])
             index_to_doc_id_att.append((doc_to_run, att))
-            for var_name, input_doc_id in att_dict["var_name_to_id"].items():
+            for _, input_doc_id in att_dict["var_name_to_id"].items():
                 input_doc = doc_objs[input_doc_id]
-                for input_att, input_att_dict in input_doc.att_dicts.items():
+                for _, input_att_dict in input_doc.att_dicts.items():
                     if not input_att_dict.get("generator", False):
                         continue
                     if not input_att_dict.get("value_file_ref"):
