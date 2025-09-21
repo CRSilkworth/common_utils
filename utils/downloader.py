@@ -18,7 +18,7 @@ def stream_subgraph_by_key(auth_data, value_file_ref_groups):
     )
 
     # wrap response in a text buffer to read line by line
-    print(resp.raw, encoding="utf-8")
+    print(resp.raw)
     for line in io.TextIOWrapper(resp.raw, encoding="utf-8"):
         batch = json.loads(line.strip())
         batch_data = bytes.fromhex(batch["batch_data"])
