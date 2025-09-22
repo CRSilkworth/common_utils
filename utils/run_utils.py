@@ -66,7 +66,7 @@ def run_sims(
     for k in key_iterator:
         print(k)
     print("data")
-    for k in data_iterator:
+    for k, d in data_iterator:
         print(k)
     print("=" * 10)
 
