@@ -25,13 +25,15 @@ class DocObj(dict):
             if isinstance(att_dict, str):
                 value_type = str
                 _value = serialize_value(att_dict)
+                runnable = False
             elif isinstance(att_dict, dict):
 
                 value_type = deserialize_typehint(att_dict["_value_type"])
                 att_dict["value_type"] = value_type
                 _value = att_dict["_value"]
+                runnable = att_dict.get("runnable", False)
 
-            if att_dict.get("runnable"):
+            if runnable:
                 value_file_ref = att_dict.get("new_value_file_ref")
                 if not value_file_ref:
                     value_file_ref = att_dict.get("value_file_ref")
