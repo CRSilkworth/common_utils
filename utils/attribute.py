@@ -280,6 +280,4 @@ class RunnableAttribute(Attribute):
             chunked=self.chunked,
         )
 
-        return self._deserialize(
-            iterator=downloader, value_type=self.value_type, chunked=self.chunked
-        )
+        return self._deserialize(iterator=downloader)
