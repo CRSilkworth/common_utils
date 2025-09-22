@@ -124,6 +124,7 @@ def merge_key_and_data_iterators(
                 data_key, data_dict = None, {}
 
         if data_key == key:
+            print("matched", data_key)
             current_data = data_dict
         else:
             current_data = {}
