@@ -69,6 +69,11 @@ def run_sims(
         doc_to_run, att = index_to_doc_id_att[group_idx]
         doc = doc_objs[doc_to_run]
         attribute = doc.attributes[att]
+        attribute._set_context(
+            sim_iter_num=sim_iter_num,
+            time_ranges_key=time_ranges_key,
+            time_range=time_range,
+        )
         if sim_iter_num not in attribute.sim_iter_nums:
             continue
         if time_ranges_key not in attribute.time_ranges_keys:
@@ -104,6 +109,11 @@ def run_sims(
             for _, input_attribute in input_doc.attributes.items():
                 if not input_attribute.runnable:
                     continue
+                input_attribute._set_context(
+                    sim_iter_num=sim_iter_num,
+                    time_ranges_key=time_ranges_key,
+                    time_range=time_range,
+                )
                 if input_attribute.chunked:
                     input_attribute._set_val(
                         input_attribute.get_iterator(
