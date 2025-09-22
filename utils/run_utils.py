@@ -191,7 +191,7 @@ def run_sims(
             if not att_dict.get("runnable", False) or att_dict.get("empty", False):
                 continue
 
-            attribute._send_output(att, caller=kwargs.get("caller"))
+            attribute._send_output(caller=kwargs.get("caller"))
 
     logging.info("Cleaning up connections")
     # cleanup any connections
