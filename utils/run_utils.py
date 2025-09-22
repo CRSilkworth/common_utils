@@ -44,7 +44,7 @@ def run_sims(
             if not att_dict.get("runnable", False) or att_dict.get("empty", False):
                 continue
             time_ranges_keys.update(att_dict["time_ranges_keys"])
-            sim_iter_nums.update(att_dict["time_ranges_keys"])
+            sim_iter_nums.update(att_dict["sim_iter_nums"])
 
             att_dict["old_value_file_ref"] = att_dict["value_file_ref"]
             if "new_value_file_ref" in att_dict:
