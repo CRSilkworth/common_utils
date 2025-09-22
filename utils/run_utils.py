@@ -133,7 +133,7 @@ def run_sims(
 
         # Convert the functionv string to a callable function
 
-        if upstream_failure or output["failed"] or not attribute.func:
+        if upstream_failure or not attribute.func:
             print(f"Skipping {doc.full_name}-{att}")
             attribute._send_output(caller=kwargs.get("caller"))
             continue
