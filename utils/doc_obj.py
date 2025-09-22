@@ -30,7 +30,7 @@ class DocObj(dict):
 
                 value_type = deserialize_typehint(att_dict["_value_type"])
                 att_dict["value_type"] = value_type
-                _value = att_dict["_value"]
+                _value = att_dict.get("_value", None)
                 runnable = att_dict.get("runnable", False)
 
             if runnable:
