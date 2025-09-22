@@ -43,9 +43,10 @@ def stream_subgraph_by_key(auth_data, value_file_ref_groups):
                 data_dict = {}
 
             data_dict[vf_id] = block_bytes
-
         # yield the last key in this batch
         if data_dict:
+            if None in data_dict:
+                data_dict = {}
             yield current_key, data_dict
 
 
