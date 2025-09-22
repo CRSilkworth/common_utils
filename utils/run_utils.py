@@ -128,6 +128,7 @@ def run_sims(
         ]
         if block_key in attribute.overrides:
             attribute._upload_chunk(value_chunk=None, overriden=True)
+            attribute._flush()
             continue
 
         # Convert the functionv string to a callable function

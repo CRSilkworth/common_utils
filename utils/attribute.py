@@ -65,11 +65,12 @@ class Attribute:
             "stdout_output": [],
             "stderr_output": [],
         }
-        for context_key, output in self.outputs.items():
-            combined["failed"].append(output["failed"])
-            combined["combined_output"].append(output["combined_output"].strip())
-            combined["stdout_output"].append(output["stdout_output"].strip())
-            combined["stderr_output"].append(output["stderr_output"].strip())
+        for context_key, outputs in self.outputs.items():
+            for output in outputs:
+                combined["failed"].append(output["failed"])
+                combined["combined_output"].append(output["combined_output"].strip())
+                combined["stdout_output"].append(output["stdout_output"].strip())
+                combined["stderr_output"].append(output["stderr_output"].strip())
 
         combined["failed"] = any(combined["failed"])
         combined["combined_output"] = "\n".join(
