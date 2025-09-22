@@ -233,8 +233,10 @@ class RunnableAttribute(Attribute):
         time_range = time_range or self.time_range
 
         # Only take data that has been 'completed' already
+        print("before", time_range)
         if time_range[1] > self.time_range[0]:
             time_range = (time_range[0], self.time_range[0])
+        print("after", time_range)
         return self.get_iterator(
             sim_iter_nums=[sim_iter_num],
             time_ranges_keys=[time_ranges_key],
