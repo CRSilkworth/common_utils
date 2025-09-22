@@ -128,11 +128,6 @@ def merge_key_and_data_iterators(
         else:
             current_data = {}
 
-        print("+" * 10)
-        print(key)
-        print(data_key)
-        print(current_data)
-        print("+" * 10)
         group_idx = key[-1]
         group = value_file_groups[group_idx]
         out_dict = {vf_id: current_data.get(vf_id) for vf_id in group}
