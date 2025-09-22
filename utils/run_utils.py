@@ -52,6 +52,24 @@ def run_sims(
         docs_to_run, doc_objs, attributes_to_run
     )
 
+    print("=" * 10)
+    key_iterator = get_key_iterator(
+        calc_graph_doc=calc_graph_doc,
+        is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
+        value_ref_groups=value_file_ref_groups,
+    )
+
+    data_iterator = stream_subgraph_by_key(
+        auth_data=auth_data, value_file_ref_groups=value_file_ref_groups
+    )
+    print("key")
+    for k in key_iterator:
+        print(k)
+    print("data")
+    for k in data_iterator:
+        print(k)
+    print("=" * 10)
+
     key_iterator = get_key_iterator(
         calc_graph_doc=calc_graph_doc,
         is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
