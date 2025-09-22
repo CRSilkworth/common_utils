@@ -10,6 +10,7 @@ import logging
 import json
 import requests
 import os
+import datetime
 
 
 class Attribute:
@@ -230,7 +231,7 @@ class RunnableAttribute(Attribute):
     ) -> List[Tuple[TimeRange, Any]]:
         sim_iter_num = sim_iter_num or self.sim_iter_num
         time_ranges_key = time_ranges_key or self.time_ranges_key
-        time_range = time_range or self.time_range
+        time_range = time_range or (datetime.datetime.min, datetime.datetime.max)
 
         # Only take data that has been 'completed' already
         print("before", time_range)
