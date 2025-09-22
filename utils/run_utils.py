@@ -10,6 +10,7 @@ from utils.type_utils import get_known_types
 from utils.generator_utils import merge_key_and_data_iterators
 from utils.downloader import stream_subgraph_by_key
 from utils.doc_obj import DocObj
+from utils.data_client import DataClient
 import datetime
 import logging
 
@@ -24,6 +25,9 @@ def run_sims(
 ):
 
     run_config = run_config if run_config else {}
+
+    data_client = DataClient(auth_data=auth_data)
+
     doc_objs = {
         d: DocObj(
             doc_id=d,
@@ -58,8 +62,8 @@ def run_sims(
         value_ref_groups=value_file_ref_groups,
     )
 
-    data_iterator = stream_subgraph_by_key(
-        auth_data=auth_data, value_file_ref_groups=value_file_ref_groups
+    data_iterator = data_client.stream_subgraph_by_key(
+        value_file_ref_groups=value_file_ref_groups
     )
     iterator = merge_key_and_data_iterators(
         key_iterator, data_iterator, value_file_ref_groups
@@ -76,8 +80,14 @@ def run_sims(
         if time_ranges_key not in att_dict["time_ranges_keys"]:
             continue
 
-        logging.info(f"Running {doc.full_name}-{att}")
-        print(f"Running {doc.full_name} {att}")
+        logging.info(
+            f"Running {sim_iter_num}, {time_range}, {time_ranges_key}, {doc.full_name},"
+            f"{att}"
+        )
+        print(
+            f"Running {sim_iter_num}, {time_range}, {time_ranges_key}, {doc.full_name},"
+            f"{att}"
+        )
 
         upstream_failure = False
         # Set all the arguments to the function to run
@@ -104,15 +114,18 @@ def run_sims(
             0,
         ]
         if block_key in att_dict["overrides"]:
-            doc.upload_chunk(
-                att=att,
+            data_client.add_chunk(
+                value_file_ref=att_dict["value_file_ref"],
+                value_type=att_dict["value_type"],
                 sim_iter_num=sim_iter_num,
                 time_ranges_key=time_ranges_key,
                 time_range=time_range,
                 chunk_num=0,
                 value_chunk=None,
                 overriden=True,
+                old_value_file_ref=att_dict["old_value_file_ref"],
             )
+            data_client.flush_batch()
             continue
 
         # Convert the functionv string to a callable function
@@ -129,8 +142,6 @@ def run_sims(
             print(f"Skipping {doc.full_name}-{att}")
             doc.send_output(att, caller=kwargs.get("caller"))
             continue
-
-        logging.info(f"Running {doc.full_name}: {att}")
 
         runner_kwargs = {}
         for var_name, input_doc_id in att_dict["var_name_to_id"].items():
@@ -166,30 +177,31 @@ def run_sims(
                 doc.add_output(att, run_output_chunk)
                 if run_output_chunk["failed"]:
                     break
-
-                doc.upload_chunk(
-                    att=att,
+                data_client.add_chunk(
+                    value_file_ref=att_dict["value_file_ref"],
+                    value_type=att_dict["value_type"],
                     sim_iter_num=sim_iter_num,
                     time_ranges_key=time_ranges_key,
                     time_range=time_range,
                     chunk_num=chunk_num,
                     value_chunk=run_output_chunk["value"],
                 )
-                doc.finalize_value_update(att)
+                data_client.flush_batch()
 
         else:
             output = run_with_expected_type(func, runner_kwargs, att_dict["value_type"])
             doc.add_output(att, output)
             if not output["failed"]:
-                doc.upload_chunk(
-                    att=att,
+                data_client.add_chunk(
+                    value_file_ref=att_dict["value_file_ref"],
+                    value_type=att_dict["value_type"],
                     sim_iter_num=sim_iter_num,
                     time_ranges_key=time_ranges_key,
                     time_range=time_range,
                     chunk_num=0,
-                    value_chunk=output["value"],
+                    value_chunk=run_output_chunk["value"],
                 )
-                doc.finalize_value_update(att)
+                data_client.flush_batch()
 
     for doc_to_run in docs_to_run:
         doc = doc_objs[doc_to_run]
