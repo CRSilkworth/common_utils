@@ -212,12 +212,18 @@ def get_key_iterator(
         all_time_ranges = {}
     else:
         try:
-            _, sims = next(calc_graph_doc.attributes["sims"].get_iterator())
+            _, sims = next(
+                calc_graph_doc.attributes["sims"].get_iterator(
+                    sim_iter_nums=[0], time_ranges_keys=["__BEGIN_TIME__"]
+                )
+            )
         except StopIteration:
             sims = {"0": {}}
         try:
             __, all_time_ranges = next(
-                calc_graph_doc.attributes["all_time_ranges"].get_iterator()
+                calc_graph_doc.attributes["all_time_ranges"].get_iterator(
+                    sim_iter_nums=[0], time_ranges_keys=["__BEGIN_TIME__"]
+                )
             )
         except StopIteration:
             all_time_ranges = {
