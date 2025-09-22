@@ -234,7 +234,6 @@ class RunnableAttribute(Attribute):
 
         # Only take data that has been 'completed' already
         if time_range[1] > self.time_range[0]:
-            time_range[1] = self.time_range[0]
             time_range = (time_range[0], self.time_range[0])
         return self.get_iterator(
             sim_iter_nums=[sim_iter_num],
