@@ -80,11 +80,11 @@ def run_sims(
             continue
 
         logging.info(
-            f"Running {sim_iter_num}, {time_range}, {time_ranges_key}, {doc.full_name},"
+            f"Running {sim_iter_num}, {time_range}, {time_ranges_key}, {doc.full_name.val},"
             f"{att}"
         )
         print(
-            f"Running {sim_iter_num}, {time_range}, {time_ranges_key}, {doc.full_name},"
+            f"Running {sim_iter_num}, {time_range}, {time_ranges_key}, {doc.full_name.val},"
             f"{att}"
         )
 
@@ -100,7 +100,7 @@ def run_sims(
             if input_doc.failures():
                 output = failed_output(
                     "Upstream failure from "
-                    f"{input_doc.full_name}: {sorted(input_doc.failures())}"
+                    f"{input_doc.full_name.val}: {sorted(input_doc.failures())}"
                 )
                 attribute._add_output(output)
                 upstream_failure = True
@@ -127,8 +127,6 @@ def run_sims(
                         data_dict.get(input_attribute.value_file_ref), serialized=True
                     )
 
-        if upstream_failure:
-            continue
         block_key = [
             sim_iter_num,
             time_ranges_key,
@@ -144,7 +142,7 @@ def run_sims(
         # Convert the functionv string to a callable function
 
         if upstream_failure or not attribute.func:
-            print(f"Skipping {doc.full_name}-{att}")
+            print(f"Skipping {doc.full_name.val}-{att}")
             attribute._send_output(caller=kwargs.get("caller"))
             continue
 
