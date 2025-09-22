@@ -33,6 +33,8 @@ def run_sims(
         for d in doc_data
     }
 
+    time_ranges_keys = set()
+    sim_iter_nums = set()
     for doc in doc_objs.values():
         if doc.doc_id not in docs_to_run:
             continue
@@ -41,6 +43,8 @@ def run_sims(
                 continue
             if not att_dict.get("runnable", False) or att_dict.get("empty", False):
                 continue
+            time_ranges_keys.update(att_dict["time_ranges_keys"])
+            sim_iter_nums.update(att_dict["time_ranges_keys"])
 
             att_dict["old_value_file_ref"] = att_dict["value_file_ref"]
             if "new_value_file_ref" in att_dict:
@@ -77,7 +81,10 @@ def run_sims(
     )
 
     data_iterator = stream_subgraph_by_key(
-        auth_data=auth_data, value_file_ref_groups=value_file_ref_groups
+        auth_data=auth_data,
+        value_file_ref_groups=value_file_ref_groups,
+        time_ranges_keys=time_ranges_keys,
+        sim_iter_nums=sim_iter_nums,
     )
     iterator = merge_key_and_data_iterators(
         key_iterator, data_iterator, value_file_ref_groups

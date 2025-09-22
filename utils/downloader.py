@@ -7,10 +7,14 @@ from itertools import groupby
 import datetime
 
 
-def stream_subgraph_by_key(auth_data, value_file_ref_groups):
+def stream_subgraph_by_key(
+    auth_data, value_file_ref_groups, sim_iter_nums, time_ranges_keys
+):
     data = {
         "auth_data": auth_data,
         "value_file_ref_groups": value_file_ref_groups,
+        "time_ranges_keys": list(time_ranges_keys),
+        "sim_iter_nums": list(sim_iter_nums),
     }
     resp = requests.post(
         f"{auth_data['dash_app_url']}/stream-by-key", json=data, stream=True
