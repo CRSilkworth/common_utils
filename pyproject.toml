@@ -29,6 +29,7 @@ dependencies = [
     "torch<3.0.0",
     "scipy<1.11.0",
     "python-quickbooks<0.10.0"
+    "websocket-client<1.9.0"
 ]
 
 [tool.setuptools.packages.find]
