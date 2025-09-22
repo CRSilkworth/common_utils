@@ -203,11 +203,13 @@ def get_key_iterator(
         all_time_ranges = {}
     else:
         try:
-            _, sims = next(calc_graph_doc.get_iterator("sims"))
+            _, sims = next(calc_graph_doc.attributes["sims"].get_iterator())
         except StopIteration:
             sims = {"0": {}}
         try:
-            __, all_time_ranges = next(calc_graph_doc.get_iterator("all_time_ranges"))
+            __, all_time_ranges = next(
+                calc_graph_doc.attributes["all_time_ranges"].get_iterator()
+            )
         except StopIteration:
             all_time_ranges = {
                 "__BEGIN_TIME__": [(datetime.datetime.min, datetime.datetime.min)]

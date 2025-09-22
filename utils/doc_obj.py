@@ -80,7 +80,9 @@ class DocObj(dict):
         if att in self.attributes:
             return self.attributes[att]
 
-        return super().__getattr__(att)
+        raise AttributeError(
+            f"{self.__class__.__name__!r} object has no attribute {att!r}"
+        )
 
 
 # class DocObj(dict):
