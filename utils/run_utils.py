@@ -1,12 +1,6 @@
 from typing import Text, Dict, Any, Optional, List
 from utils.misc_utils import failed_output
-from utils.serialize_utils import attempt_deserialize
-from utils.function_utils import (
-    create_function,
-    run_with_expected_type,
-    run_with_generator,
-)
-from utils.type_utils import get_known_types
+from utils.function_utils import run_with_expected_type, run_with_generator
 from utils.generator_utils import merge_key_and_data_iterators
 from utils.downloader import stream_subgraph_by_key
 from utils.doc_obj import DocObj
@@ -24,31 +18,27 @@ def run_sims(
 ):
 
     run_config = run_config if run_config else {}
-    doc_objs = {
-        d: DocObj(
-            doc_id=d,
-            doc_dict=doc_data[d],
-            auth_data=auth_data,
-        )
-        for d in doc_data
-    }
 
     time_ranges_keys = set()
     sim_iter_nums = set()
-    for doc in doc_objs.values():
+    doc_objs = {}
+    for doc_id in doc_data:
+        doc = DocObj(
+            doc_id=doc_id,
+            doc_dict=doc_data[doc_id],
+            auth_data=auth_data,
+            global_vars=kwargs.get("globals", {}),
+        )
+        doc_objs[doc_id] = doc
         if doc.doc_id not in docs_to_run:
             continue
-        for att, att_dict in doc.att_dicts.items():
+        for att, attribute in doc.attributes.items():
             if not (attributes_to_run is None or att in attributes_to_run):
                 continue
-            if not att_dict.get("runnable", False) or att_dict.get("empty", False):
+            if not attribute.runnable or attribute.no_function_body:
                 continue
-            time_ranges_keys.update(att_dict["time_ranges_keys"])
-            sim_iter_nums.update(att_dict["sim_iter_nums"])
-
-            att_dict["old_value_file_ref"] = att_dict["value_file_ref"]
-            if "new_value_file_ref" in att_dict:
-                att_dict["value_file_ref"] = att_dict["new_value_file_ref"]
+            time_ranges_keys.update(attribute.time_ranges_keys)
+            sim_iter_nums.update(attribute.sim_iter_nums)
 
     calc_graph_doc = doc_objs[auth_data["calc_graph_id"]]
 
@@ -78,11 +68,10 @@ def run_sims(
 
         doc_to_run, att = index_to_doc_id_att[group_idx]
         doc = doc_objs[doc_to_run]
-        att_dict = doc.att_dicts[att]
-
-        if sim_iter_num not in att_dict["sim_iter_nums"]:
+        attribute = doc.attributes[att]
+        if sim_iter_num not in attribute.sim_iter_nums:
             continue
-        if time_ranges_key not in att_dict["time_ranges_keys"]:
+        if time_ranges_key not in attribute.time_ranges_keys:
             continue
 
         logging.info(
@@ -96,18 +85,37 @@ def run_sims(
 
         upstream_failure = False
         # Set all the arguments to the function to run
-        for var_name, input_doc_id in att_dict["var_name_to_id"].items():
+        runner_kwargs = {}
+        runner_kwargs["sim_iter_num"] = sim_iter_num
+        runner_kwargs["time_ranges_key"] = time_ranges_key
+        runner_kwargs["time_range"] = time_range
+        for var_name, input_doc_id in attribute.var_name_to_id.items():
             input_doc = doc_objs[input_doc_id]
-
+            runner_kwargs[var_name] = input_doc
             if input_doc.failures():
                 output = failed_output(
                     "Upstream failure from "
                     f"{input_doc.full_name}: {sorted(input_doc.failures())}"
                 )
-                doc.add_output(att, output)
+                attribute._add_output(output)
                 upstream_failure = True
                 print("upstream failure", input_doc.failures())
                 break
+            for _, input_attribute in input_doc.attributes.items():
+                if not input_attribute.runnable:
+                    continue
+                if input_attribute.chunked:
+                    input_attribute._set_val(
+                        input_attribute.get_iterator(
+                            sim_iter_nums=[sim_iter_num],
+                            time_ranges_keys=[time_ranges_key],
+                            time_range=time_range,
+                        )
+                    )
+                else:
+                    attribute._set_val(
+                        data_dict.get(input_attribute.value_file_ref), serialized=True
+                    )
 
         if upstream_failure:
             continue
@@ -118,96 +126,45 @@ def run_sims(
             time_range[1].isoformat(),
             0,
         ]
-        if block_key in att_dict["overrides"]:
-            doc.upload_chunk(
-                att=att,
-                sim_iter_num=sim_iter_num,
-                time_ranges_key=time_ranges_key,
-                time_range=time_range,
-                chunk_num=0,
-                value_chunk=None,
-                overriden=True,
-            )
+        if block_key in attribute.overrides:
+            attribute._upload_chunk(value_chunk=None, overriden=True)
             continue
 
         # Convert the functionv string to a callable function
-        func, output = create_function(
-            function_name=att_dict["function_name"],
-            function_header=att_dict["function_header"],
-            function_string=att_dict["function_string"],
-            allowed_modules=get_known_types(),
-            global_vars=kwargs.get("globals", {}),
-        )
-        doc.add_output(att, output)
 
-        if upstream_failure or output["failed"] or not func:
+        if upstream_failure or output["failed"] or not attribute.func:
             print(f"Skipping {doc.full_name}-{att}")
-            doc.send_output(att, caller=kwargs.get("caller"))
+            attribute._send_output(caller=kwargs.get("caller"))
             continue
 
-        runner_kwargs = {}
-        for var_name, input_doc_id in att_dict["var_name_to_id"].items():
-            input_doc = doc_objs[input_doc_id]
-            runner_kwargs[var_name] = input_doc
-            for input_att, input_att_dict in input_doc.att_dicts.items():
-                if not input_att_dict.get("generator", False):
-                    continue
-                if input_att_dict.get("chunked", False):
-                    doc_objs[input_doc_id][input_att] = input_doc.get_iterator(
-                        input_att,
-                        sim_iter_nums=[sim_iter_num],
-                        time_ranges_keys=[time_ranges_key],
-                        time_range=time_range,
-                    )
-                else:
-                    value = data_dict.get(input_att_dict["value_file_ref"])
-
-                    doc_objs[input_doc_id][input_att], output, _ = attempt_deserialize(
-                        value, input_att_dict["value_type"]
-                    )
-                    doc_objs[input_doc_id].add_output(att, output)
-
-        runner_kwargs["sim_iter_num"] = sim_iter_num
-        runner_kwargs["time_ranges_key"] = time_ranges_key
-        runner_kwargs["time_range"] = time_range
-
-        if att_dict["chunked"]:
+        if attribute.chunked:
             run_generator = run_with_generator(
-                func, runner_kwargs, att_dict["value_type"]
+                attribute.func, runner_kwargs, attribute.value_type
             )
             for chunk_num, run_output_chunk in enumerate(run_generator):
-                doc.add_output(att, run_output_chunk)
+                attribute._add_output(run_output_chunk)
                 if run_output_chunk["failed"]:
                     break
 
-                doc.upload_chunk(
-                    att=att,
-                    sim_iter_num=sim_iter_num,
-                    time_ranges_key=time_ranges_key,
-                    time_range=time_range,
-                    chunk_num=chunk_num,
-                    value_chunk=run_output_chunk["value"],
+                attribute._upload_chunk(
+                    chunk_num=chunk_num, value_chunk=run_output_chunk["value"]
                 )
-                doc.finalize_value_update(att)
+                attribute._flush()
 
         else:
-            output = run_with_expected_type(func, runner_kwargs, att_dict["value_type"])
-            doc.add_output(att, output)
+            output = run_with_expected_type(
+                attribute.func, runner_kwargs, attribute.value_type
+            )
+            attribute._add_output(output)
             if not output["failed"]:
                 print(
                     f"uploading {sim_iter_num}, {time_range}, {time_ranges_key},"
                     f" {doc.full_name}, {att}"
                 )
-                doc.upload_chunk(
-                    att=att,
-                    sim_iter_num=sim_iter_num,
-                    time_ranges_key=time_ranges_key,
-                    time_range=time_range,
-                    chunk_num=0,
-                    value_chunk=output["value"],
-                )
-                doc.finalize_value_update(att)
+                attribute._upload_chunk(chunk_num=0, value_chunk=output["value"])
+                attribute._flush()
 
+    logging.info("Sending output")
     for doc_to_run in docs_to_run:
         doc = doc_objs[doc_to_run]
 
@@ -217,22 +174,20 @@ def run_sims(
             if attributes_to_run is None
             else attributes_to_run
         )
-        # Run all the attributes associate with this doc
         for att, att_dict in doc.att_dicts.items():
             if not (attributes_to_run is None or att in attributes_to_run):
                 continue
             if not att_dict.get("runnable", False) or att_dict.get("empty", False):
                 continue
 
-            doc.send_output(att, caller=kwargs.get("caller"))
+            attribute._send_output(att, caller=kwargs.get("caller"))
+
     logging.info("Cleaning up connections")
     # cleanup any connections
     for doc in doc_objs.values():
-        for cleanup in doc.cleanups.values():
-            try:
-                cleanup()
-            except Exception:
-                continue
+        for attribute in doc.attributes.values():
+            if attribute.cleanup:
+                attribute.cleanup()
 
 
 def get_key_iterator(

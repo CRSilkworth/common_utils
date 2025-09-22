@@ -1,15 +1,8 @@
-from typing import Dict, Text, Any, Optional, Iterable, Set
-from utils.serialize_utils import attempt_deserialize, attempt_serialize
-from utils.type_utils import deserialize_typehint, TimeRange, Files
-from utils.downloader import BatchDownloader
-from utils.uploader import BatchUploader
-from utils.preview_utils import value_to_preview
-from quickbooks import QuickBooks
+from typing import Dict, Text, Any, Set, Optional
+from utils.serialize_utils import serialize_value
+from utils.type_utils import deserialize_typehint
 import copy
-import requests
-import os
-import json
-from utils.type_utils import describe_json_schema, DBConnection
+from utils.attribute import RunnableAttribute, Attribute
 
 
 class DocObj(dict):
@@ -18,6 +11,7 @@ class DocObj(dict):
         doc_id: Text,
         doc_dict: Dict[Text, Any],
         auth_data: Dict[Text, Any],
+        global_vars: Optional[Dict[Text, Any]] = None,
     ):
         super().__init__()
         self.doc_id = doc_id
@@ -25,106 +19,50 @@ class DocObj(dict):
         self.cleanups = {}
         self.outputs = {}
         self.uploaders = {}
+        self.attributes: Dict[Text, Attribute] = {}
         self.doc_dict = copy.deepcopy(doc_dict)
         for att, att_dict in self.doc_dict.items():
             if isinstance(att_dict, str):
-                self[att] = att_dict
-            if isinstance(att_dict, dict):
+                value_type = str
+                _value = serialize_value(att_dict)
+            elif isinstance(att_dict, dict):
 
-                att_dict["value_type"] = deserialize_typehint(att_dict["_value_type"])
-                if att_dict["value_type"] is (QuickBooks):
-                    value, _, __ = attempt_deserialize(None, att_dict["value_type"])
-                    value.auth_data = auth_data
-                    att_dict["value"] = value
+                value_type = deserialize_typehint(att_dict["_value_type"])
+                att_dict["value_type"] = value_type
+                _value = att_dict["_value"]
 
-                elif att_dict["value_type"] in (DBConnection, Files):
-                    value, output, cleanups = attempt_deserialize(
-                        att_dict["_value"], att_dict["value_type"]
-                    )
-                    self.outputs[att] = output
-                    if output.get("failed", False):
-                        continue
-
-                    if cleanups:
-                        self.cleanups[att] = cleanups[0]
-                    att_dict["value"] = value
-                elif att_dict.get("runnable") and att_dict.get("new_value_file_ref"):
-
-                    self.uploaders[att] = BatchUploader(
-                        auth_data=auth_data,
-                        value_file_ref=att_dict["new_value_file_ref"],
-                        old_value_file_ref=att_dict["value_file_ref"],
-                    )
-
-    def add_output(self, att: Text, output: Dict[Text, Any]):
-        if not output:
-            return
-        self.outputs.setdefault(att, [])
-        self.outputs[att].append(output)
-
-    def get_output(self, att: Text, **context) -> Dict[Text, Any]:
-        combined = {
-            "failed": [],
-            "combined_output": [],
-            "stdout_output": [],
-            "stderr_output": [],
-        }
-        for output in self.outputs.get(att, {}):
-            combined["failed"].append(output["failed"])
-            combined["combined_output"].append(output["combined_output"].strip())
-            combined["stdout_output"].append(output["stdout_output"].strip())
-            combined["stderr_output"].append(output["stderr_output"].strip())
-
-        combined["failed"] = any(combined["failed"])
-        combined["combined_output"] = "\n".join(
-            [s for s in combined["combined_output"] if s]
-        )
-        combined["stderr_output"] = "\n".join(
-            [s for s in combined["stderr_output"] if s]
-        )
-        combined["stdout_output"] = "\n".join(
-            [s for s in combined["stdout_output"] if s]
-        )
-
-        if context:
-            context = "\n".join([f"{k}={v}" for k, v in context.items()])
-            for key in ("combined_output", "stderr_output", "stdout_output"):
-                if not combined[key]:
-                    continue
-                combined[key] = f"When running with {context}:\n" + combined[key]
-        if att in self.uploaders:
-            combined["new_value_file_ref"] = self.uploaders[att].value_file_ref
-        return combined
-
-    def send_output(
-        self,
-        att: Text,
-        caller: Optional[Text] = None,
-        context: Optional[Dict[Text, Any]] = None,
-    ):
-        doc_id = self.doc_dict["doc_id"]
-        context = context if context else {}
-
-        # Send the attribute result back to the backend
-        data = {
-            "docs_to_run": [doc_id],
-            "outputs": {doc_id: {att: self.get_output(att, **context)}},
-            "caller": caller,
-            "auth_data": self.auth_data,
-            "run_completed": False,
-            "run_output": {"failed": False, "message": ""},
-        }
-
-        requests.post(
-            os.path.join(self.auth_data["dash_app_url"], "job-result"),
-            json=data,
-            headers={"Authorization": f"Bearer {self.auth_data['token']}"},
-        )
+            if att_dict.get("runnable"):
+                value_file_ref = att_dict.get("new_value_file_ref")
+                if not value_file_ref:
+                    value_file_ref = att_dict.get("value_file_ref")
+                self.attributes[att] = RunnableAttribute(
+                    name=att,
+                    auth_data=auth_data,
+                    doc_id=self.doc_id,
+                    value_type=value_type,
+                    value_file_ref=value_file_ref,
+                    chunked=att_dict["chunked"],
+                    old_value_file_ref=att_dict.get("old_value_file_ref"),
+                    no_function_body=att_dict.get("empty", False),
+                    sim_iter_nums=att_dict["sim_iter_nums"],
+                    time_ranges_keys=att_dict["time_ranges_keys"],
+                    overrides=att_dict["overrides"],
+                    global_vars=global_vars,
+                )
+            else:
+                # value_type in (QuickBooks, DBConnection, Files, str)
+                self.attributes[att] = Attribute(
+                    name=att,
+                    auth_data=auth_data,
+                    doc_id=doc_id,
+                    value_type=value_type,
+                    _value=_value,
+                )
 
     def failures(self) -> Set[Text]:
         failures = set()
-        for att in self.att_dicts:
-            if self.get_output(att).get("failed"):
+        for att in self.attributes:
+            if self.attributes[att]._get_output(att).get("failed"):
                 failures.add(att)
         return failures
 
@@ -132,186 +70,313 @@ class DocObj(dict):
     def att_dicts(self):
         return {k: v for k, v in self.doc_dict.items() if isinstance(v, dict)}
 
-    def time_series(
-        self,
-        attribute_name: Text,
-        time_ranges_key: Optional[Text] = "__WHOLE__",
-        sim_iter_num: Optional[int] = 0,
-    ):
-
-        iterator = self.get_iterator(
-            attribute_name,
-            sim_iter_nums=[sim_iter_num],
-            time_ranges_keys=[time_ranges_key],
-        )
-        for (_, __, time_range), value in iterator:
-            yield (time_range, value)
-
-    def sims(
-        self,
-        attribute_name: Text,
-        time_ranges_key: Optional[Text] = "__WHOLE__",
-        time_range_start: Optional[Text] = None,
-        time_range_end: Optional[Text] = None,
-    ):
-        iterator = self.get_iterator(
-            attribute_name,
-            time_ranges_keyss=[time_ranges_key],
-            time_range_start=time_range_start,
-            time_range_end=time_range_end,
-        )
-        for (sim_iter_num, __, time_range), value in iterator:
-            yield (sim_iter_num, time_range, value)
-
-    def get_iterator(
-        self,
-        att: Text,
-        sim_iter_nums: Optional[Text] = None,
-        time_ranges_keys: Optional[Text] = None,
-        time_range: Optional[TimeRange] = None,
-    ):
-        time_range = time_range if time_range else (None, None)
-        if att not in self.doc_dict:
-            raise AttributeError(
-                f"DocObj has no attribute '{att}'. Available attributes are "
-                f"{sorted(self.doc_dict)}"
-            )
-        if isinstance(self.doc_dict[att], dict):
-            if "value" in self.doc_dict[att]:
-                return self.doc_dict[att]["value"]
-            att_dict = self.att_dicts[att]
-
-            downloader = BatchDownloader(
-                auth_data=self.auth_data,
-                doc_id=self.doc_id,
-                attribute_name=att,
-                sim_iter_nums=sim_iter_nums,
-                value_file_ref=self.doc_dict[att]["value_file_ref"],
-                time_ranges_keys=time_ranges_keys,
-                time_range_start=time_range[0],
-                time_range_end=time_range[1],
-                chunked=att_dict["chunked"],
-            )
-
-            return self.deserialize(
-                att=att,
-                iterator=downloader,
-                value_type=att_dict["value_type"],
-                chunked=att_dict["chunked"],
-            )
-
-    def finalize_value_update(self, att: Text):
-        self.uploaders[att].flush_batch()
-        self.doc_dict[att]["value_file_ref"] = self.doc_dict[att]["new_value_file_ref"]
-
-    def upload_chunk(
-        self,
-        att: Text,
-        sim_iter_num: int,
-        time_ranges_key: Text,
-        time_range: TimeRange,
-        chunk_num: int,
-        value_chunk: Any,
-        overriden: bool = False,
-    ):
-        uploader = self.uploaders[att]
-        if not overriden:
-            preview = value_to_preview(value_chunk)
-            _schema = json.dumps(describe_json_schema(value_chunk))
-            _value_chunk, output = attempt_serialize(
-                value_chunk, self.att_dicts[att]["value_type"]
-            )
-            self.add_output(att, output)
-        else:
-            preview = ""
-            _schema = ""
-            _value_chunk = ""
-            message = (
-                f"value corresponding to "
-                f"doc_name={self.full_name}, "
-                f"sim_iter_num={sim_iter_num}"
-                f"time_ranges_key={time_ranges_key},"
-                f"time_range={time_range}, "
-                f"chunk_num={chunk_num}, "
-            )
-            self.add_output(
-                att,
-                {
-                    "failed": False,
-                    "combined_output": message,
-                    "stdout_output": message,
-                    "stderr_output": "",
-                },
-            )
-
-        success, message = uploader.add_chunk(
-            sim_iter_num=sim_iter_num,
-            time_ranges_key=time_ranges_key,
-            time_range=time_range,
-            _value_chunk=_value_chunk,
-            chunk_num=chunk_num,
-            preview=preview,
-            _schema=_schema,
-            overriden=overriden,
-        )
-        output = {
-            "failed": not success,
-            "combined_output": message,
-            "stderr_output": message,
-            "stdout_output": "",
-        }
-        self.add_output(att, output)
-
-    def deserialize(
-        self, att: Text, iterator: Iterable, value_type: Any, chunked=False
-    ):
-        for key, _value in iterator:
-            if chunked:
-
-                def value_chunk_gen(_value=_value):
-                    for _value_chunk in _value:
-                        value_chunk, output, _ = attempt_deserialize(
-                            _value_chunk, value_type
-                        )
-
-                        if output:
-                            self.add_output(att, output)
-                            break
-                        yield value_chunk
-
-                yield key, value_chunk_gen()
-            else:
-                value, output, _ = attempt_deserialize(_value, value_type)
-
-                if output:
-                    self.add_output(att, output)
-                    break
-                yield key, value
-
     def __getattr__(self, att: Text):
+        if att in self.attributes:
+            return self.attributes[att]
 
-        if att not in self.doc_dict:
-            raise AttributeError(
-                f"DocObj has no attribute '{att}'. Available attributes are "
-                f"{sorted(self.doc_dict)}"
-            )
+        return super().__getattr__(att)
 
-        return self[att]
 
-    def __setattr__(self, att, value):
-        if att not in (
-            "doc_id",
-            "doc_dict",
-            "auth_data",
-            "cleanups",
-            "outputs",
-            "uploaders",
-        ):
-            raise AttributeError(f"Tried to set {att}, but attributes are read only")
-        super().__setattr__(att, value)
+# class DocObj(dict):
+#     def __init__(
+#         self,
+#         doc_id: Text,
+#         doc_dict: Dict[Text, Any],
+#         auth_data: Dict[Text, Any],
+#     ):
+#         super().__init__()
+#         self.doc_id = doc_id
+#         self.auth_data = auth_data
+#         self.cleanups = {}
+#         self.outputs = {}
+#         self.uploaders = {}
+#         self.doc_dict = copy.deepcopy(doc_dict)
+#         for att, att_dict in self.doc_dict.items():
+#             if isinstance(att_dict, str):
+#                 self[att] = att_dict
+#             if isinstance(att_dict, dict):
 
-    def __delattr__(self, att):
-        try:
-            del self[att]
-        except KeyError:
-            raise AttributeError(f"'{self.var_name}' has no attribute '{att}'")
+#                 att_dict["value_type"] = deserialize_typehint(att_dict["_value_type"])
+#                 if att_dict["value_type"] is (QuickBooks):
+#                     value, _, __ = attempt_deserialize(None, att_dict["value_type"])
+#                     value.auth_data = auth_data
+#                     att_dict["value"] = value
+
+#                 elif att_dict["value_type"] in (DBConnection, Files):
+#                     value, output, cleanups = attempt_deserialize(
+#                         att_dict["_value"], att_dict["value_type"]
+#                     )
+#                     self.outputs[att] = output
+#                     if output.get("failed", False):
+#                         continue
+
+#                     if cleanups:
+#                         self.cleanups[att] = cleanups[0]
+#                     att_dict["value"] = value
+#                 elif att_dict.get("runnable") and att_dict.get("new_value_file_ref"):
+
+#                     self.uploaders[att] = BatchUploader(
+#                         auth_data=auth_data,
+#                         value_file_ref=att_dict["new_value_file_ref"],
+#                         old_value_file_ref=att_dict["value_file_ref"],
+#                     )
+
+#     def add_output(self, att: Text, output: Dict[Text, Any]):
+#         if not output:
+#             return
+#         self.outputs.setdefault(att, [])
+#         self.outputs[att].append(output)
+
+#     def get_output(self, att: Text, **context) -> Dict[Text, Any]:
+#         combined = {
+#             "failed": [],
+#             "combined_output": [],
+#             "stdout_output": [],
+#             "stderr_output": [],
+#         }
+#         for output in self.outputs.get(att, {}):
+#             combined["failed"].append(output["failed"])
+#             combined["combined_output"].append(output["combined_output"].strip())
+#             combined["stdout_output"].append(output["stdout_output"].strip())
+#             combined["stderr_output"].append(output["stderr_output"].strip())
+
+#         combined["failed"] = any(combined["failed"])
+#         combined["combined_output"] = "\n".join(
+#             [s for s in combined["combined_output"] if s]
+#         )
+#         combined["stderr_output"] = "\n".join(
+#             [s for s in combined["stderr_output"] if s]
+#         )
+#         combined["stdout_output"] = "\n".join(
+#             [s for s in combined["stdout_output"] if s]
+#         )
+
+#         if context:
+#             context = "\n".join([f"{k}={v}" for k, v in context.items()])
+#             for key in ("combined_output", "stderr_output", "stdout_output"):
+#                 if not combined[key]:
+#                     continue
+#                 combined[key] = f"When running with {context}:\n" + combined[key]
+#         if att in self.uploaders:
+#             combined["new_value_file_ref"] = self.uploaders[att].value_file_ref
+#         return combined
+
+#     def send_output(
+#         self,
+#         att: Text,
+#         caller: Optional[Text] = None,
+#         context: Optional[Dict[Text, Any]] = None,
+#     ):
+#         doc_id = self.doc_dict["doc_id"]
+#         context = context if context else {}
+
+#         # Send the attribute result back to the backend
+#         data = {
+#             "docs_to_run": [doc_id],
+#             "outputs": {doc_id: {att: self.get_output(att, **context)}},
+#             "caller": caller,
+#             "auth_data": self.auth_data,
+#             "run_completed": False,
+#             "run_output": {"failed": False, "message": ""},
+#         }
+
+#         requests.post(
+#             os.path.join(self.auth_data["dash_app_url"], "job-result"),
+#             json=data,
+#             headers={"Authorization": f"Bearer {self.auth_data['token']}"},
+#         )
+
+#     def failures(self) -> Set[Text]:
+#         failures = set()
+#         for att in self.att_dicts:
+#             if self.get_output(att).get("failed"):
+#                 failures.add(att)
+#         return failures
+
+#     @property
+#     def att_dicts(self):
+#         return {k: v for k, v in self.doc_dict.items() if isinstance(v, dict)}
+
+#     def time_series(
+#         self,
+#         attribute_name: Text,
+#         time_ranges_key: Optional[Text] = "__WHOLE__",
+#         sim_iter_num: Optional[int] = 0,
+#     ):
+
+#         iterator = self.get_iterator(
+#             attribute_name,
+#             sim_iter_nums=[sim_iter_num],
+#             time_ranges_keys=[time_ranges_key],
+#         )
+#         for (_, __, time_range), value in iterator:
+#             yield (time_range, value)
+
+#     def sims(
+#         self,
+#         attribute_name: Text,
+#         time_ranges_key: Optional[Text] = "__WHOLE__",
+#         time_range_start: Optional[Text] = None,
+#         time_range_end: Optional[Text] = None,
+#     ):
+#         iterator = self.get_iterator(
+#             attribute_name,
+#             time_ranges_keyss=[time_ranges_key],
+#             time_range_start=time_range_start,
+#             time_range_end=time_range_end,
+#         )
+#         for (sim_iter_num, __, time_range), value in iterator:
+#             yield (sim_iter_num, time_range, value)
+
+#     def get_iterator(
+#         self,
+#         att: Text,
+#         sim_iter_nums: Optional[Text] = None,
+#         time_ranges_keys: Optional[Text] = None,
+#         time_range: Optional[TimeRange] = None,
+#     ):
+#         time_range = time_range if time_range else (None, None)
+#         if att not in self.doc_dict:
+#             raise AttributeError(
+#                 f"DocObj has no attribute '{att}'. Available attributes are "
+#                 f"{sorted(self.doc_dict)}"
+#             )
+#         if isinstance(self.doc_dict[att], dict):
+#             if "value" in self.doc_dict[att]:
+#                 return self.doc_dict[att]["value"]
+#             att_dict = self.att_dicts[att]
+
+#             downloader = BatchDownloader(
+#                 auth_data=self.auth_data,
+#                 doc_id=self.doc_id,
+#                 attribute_name=att,
+#                 sim_iter_nums=sim_iter_nums,
+#                 value_file_ref=self.doc_dict[att]["value_file_ref"],
+#                 time_ranges_keys=time_ranges_keys,
+#                 time_range_start=time_range[0],
+#                 time_range_end=time_range[1],
+#                 chunked=att_dict["chunked"],
+#             )
+
+#             return self.deserialize(
+#                 att=att,
+#                 iterator=downloader,
+#                 value_type=att_dict["value_type"],
+#                 chunked=att_dict["chunked"],
+#             )
+
+#     def finalize_value_update(self, att: Text):
+#         self.uploaders[att].flush_batch()
+#         self.doc_dict[att]["value_file_ref"] = self.doc_dict[att]["new_value_file_ref"]
+
+#     def upload_chunk(
+#         self,
+#         att: Text,
+#         sim_iter_num: int,
+#         time_ranges_key: Text,
+#         time_range: TimeRange,
+#         chunk_num: int,
+#         value_chunk: Any,
+#         overriden: bool = False,
+#     ):
+#         uploader = self.uploaders[att]
+#         if not overriden:
+#             preview = value_to_preview(value_chunk)
+#             _schema = json.dumps(describe_json_schema(value_chunk))
+#             _value_chunk, output = attempt_serialize(
+#                 value_chunk, self.att_dicts[att]["value_type"]
+#             )
+#             self.add_output(att, output)
+#         else:
+#             preview = ""
+#             _schema = ""
+#             _value_chunk = ""
+#             message = (
+#                 f"value corresponding to "
+#                 f"doc_name={self.full_name}, "
+#                 f"sim_iter_num={sim_iter_num}"
+#                 f"time_ranges_key={time_ranges_key},"
+#                 f"time_range={time_range}, "
+#                 f"chunk_num={chunk_num}, "
+#             )
+#             self.add_output(
+#                 att,
+#                 {
+#                     "failed": False,
+#                     "combined_output": message,
+#                     "stdout_output": message,
+#                     "stderr_output": "",
+#                 },
+#             )
+
+#         success, message = uploader.add_chunk(
+#             sim_iter_num=sim_iter_num,
+#             time_ranges_key=time_ranges_key,
+#             time_range=time_range,
+#             _value_chunk=_value_chunk,
+#             chunk_num=chunk_num,
+#             preview=preview,
+#             _schema=_schema,
+#             overriden=overriden,
+#         )
+#         output = {
+#             "failed": not success,
+#             "combined_output": message,
+#             "stderr_output": message,
+#             "stdout_output": "",
+#         }
+#         self.add_output(att, output)
+
+#     def deserialize(
+#         self, att: Text, iterator: Iterable, value_type: Any, chunked=False
+#     ):
+#         for key, _value in iterator:
+#             if chunked:
+
+#                 def value_chunk_gen(_value=_value):
+#                     for _value_chunk in _value:
+#                         value_chunk, output, _ = attempt_deserialize(
+#                             _value_chunk, value_type
+#                         )
+
+#                         if output:
+#                             self.add_output(att, output)
+#                             break
+#                         yield value_chunk
+
+#                 yield key, value_chunk_gen()
+#             else:
+#                 value, output, _ = attempt_deserialize(_value, value_type)
+
+#                 if output:
+#                     self.add_output(att, output)
+#                     break
+#                 yield key, value
+
+#     def __getattr__(self, att: Text):
+
+#         if att not in self.doc_dict:
+#             raise AttributeError(
+#                 f"DocObj has no attribute '{att}'. Available attributes are "
+#                 f"{sorted(self.doc_dict)}"
+#             )
+
+#         return self[att]
+
+#     def __setattr__(self, att, value):
+#         if att not in (
+#             "doc_id",
+#             "doc_dict",
+#             "auth_data",
+#             "cleanups",
+#             "outputs",
+#             "uploaders",
+#         ):
+#             raise AttributeError(f"Tried to set {att}, but attributes are read only")
+#         super().__setattr__(att, value)
+
+#     def __delattr__(self, att):
+#         try:
+#             del self[att]
+#         except KeyError:
+#             raise AttributeError(f"'{self.var_name}' has no attribute '{att}'")

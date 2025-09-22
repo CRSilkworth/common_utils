@@ -10,7 +10,7 @@ class BatchUploader:
         self,
         auth_data: Dict[Text, Text],
         value_file_ref: Text,
-        old_value_file_ref: Text,
+        old_value_file_ref: Optional[Text] = None,
         max_batch_bytes: int = 1e7,
         run_at: Optional[Text] = None,
     ):
