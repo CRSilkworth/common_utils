@@ -65,7 +65,6 @@ def run_sims(
     )
 
     for (sim_iter_num, time_range, time_ranges_key, group_idx), data_dict in iterator:
-        print("data_dict", data_dict)
         doc_to_run, att = index_to_doc_id_att[group_idx]
         doc = doc_objs[doc_to_run]
         attribute = doc.attributes[att]
@@ -123,7 +122,6 @@ def run_sims(
                         )
                     )
                 else:
-                    print(input_attribute.value_file_ref)
                     input_attribute._set_val(
                         data_dict.get(input_attribute.value_file_ref), serialized=True
                     )
@@ -171,7 +169,6 @@ def run_sims(
                     f"uploading {sim_iter_num}, {time_range}, {time_ranges_key},"
                     f" {doc.full_name.val}, {att}"
                 )
-                print(output["value"])
                 attribute._upload_chunk(chunk_num=0, value_chunk=output["value"])
                 attribute._flush()
 
@@ -190,7 +187,6 @@ def run_sims(
                 continue
             if not att_dict.get("runnable", False) or att_dict.get("empty", False):
                 continue
-            print(f'sending output {doc.attributes["full_name"].val}, {att}')
             attribute._send_output(caller=kwargs.get("caller"))
 
     logging.info("Cleaning up connections")

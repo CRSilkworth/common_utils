@@ -83,6 +83,7 @@ class Attribute:
             [s for s in combined["stdout_output"] if s]
         )
         combined["new_value_file_ref"] = getattr(self, "value_file_ref", None)
+        print(self.doc_id, self.name, combined)
         return combined
 
     def _clear_output(self):
