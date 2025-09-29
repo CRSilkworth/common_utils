@@ -124,7 +124,10 @@ def encode_obj(obj: Any):
             "data": obj,
         }
     elif isinstance(obj, type(None)):
-        return None
+        return {
+            "__kind__": "NoneType",
+            "data": obj,
+        }
     else:
         return {
             "__kind__": obj.__class__.__name__,
@@ -217,6 +220,8 @@ def decode_obj(obj: Any, known_types: Optional[Dict[Text, Any]] = None):
             return bool(obj["data"])
         elif kind == "ObjectId":
             return ObjectId(obj["data"])
+        elif kind == "NoneType":
+            return None
 
         else:
             return {k: decode_obj(v) for k, v in obj.items()}
