@@ -182,10 +182,10 @@ def run_sims(
             if attributes_to_run is None
             else attributes_to_run
         )
-        for att, att_dict in doc.att_dicts.items():
+        for att, attribute in doc.attributes.items():
             if not (attributes_to_run is None or att in attributes_to_run):
                 continue
-            if not att_dict.get("runnable", False) or att_dict.get("empty", False):
+            if not attribute.runnable or attribute.no_function_body:
                 continue
             attribute._send_output(caller=kwargs.get("caller"))
 
