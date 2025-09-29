@@ -245,6 +245,11 @@ def serialize_value(value: Any, value_type: Optional[Any] = None):
 
 
 def deserialize_value(value, value_type):
+    value = (
+        value
+        if value is not None
+        else json.dumps({"__kind__": "NoneType", "data": None})
+    )
     value = decode_obj(json.loads(value))
     if value_type == sqlite3.Connection and value is not None:
         buffer = io.BytesIO(value)
