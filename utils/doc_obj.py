@@ -48,7 +48,7 @@ class DocObj(dict):
                     function_name=att_dict.get("function_name"),
                     function_header=att_dict.get("function_header"),
                     function_string=att_dict.get("function_string"),
-                    old_value_file_ref=att_dict.get("old_value_file_ref"),
+                    old_value_file_ref=att_dict.get("value_file_ref"),
                     no_function_body=att_dict.get("empty", False),
                     sim_iter_nums=att_dict["sim_iter_nums"],
                     time_ranges_keys=att_dict["time_ranges_keys"],
