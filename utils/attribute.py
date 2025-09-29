@@ -83,7 +83,6 @@ class Attribute:
             [s for s in combined["stdout_output"] if s]
         )
         combined["new_value_file_ref"] = getattr(self, "value_file_ref", None)
-        print(self.doc_id, self.name, combined)
         return combined
 
     def _clear_output(self):
@@ -104,7 +103,7 @@ class Attribute:
             "run_completed": False,
             "run_output": {"failed": False, "message": ""},
         }
-
+        print(data)
         requests.post(
             os.path.join(self.auth_data["dash_app_url"], "job-result"),
             json=data,
