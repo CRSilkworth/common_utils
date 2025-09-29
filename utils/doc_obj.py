@@ -57,14 +57,13 @@ class DocObj(dict):
                 )
             else:
                 # value_type in (QuickBooks, DBConnection, Files, str)
-                print(att, _value)
                 self.attributes[att] = Attribute(
                     name=att,
                     auth_data=auth_data,
                     doc_id=doc_id,
                     value_type=value_type,
-                    _value=_value,
                 )
+                self.attributes[att]._set_val(val=_value, serialized=True)
 
     def failures(self) -> Set[Text]:
         failures = set()

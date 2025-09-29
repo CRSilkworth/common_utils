@@ -20,7 +20,6 @@ class Attribute:
         auth_data: Dict[Text, Any],
         doc_id: Text,
         value_type: Any,
-        _value: Optional[Any] = None,
     ):
         self.name = name
         self.auth_data = auth_data
