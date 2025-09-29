@@ -80,12 +80,12 @@ def run_sims(
             continue
 
         logging.info(
-            f"Running {sim_iter_num}, {time_range}, {time_ranges_key}, {doc.full_name.val},"
-            f"{att}"
+            f"Running {sim_iter_num}, {time_range}, {time_ranges_key},"
+            f" {doc.full_name.val}, {att}"
         )
         print(
-            f"Running {sim_iter_num}, {time_range}, {time_ranges_key}, {doc.full_name.val},"
-            f"{att}"
+            f"Running {sim_iter_num}, {time_range}, {time_ranges_key},"
+            f" {doc.full_name.val}, {att}"
         )
 
         upstream_failure = False
@@ -123,7 +123,7 @@ def run_sims(
                         )
                     )
                 else:
-                    attribute._set_val(
+                    input_attribute._set_val(
                         data_dict.get(input_attribute.value_file_ref), serialized=True
                     )
 
@@ -168,7 +168,7 @@ def run_sims(
             if not output["failed"]:
                 print(
                     f"uploading {sim_iter_num}, {time_range}, {time_ranges_key},"
-                    f" {doc.full_name}, {att}"
+                    f" {doc.full_name.val}, {att}"
                 )
                 attribute._upload_chunk(chunk_num=0, value_chunk=output["value"])
                 attribute._flush()

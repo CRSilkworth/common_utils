@@ -141,29 +141,3 @@ class BatchDownloader:
                 # If not chunked there is only one element in the group
                 _, _, _, _, data = next(group)
                 yield (sim_id, coll, tr), data
-
-    # def nested_iterator(self):
-    #     flat = self.flat_iterator()
-    #     for sim_iter_num, sim_param_group in groupby(flat, key=itemgetter(0)):
-
-    #         def tr_name_gen(group=sim_param_group):
-    #             for collection_name, collection_group in groupby(
-    #                 group, key=itemgetter(1)
-    #             ):
-
-    #                 def tr_gen(group=collection_group):
-    #                     for time_range, time_range_group in groupby(
-    #                         group, key=itemgetter(2)
-    #                     ):
-
-    #                         def idx_gen(group=time_range_group):
-    #                             for chunk_num, chunk in group:
-    #                                 self.last_seen["chunk_num"] = chunk_num
-    #                                 yield chunk_num, chunk
-
-    #                         to_yield = idx_gen() if self.chunked else next(idx_gen())
-    #                         yield time_range, to_yield
-
-    #                 yield collection_name, tr_gen()
-
-    #         yield sim_iter_num, tr_name_gen()
