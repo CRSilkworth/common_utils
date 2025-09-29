@@ -170,6 +170,7 @@ def run_sims(
                     f"uploading {sim_iter_num}, {time_range}, {time_ranges_key},"
                     f" {doc.full_name.val}, {att}"
                 )
+                print(output["value"])
                 attribute._upload_chunk(chunk_num=0, value_chunk=output["value"])
                 attribute._flush()
 

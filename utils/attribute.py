@@ -46,10 +46,10 @@ class Attribute:
 
     def _set_val(self, val: Any, serialized: bool = False):
         if serialized:
-            value, output, cleanups = attempt_deserialize(val, self.value_type)
+            val, output, cleanups = attempt_deserialize(val, self.value_type)
             self._add_output(output)
-            self._set_val(value)
             self.cleanup = cleanups[0] if cleanups else None
+
         self._val = val
 
     def _add_output(self, output: Dict[Text, Any]):
