@@ -269,20 +269,21 @@ def get_value_file_ref_groups(docs_to_run, doc_objs, attributes_to_run):
     index_to_doc_id_att = []
     for doc_to_run in docs_to_run:
         doc = doc_objs[doc_to_run]
-        for att, att_dict in doc.att_dicts.items():
+        for att, attribute in doc.attributes.items():
             if not (attributes_to_run is None or att in attributes_to_run):
                 continue
-            if not att_dict.get("runnable", False) or att_dict.get("empty", False):
+            if not attribute.runnable or attribute.no_function_body:
                 continue
 
             value_file_ref_groups.append([])
             index_to_doc_id_att.append((doc_to_run, att))
-            for _, input_doc_id in att_dict["var_name_to_id"].items():
+            for _, input_doc_id in attribute.var_name_to_id.items():
                 input_doc = doc_objs[input_doc_id]
-                for _, input_att_dict in input_doc.att_dicts.items():
-                    if not input_att_dict.get("generator", False):
+                for _, input_attribute in input_doc.attributes.items():
+                    if not input_attribute.runnable:
                         continue
-                    if not input_att_dict.get("value_file_ref"):
+                    if not input_attribute.value_file_ref:
                         continue
-                    value_file_ref_groups[-1].append(input_att_dict["value_file_ref"])
+                    value_file_ref_groups[-1].append(input_attribute.value_file_ref)
+
     return value_file_ref_groups, index_to_doc_id_att
