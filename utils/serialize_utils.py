@@ -233,8 +233,7 @@ def decode_obj(obj: Any, known_types: Optional[Dict[Text, Any]] = None):
 
 
 def serialize_value(value: Any, value_type: Optional[Any] = None):
-    if value is None:
-        return value
+
     if value_type == sqlite3.Connection:
         buffer = io.BytesIO()
         for line in value.iterdump():
@@ -246,7 +245,7 @@ def serialize_value(value: Any, value_type: Optional[Any] = None):
 
 
 def deserialize_value(value, value_type):
-    value = None if value is None else decode_obj(json.loads(value))
+    value = decode_obj(json.loads(value))
     if value_type == sqlite3.Connection and value is not None:
         buffer = io.BytesIO(value)
         conn = sqlite3.connect(":memory:")
