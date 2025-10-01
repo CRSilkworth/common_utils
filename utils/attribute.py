@@ -71,7 +71,12 @@ class Attribute:
             combined = []
             for _output in outputs:
                 if _output["failed"]:
-                    print("fail", self.name, context_key)
+                    print(
+                        "fail",
+                        self.name,
+                        context_key,
+                        _output["combined_output"].strip(),
+                    )
                 output["failed"].append(_output["failed"])
                 combined.append(_output["combined_output"].strip())
                 stdout.append(_output["stdout_output"].strip())
