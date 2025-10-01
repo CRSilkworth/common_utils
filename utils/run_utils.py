@@ -243,6 +243,7 @@ def get_key_iterator(
     for sim_iter_num, _ in enumerate(sims):
         if sim_iter_nums and sim_iter_num not in sim_iter_nums:
             continue
+        print("key", sim_iter_num)
         for time_ranges_key, time_ranges in all_time_ranges.items():
             if time_ranges_keys and time_ranges_key not in time_ranges_keys:
                 continue
