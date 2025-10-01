@@ -69,11 +69,11 @@ class Attribute:
             stdout = []
             stderr = []
             combined = []
-            for output in outputs:
-                output["failed"].append(output["failed"])
-                combined.append(output["combined_output"].strip())
-                stdout.append(output["stdout_output"].strip())
-                stderr.append(output["stderr_output"].strip())
+            for _output in outputs:
+                output["failed"].append(_output["failed"])
+                combined.append(_output["combined_output"].strip())
+                stdout.append(_output["stdout_output"].strip())
+                stderr.append(_output["stderr_output"].strip())
             combined = "\n".join(combined).strip()
             stdout = "\n".join(stdout).strip()
             stderr = "\n".join(stderr).strip()
