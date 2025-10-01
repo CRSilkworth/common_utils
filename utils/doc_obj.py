@@ -69,6 +69,7 @@ class DocObj(dict):
         failures = set()
         for att in self.attributes:
             if self.attributes[att]._get_output().get("failed"):
+                print("fail", self.attributes["full_name"].val, att)
                 failures.add(att)
         return failures
 
