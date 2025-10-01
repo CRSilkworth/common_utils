@@ -6,6 +6,8 @@ from utils.downloader import stream_subgraph_by_key
 from utils.doc_obj import DocObj
 import datetime
 import logging
+import requests
+import os
 
 
 def run_sims(
@@ -175,6 +177,7 @@ def run_sims(
                 attribute._flush()
 
     logging.info("Sending output")
+    outputs = {}
     for doc_to_run in docs_to_run:
         doc = doc_objs[doc_to_run]
 
@@ -184,12 +187,14 @@ def run_sims(
             if attributes_to_run is None
             else attributes_to_run
         )
+        outputs[doc_to_run] = {}
         for att, attribute in doc.attributes.items():
             if not (attributes_to_run is None or att in attributes_to_run):
                 continue
             if not attribute.runnable or attribute.no_function_body:
                 continue
-            attribute._send_output(caller=kwargs.get("caller"))
+            outputs[doc_to_run][att] = attribute._get_output()
+    send_output(outputs, auth_data, caller=kwargs.get("caller"))
 
     logging.info("Cleaning up connections")
     # cleanup any connections
@@ -285,3 +290,25 @@ def get_value_file_ref_groups(docs_to_run, doc_objs, attributes_to_run):
                     value_file_ref_groups[-1].append(input_attribute.value_file_ref)
 
     return value_file_ref_groups, index_to_doc_id_att
+
+
+def send_output(
+    outputs,
+    auth_data,
+    caller: Optional[Text] = None,
+):
+
+    # Send the attribute result back to the backend
+    data = {
+        "docs_to_run": list(outputs.keys()),
+        "outputs": outputs,
+        "caller": caller,
+        "auth_data": auth_data,
+        "run_completed": False,
+        "run_output": {"failed": False, "message": ""},
+    }
+    requests.post(
+        os.path.join(auth_data["dash_app_url"], "job-result"),
+        json=data,
+        headers={"Authorization": f"Bearer {auth_data['token']}"},
+    )
