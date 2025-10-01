@@ -107,7 +107,7 @@ def run_sims(
                 )
                 attribute._add_output(output)
                 upstream_failure = True
-                print("upstream failure", input_doc.failures())
+                print("upstream failure", input_doc.full_name.val, input_doc.failures())
                 break
             for _, input_attribute in input_doc.attributes.items():
                 if not input_attribute.runnable:

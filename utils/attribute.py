@@ -59,31 +59,43 @@ class Attribute:
         self.outputs[self.context_key].append(output)
 
     def _get_output(self) -> Dict[Text, Any]:
-        combined = {
+        output = {
             "failed": [],
             "combined_output": [],
             "stdout_output": [],
             "stderr_output": [],
         }
         for context_key, outputs in self.outputs.items():
+            stdout = []
+            stderr = []
+            combined = []
             for output in outputs:
-                combined["failed"].append(output["failed"])
-                combined["combined_output"].append(output["combined_output"].strip())
-                combined["stdout_output"].append(output["stdout_output"].strip())
-                combined["stderr_output"].append(output["stderr_output"].strip())
+                output["failed"].append(output["failed"])
+                combined.append(output["combined_output"].strip())
+                stdout.append(output["stdout_output"].strip())
+                stderr.append(output["stderr_output"].strip())
+            combined = "\n".join(combined).strip()
+            stdout = "\n".join(stdout).strip()
+            stderr = "\n".join(stderr).strip()
+            if combined:
+                output["combined_output"].append(
+                    f"While running {context_key}:\n{combined}"
+                )
+            if stdout:
+                output["stdout_output"].append(
+                    f"While running {context_key}:\n{stdout}"
+                )
+            if stderr:
+                output["stderr_output"].append(
+                    f"While running {context_key}:\n{stderr}"
+                )
 
-        combined["failed"] = any(combined["failed"])
-        combined["combined_output"] = "\n".join(
-            [s for s in combined["combined_output"] if s]
-        )
-        combined["stderr_output"] = "\n".join(
-            [s for s in combined["stderr_output"] if s]
-        )
-        combined["stdout_output"] = "\n".join(
-            [s for s in combined["stdout_output"] if s]
-        )
-        combined["new_value_file_ref"] = getattr(self, "value_file_ref", None)
-        return combined
+        output["failed"] = any(output["failed"])
+        output["combined_output"] = "\n".join(output["combined_output"])
+        output["stderr_output"] = "\n".join([output["stderr_output"]])
+        output["stdout_output"] = "\n".join([output["stdout_output"]])
+        output["new_value_file_ref"] = getattr(self, "value_file_ref", None)
+        return output
 
     def _clear_output(self):
         self.outputs = {}
