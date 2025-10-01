@@ -92,8 +92,8 @@ class Attribute:
 
         output["failed"] = any(output["failed"])
         output["combined_output"] = "\n".join(output["combined_output"])
-        output["stderr_output"] = "\n".join([output["stderr_output"]])
-        output["stdout_output"] = "\n".join([output["stdout_output"]])
+        output["stderr_output"] = "\n".join(output["stderr_output"])
+        output["stdout_output"] = "\n".join(output["stdout_output"])
         output["new_value_file_ref"] = getattr(self, "value_file_ref", None)
         return output
 
