@@ -13,14 +13,16 @@ def run_sims(
     docs_to_run: List[Text],
     auth_data: Dict[Text, Text],
     attributes_to_run: Optional[List[Text]] = None,
+    time_ranges_keys: Optional[List[Text]] = None,
+    sim_iter_nums: Optional[List[int]] = None,
     run_config: Optional[Dict[Text, Any]] = None,
     **kwargs,
 ):
 
     run_config = run_config if run_config else {}
 
-    time_ranges_keys = set()
-    sim_iter_nums = set()
+    # time_ranges_keys = set()
+    # sim_iter_nums = set()
     doc_objs = {}
     for doc_id in doc_data:
         doc = DocObj(
@@ -37,8 +39,8 @@ def run_sims(
                 continue
             if not attribute.runnable or attribute.no_function_body:
                 continue
-            time_ranges_keys.update(attribute.time_ranges_keys)
-            sim_iter_nums.update(attribute.sim_iter_nums)
+            # time_ranges_keys.update(attribute.time_ranges_keys)
+            # sim_iter_nums.update(attribute.sim_iter_nums)
 
     calc_graph_doc = doc_objs[auth_data["calc_graph_id"]]
 

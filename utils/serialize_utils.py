@@ -245,6 +245,7 @@ def serialize_value(value: Any, value_type: Optional[Any] = None):
 
 
 def deserialize_value(value, value_type):
+    # for backwards compatibility
     value = (
         value
         if value is not None
