@@ -88,12 +88,16 @@ def get_file_schema(
         file_name = file["file_name"]
         file_date = file["file_date"]
         info = {
-            "file_name": file_name,
-            "file_date": file_date,
-            "file_content": {
-                "type": "str",
-                "description": "a string of the file type and base64 encoded string of"
-                " the entire file contents separated by a ','",
+            "x-type": "dict",
+            "type": "object",
+            "properties": {
+                "file_name": file_name,
+                "file_date": file_date,
+                "file_content": {
+                    "type": "str",
+                    "description": "a string of the file type and base64 encoded string"
+                    " of the entire file contents separated by a ','",
+                },
             },
         }
 
@@ -106,25 +110,33 @@ def get_file_schema(
             if extension in ["csv", "tsv"]:
                 sep = "," if extension == "csv" else "\t"
                 df = pd.read_csv(io.StringIO(decoded.decode("utf-8")), sep=sep)
-                info["summary"] = {
-                    "file_type": extension,
-                    "num_rows": df.shape[0],
-                    "num_columns": df.shape[1],
-                    "columns": df.columns.tolist(),
-                    "dtypes": df.dtypes.astype(str).to_dict(),
-                    "head": df.head(5).to_dict(orient="records"),
+                info["properties"]["summary"] = {
+                    "type": "object",
+                    "x-type": "file_summary",
+                    "properties": {
+                        "file_type": extension,
+                        "num_rows": df.shape[0],
+                        "num_columns": df.shape[1],
+                        "columns": df.columns.tolist(),
+                        "dtypes": df.dtypes.astype(str).to_dict(),
+                        "head": df.head(5).to_dict(orient="records"),
+                    },
                 }
 
             # Excel
             elif extension in ["xls", "xlsx"]:
                 df = pd.read_excel(io.BytesIO(decoded))
-                info["summary"] = {
-                    "file_type": extension,
-                    "num_rows": df.shape[0],
-                    "num_columns": df.shape[1],
-                    "columns": df.columns.tolist(),
-                    "dtypes": df.dtypes.astype(str).to_dict(),
-                    "head": df.head(5).to_dict(orient="records"),
+                info["properties"]["summary"] = {
+                    "type": "object",
+                    "x-type": "file_summary",
+                    "properties": {
+                        "file_type": extension,
+                        "num_rows": df.shape[0],
+                        "num_columns": df.shape[1],
+                        "columns": df.columns.tolist(),
+                        "dtypes": df.dtypes.astype(str).to_dict(),
+                        "head": df.head(5).to_dict(orient="records"),
+                    },
                 }
 
             # JSON
@@ -139,31 +151,42 @@ def get_file_schema(
                 else:
                     count = "Unknown"
                     sample = str(json_obj)
-                info["summary"] = {
-                    "file_type": "json",
-                    "item_count": count,
-                    "sample": sample,
-                    "schema": describe_json_schema(json_obj),
+                info["properties"]["summary"] = {
+                    "type": "object",
+                    "x-type": "file_summary",
+                    "properties": {
+                        "file_type": "json",
+                        "item_count": count,
+                        "sample": sample,
+                        "schema": describe_json_schema(json_obj),
+                    },
                 }
-
             # Text files
             elif extension in ["txt", "md", "log"]:
                 text = decoded.decode("utf-8")
                 lines = text.splitlines()
-                info["summary"] = {
-                    "file_type": "text",
-                    "line_count": len(lines),
-                    "preview": "\n".join(lines[:5]),
+                info["properties"]["summary"] = {
+                    "type": "object",
+                    "x-type": "file_summary",
+                    "properties": {
+                        "file_type": "text",
+                        "line_count": len(lines),
+                        "preview": "\n".join(lines[:5]),
+                    },
                 }
 
             # Image files
             elif extension in ["png", "jpg", "jpeg", "gif", "bmp"]:
                 image = Image.open(io.BytesIO(decoded))
-                info["summary"] = {
-                    "file_type": "image",
-                    "format": image.format,
-                    "mode": image.mode,
-                    "size": image.size,  # (width, height)
+                info["properties"]["summary"] = {
+                    "type": "object",
+                    "x-type": "file_summary",
+                    "properties": {
+                        "file_type": "image",
+                        "format": image.format,
+                        "mode": image.mode,
+                        "size": image.size,  # (width, height)
+                    },
                 }
 
             # PDF
@@ -176,10 +199,14 @@ def get_file_schema(
                         text_sample = pdf.pages[0].extract_text()[:500]
                     except Exception:
                         text_sample = "[Unable to extract text from page 1]"
-                info["summary"] = {
-                    "file_type": "pdf",
-                    "num_pages": num_pages,
-                    "sample_text": text_sample,
+                info["properties"]["summary"] = {
+                    "type": "object",
+                    "x-type": "file_summary",
+                    "properties": {
+                        "file_type": "pdf",
+                        "num_pages": num_pages,
+                        "sample_text": text_sample,
+                    },
                 }
 
             # XML
@@ -187,21 +214,33 @@ def get_file_schema(
                 root = ET.fromstring(decoded.decode("utf-8"))
                 elements = [elem.tag for elem in root.iter()]
                 structure = list(dict.fromkeys(elements))[:10]
-                info["summary"] = {
-                    "file_type": "xml",
-                    "root_tag": root.tag,
-                    "num_elements": len(elements),
-                    "sample_tags": structure,
+                info["properties"]["summary"] = {
+                    "type": "object",
+                    "x-type": "file_summary",
+                    "properties": {
+                        "file_type": "xml",
+                        "root_tag": root.tag,
+                        "num_elements": len(elements),
+                        "sample_tags": structure,
+                    },
                 }
 
             else:
-                info["summary"] = {
-                    "file_type": extension,
-                    "note": "Unsupported file type. Basic metadata shown.",
+                info["properties"]["summary"] = {
+                    "type": "object",
+                    "x-type": "file_summary",
+                    "properties": {
+                        "file_type": extension,
+                        "note": "Unsupported file type. Basic metadata shown.",
+                    },
                 }
 
         except Exception as e:
-            info["summary"] = {"error": f"Failed to process file: {str(e)}"}
+            info["properties"]["summary"] = {
+                "type": "object",
+                "x-type": "file_summary",
+                "properties": {"error": f"Failed to process file: {str(e)}"},
+            }
 
         results["items"].append(
             {"x-type": "File", "type": "object", "properties": info}
