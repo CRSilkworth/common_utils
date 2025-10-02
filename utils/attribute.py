@@ -11,6 +11,7 @@ import json
 import requests
 import os
 import datetime
+import inspect
 
 
 class Attribute:
@@ -245,7 +246,22 @@ class RunnableAttribute(Attribute):
         sim_iter_num: Optional[int] = None,
         time_ranges_key: Optional[Text] = None,
         time_range: Optional[TimeRange] = None,
-    ) -> List[Tuple[TimeRange, Any]]:
+    ) -> Iterable[Tuple[TimeRange, Any]]:
+        """
+        Get an iterator of the full time series of values (or section of it) of the
+        attribute (up to this point in time)
+        Args:
+            sim_iter_num: Which simulation to pull the time series from
+                (defaults to the current simulation)
+            time_ranges_key: Which time range collection to pull the data from
+                (defaults to the current time range)
+            time_range: max and min time range of the data. Defaults to full time
+                series (up to this point).
+        Returns:
+            iterator of 2-tuples:
+                time_range: The time range at which that value was computed.
+                value: The value at that time range.
+        """
         sim_iter_num = sim_iter_num or self.sim_iter_num
         time_ranges_key = time_ranges_key or self.time_ranges_key
         time_range = time_range or (datetime.datetime.min, datetime.datetime.max)
@@ -253,17 +269,33 @@ class RunnableAttribute(Attribute):
         # Only take data that has been 'completed' already
         if time_range[1] > self.time_range[0]:
             time_range = (time_range[0], self.time_range[0])
-        return self.get_iterator(
+        iterator = self.get_iterator(
             sim_iter_nums=[sim_iter_num],
             time_ranges_keys=[time_ranges_key],
             time_range=time_range,
         )
+        for (sim_iter_num, time_ranges_key, time_range), data in iterator:
+            yield (time_range, data)
 
     def sims(
         self,
         time_ranges_key: Optional[Text] = None,
         time_range: Optional[TimeRange] = None,
-    ) -> List[Tuple[TimeRange, Any]]:
+    ) -> Iterable[Tuple[int, Any]]:
+        """
+        Get an iterator of the data of all the simulations up until this one.
+        Note that there is no restriction on selecting a time_range that includes
+        several time ranges of data. May get multiple values corresponding to a single
+        sim. Use time_range with caution or leave blank.
+        Args:
+            time_ranges_key: Which time range collection to pull the data from
+                (defaults to the current time range)
+            time_range: max and min time range of the data. Defaults to the current one.
+        Returns:
+            iterator of 2-tuples:
+                sim_iter_num: The simulation number that value was computed at
+                value: The value for that simulation number.
+        """
         time_ranges_key = time_ranges_key or self.time_ranges_key
 
         # NOTE: No restriction on taking multiple time ranges
@@ -272,18 +304,34 @@ class RunnableAttribute(Attribute):
         # Get all previous sims
         sim_iter_nums = list(range(self.sim_iter_num))
 
-        return self.get_iterator(
+        iterator = self.get_iterator(
             sim_iter_nums=sim_iter_nums,
             time_ranges_keys=[time_ranges_key],
             time_range=time_range,
         )
+        for (sim_iter_num, time_ranges_key, time_range), data in iterator:
+            yield (sim_iter_num, data)
 
     def get_iterator(
         self,
         sim_iter_nums: Optional[Text] = None,
         time_ranges_keys: Optional[Text] = None,
         time_range: Optional[TimeRange] = None,
-    ):
+    ) -> Iterable[Tuple[Tuple[int, Text, TimeRange], Any]]:
+        """
+        Get an iterator of some slice of the data computed up until this point.
+        Args:
+            sim_iter_nums: Which simulations to pull the data from
+                (defaults to all simulations)
+            time_ranges_key: Which time range collections to pull the data from
+                (defaults to all time ranges collections)
+            time_range: max and min time range of the data. Defaults to full time range.
+        Returns:
+            iterator of 2-tuples:
+                context_key: The (sim_iter_num, time_ranges_key, and time_range) the
+                    data was computed under.
+                value: The value at that context key.
+        """
         time_range = time_range if time_range else (None, None)
 
         downloader = BatchDownloader(
@@ -299,3 +347,15 @@ class RunnableAttribute(Attribute):
         )
 
         return self._deserialize(iterator=downloader)
+
+    @classmethod
+    def get_method_documentation(cls) -> Text:
+        methods = [cls.time_series, cls.sims, cls.get_iterator]
+        r_str = []
+        for method in methods:
+            sig = inspect.signature(method)
+            header = f"def {method.__name__}{sig}:"
+            doc = inspect.getdoc(method)
+            r_str.append(header + "\n" + '"""' + (doc or "") + '"""\n...')
+        r_str = "\n\n".join(r_str)
+        return r_str
