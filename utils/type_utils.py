@@ -313,6 +313,7 @@ def is_allowed_type(obj) -> bool:
             np.ndarray,
             np.generic,
             pd.DataFrame,
+            pd.Series,
             pd.Period,
             datetime.datetime,
             type(None),
