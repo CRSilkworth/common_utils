@@ -5,6 +5,7 @@ import os
 import numpy as np
 import pandas as pd
 import json
+import datetime
 
 
 def edit_distance(str1: Optional[str], str2: Optional[str]) -> float:
@@ -233,7 +234,7 @@ def xml_to_html(
     return html_string.decode("utf-8")
 
 
-def json_converter(obj: object) -> object:
+def preprocess(obj: object) -> object:
     """Convert NumPy arrays, pandas objects, and other non-serializable
     types to JSON-serializable formats.
 
@@ -247,33 +248,23 @@ def json_converter(obj: object) -> object:
         TypeError: If the object is not JSON serializable.
     """
     if isinstance(obj, (np.ndarray, np.generic)):
-        # Convert NumPy arrays to lists
         return obj.tolist()
     elif isinstance(obj, pd.DataFrame):
-        # Convert DataFrame to dictionary
-        return obj.to_dict(orient="records")
+        return [preprocess(r) for r in obj.to_dict(orient="records")]
     elif isinstance(obj, pd.Series):
-        # Convert Series to dictionary
-        return {str(k): json_converter(v) for k, v in obj.to_dict().items()}
-    elif isinstance(obj, (pd.Timestamp, pd.Timedelta)):
-        # Convert timestamps and timedeltas to string
+        return {str(k): preprocess(v) for k, v in obj.items()}
+    elif isinstance(obj, (pd.Timestamp, pd.Timedelta, datetime.datetime)):
         return str(obj)
-    elif isinstance(obj, (tuple, list)):
-        # Recursively convert items in tuples and lists
-        return [json_converter(o) for o in obj]
     elif isinstance(obj, dict):
-        # Recursively convert dictionary keys and values
-        return {str(k): json_converter(v) for k, v in obj.items()}
+        return {str(k): preprocess(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [preprocess(i) for i in obj]
     elif type(obj) is bytes:
-        # Convert bytes to string
         return str(obj)
     elif pd.isna(obj):
-        # Convert pandas NA values to None
         return None
-    elif isinstance(obj, (str, int, complex, float, bool)):
-        return str(obj)
     else:
-        return str(obj)
+        return obj
     # raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 
@@ -289,9 +280,7 @@ def data_to_readable_string(data: Any, indent: int = 2) -> str:
         str: A JSON string representation of the dictionary.
     """
     # Convert keys to strings and use numpy_converter for non-serializable objects
-    return json.dumps(
-        convert_keys_to_strings(data), indent=indent, default=json_converter
-    )
+    return json.dumps(preprocess(data), indent=indent)
 
 
 def convert_keys_to_strings(obj: object) -> object:
