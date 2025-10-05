@@ -263,8 +263,12 @@ def preprocess(obj: object) -> object:
         return str(obj)
     elif pd.isna(obj):
         return None
+
     else:
-        return obj
+        try:
+            return json.dumps(obj, indent=2)
+        except TypeError:
+            return str(obj)
     # raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 
