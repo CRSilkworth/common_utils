@@ -336,7 +336,7 @@ def is_allowed_type(obj) -> bool:
 
         return True, ""
 
-    return False, f"{type(obj)} is not of allowed type"
+    return False, f"{obj} of type: {type(obj)} is not of allowed type"
 
 
 def serialize_typehint(t: type) -> str:
