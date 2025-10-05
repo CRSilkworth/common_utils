@@ -336,7 +336,7 @@ def is_allowed_type(obj) -> bool:
 
         return True, ""
 
-    return False
+    return False, f"{type(obj)} is not of allowed type"
 
 
 def serialize_typehint(t: type) -> str:
@@ -494,7 +494,7 @@ def _resolve_forwardrefs(tp, globalns):
 
 def is_valid_output(value, output_type):
     if output_type == sqlite3.Connection:
-        return isinstance(value, sqlite3.Connection)
+        return isinstance(value, sqlite3.Connection), ""
     if output_type == SimParams:
         try:
             if not isinstance(value, dict):
@@ -593,7 +593,7 @@ def is_valid_output(value, output_type):
         return True, ""
 
     if output_type == torch.nn.Module:
-        return isinstance(value, torch.nn.Module)
+        return isinstance(value, torch.nn.Module), ""
 
     origin = get_origin(output_type)
     args = get_args(output_type)
