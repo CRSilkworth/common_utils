@@ -6,7 +6,6 @@ from utils.downloader import BatchDownloader
 from utils.uploader import BatchUploader
 from utils.preview_utils import value_to_preview
 from utils.type_utils import get_known_types
-import logging
 import json
 import requests
 import os
@@ -344,7 +343,7 @@ class RunnableAttribute(Attribute):
 
         for key, value, output in self._deserialize(iterator=downloader):
             self._add_output(output)
-            return key, value
+            yield key, value
 
     def get_first_val(
         self,
