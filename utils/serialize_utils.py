@@ -164,11 +164,7 @@ def decode_obj(obj: Any, known_types: Optional[Dict[Text, Any]] = None):
                 raise ValueError(
                     f"Failed to decode model object: {output['combined_output']}"
                 )
-            return {
-                "model": output["value"],
-                "class_def": class_def,
-                "metadata": decode_obj(obj["data"]["metadata"]),
-            }
+            return output["value"]
         elif kind == "DataFrame":
             index = []
             columns = {}
