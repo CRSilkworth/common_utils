@@ -198,7 +198,7 @@ class RunnableAttribute(Attribute):
                             _value_chunk, self.value_type
                         )
                         if output:
-                            logging.warning(output["combined_output"])
+                            self._add_output(output)
                         yield value_chunk
 
                 yield key, value_chunk_gen()
@@ -206,7 +206,7 @@ class RunnableAttribute(Attribute):
             for key, _value in iterator:
                 value, output, _ = attempt_deserialize(_value, self.value_type)
                 if output:
-                    logging.warning(output["combined_output"])
+                    self._add_output(output)
                 yield key, value
 
     def _upload_chunk(self, value_chunk, chunk_num: int = 0, overriden: bool = False):
@@ -372,9 +372,6 @@ class RunnableAttribute(Attribute):
         )
         try:
             key, value = next(iterator)
-            print("-" * 10)
-            print(key, value)
-            print("-" * 10)
             return value
         except StopIteration:
             return None
