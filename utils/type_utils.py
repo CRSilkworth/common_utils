@@ -93,7 +93,7 @@ Exportable = Union[
     pd.Series,
 ]
 DBConnection = Union[PyMongoClient, Psycopg2Connection, BigQueryClient]
-ModelDict = Dict[Text, Union[torch.nn.Module, Text]]
+ModelDict = Dict[Text, Union[torch.nn.Module, Text, Dict[Text, Any]]]
 TimeRange = Tuple[datetime.datetime, datetime.datetime]
 TimeRanges = typing.Iterable[TimeRange]
 AllTimeRanges = typing.Dict[Text, TimeRanges]
