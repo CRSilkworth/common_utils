@@ -204,6 +204,7 @@ class RunnableAttribute(Attribute):
                 yield key, value_chunk_gen()
         else:
             for key, _value in iterator:
+                print(key, len(_value))
                 value, output, _ = attempt_deserialize(_value, self.value_type)
                 if output:
                     self._add_output(output)

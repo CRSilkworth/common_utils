@@ -141,6 +141,7 @@ def decode_obj(obj: Any, known_types: Optional[Dict[Text, Any]] = None):
         if kind == "PlotlyFigure":
             return go.Figure(decode_obj(obj["data"]))
         elif kind == "TorchModel":
+            print("TORCH")
 
             state_dict = io.BytesIO(decode_obj(obj["data"]["state_dict"]))
             globals_dict = known_types if known_types else {}
@@ -157,9 +158,11 @@ def decode_obj(obj: Any, known_types: Optional[Dict[Text, Any]] = None):
 
             output = run_with_expected_type(func, {}, output_type=torch.nn.Module)
             if output["failed"]:
+                print("FAILURE", output["combined_output"])
                 raise ValueError(
                     f"Failed to decode model object: {output['combined_output']}"
                 )
+            print("PASS")
             return {"model": output["value"], "class_def": class_def}
         elif kind == "DataFrame":
             index = []
