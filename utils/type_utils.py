@@ -32,6 +32,7 @@ from pymongo.mongo_client import MongoClient as PyMongoClient
 from psycopg2.extensions import connection as Psycopg2Connection
 from google.cloud.bigquery import Client as BigQueryClient
 import pymongo
+import json
 
 TextOrint = TypeVar("TextOrint", Text, int)
 
@@ -575,7 +576,7 @@ def is_valid_output(value, output_type):
     if output_type == ModelDict:
         if not isinstance(value, dict):
             return (False, f"{value} is not a model dict")
-        if set(value.keys()) != set(["class_def", "model"]):
+        if set(value.keys()) != set(["class_def", "model", "metadata"]):
             return (
                 False,
                 (
@@ -591,6 +592,16 @@ def is_valid_output(value, output_type):
                 False,
                 f"'model' must be of type torch.nn.Module, got {type(value['model'])}",
             )
+        if not isinstance(value["metadata"], dict):
+
+            return (
+                False,
+                f"'metadata' must be a dict, not {type(value['metadata'])}",
+            )
+        try:
+            json.dumps(value["metadata"])
+        except TypeError as e:
+            return False, f"Metadata must be json serializable. Got {e}"
         return True, ""
 
     if output_type == torch.nn.Module:
