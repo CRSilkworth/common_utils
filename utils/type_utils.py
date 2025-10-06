@@ -573,9 +573,9 @@ def is_valid_output(value, output_type):
         return True, ""
 
     if output_type == ModelDict:
-        if not isinstance(value, dict) or set(value.keys()) != set(
-            ["class_def", "model"]
-        ):
+        if not isinstance(value, dict):
+            return (False, f"{value} is not a model dict")
+        if set(value.keys()) != set(["class_def", "model"]):
             return (
                 False,
                 (
