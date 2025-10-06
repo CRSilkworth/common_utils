@@ -197,15 +197,13 @@ class RunnableAttribute(Attribute):
                         value_chunk, _, _ = attempt_deserialize(
                             _value_chunk, self.value_type
                         )
-                        self._add_output(output)
                         yield value_chunk
 
-                yield key, value_chunk_gen()
+                yield key, value_chunk_gen(), {}
         else:
             for key, _value in iterator:
                 value, output, _ = attempt_deserialize(_value, self.value_type)
-                self._add_output(output)
-                yield key, value
+                yield key, value, output
 
     def _upload_chunk(self, value_chunk, chunk_num: int = 0, overriden: bool = False):
         if not overriden:
@@ -344,7 +342,9 @@ class RunnableAttribute(Attribute):
             chunked=self.chunked,
         )
 
-        return self._deserialize(iterator=downloader)
+        for key, value, output in self._deserialize(iterator=downloader):
+            self._add_output(output)
+            return key, value
 
     def get_first_val(
         self,
