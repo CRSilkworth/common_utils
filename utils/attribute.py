@@ -346,7 +346,46 @@ class RunnableAttribute(Attribute):
             chunked=self.chunked,
         )
 
-        return self._deserialize(iterator=downloader)
+        self._deserialize(iterator=downloader)
+
+    def get_first_val(
+        self,
+        sim_iter_num: Optional[int] = None,
+        time_ranges_key: Optional[Text] = None,
+        time_range: Optional[TimeRange] = None,
+    ) -> Iterable[Tuple[Tuple[int, Text, TimeRange], Any]]:
+        """
+        Get an iterator of some slice of the data computed up until this point.
+        Args:
+            sim_iter_nums: Which simulations to pull the data from
+                (defaults to all simulations)
+            time_ranges_key: Which time range collections to pull the data from
+                (defaults to all time ranges collections)
+            time_range: max and min time range of the data. Defaults to full time range.
+        Returns:
+            iterator of 2-tuples:
+                context_key: The (sim_iter_num, time_ranges_key, and time_range) the
+                    data was computed under.
+                value: The value at that context key.
+        """
+        time_range = time_range if time_range else (None, None)
+
+        downloader = BatchDownloader(
+            auth_data=self.auth_data,
+            doc_id=self.doc_id,
+            attribute_name=self.name,
+            sim_iter_nums=[sim_iter_num],
+            value_file_ref=self.value_file_ref,
+            time_ranges_keys=[time_ranges_key],
+            time_range_start=time_range[0],
+            time_range_end=time_range[1],
+            chunked=self.chunked,
+        )
+
+        try:
+            return next(self._deserialize(iterator=downloader))
+        except StopIteration:
+            return None
 
     @classmethod
     def get_method_documentation(cls) -> Text:
