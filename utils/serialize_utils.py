@@ -148,7 +148,7 @@ def decode_obj(obj: Any, known_types: Optional[Dict[Text, Any]] = None):
             state_dict = io.BytesIO(decode_obj(obj["data"]["state_dict"]))
             globals_dict = known_types if known_types else {}
             globals_dict["state_dict"] = state_dict
-            globals_dict["metadata"] = obj["data"]["metadata"]
+            globals_dict["metadata"] = decode_obj(obj["data"]["metadata"])
 
             class_def = obj["data"]["class_def"].replace("\n", "\n\t")
             function_string = _model_builder_function_string(class_def)
