@@ -346,27 +346,24 @@ class RunnableAttribute(Attribute):
             chunked=self.chunked,
         )
 
-        self._deserialize(iterator=downloader)
+        return self._deserialize(iterator=downloader)
 
     def get_first_val(
         self,
-        sim_iter_num: Optional[int] = None,
-        time_ranges_key: Optional[Text] = None,
+        sim_iter_num: int,
+        time_ranges_key: Text,
         time_range: Optional[TimeRange] = None,
     ) -> Iterable[Tuple[Tuple[int, Text, TimeRange], Any]]:
         """
-        Get an iterator of some slice of the data computed up until this point.
+        Get the first value of returned by that query (up to that point)
         Args:
-            sim_iter_nums: Which simulations to pull the data from
-                (defaults to all simulations)
-            time_ranges_key: Which time range collections to pull the data from
-                (defaults to all time ranges collections)
-            time_range: max and min time range of the data. Defaults to full time range.
+            Args:
+            sim_iter_num: Which simulation to pull the value from
+            time_ranges_key: Which time range collection to pull the data from
+            time_range: max and min time range of the data. Defaults to full time
+                series (up to this point).
         Returns:
-            iterator of 2-tuples:
-                context_key: The (sim_iter_num, time_ranges_key, and time_range) the
-                    data was computed under.
-                value: The value at that context key.
+            value: The first value retrieved by the query
         """
         time_range = time_range if time_range else (None, None)
 
@@ -389,7 +386,7 @@ class RunnableAttribute(Attribute):
 
     @classmethod
     def get_method_documentation(cls) -> Text:
-        methods = [cls.time_series, cls.sims, cls.get_iterator]
+        methods = [cls.time_series, cls.sims, cls.get_first_val, cls.get_iterator]
         r_str = []
         for method in methods:
             sig = inspect.signature(method)
