@@ -342,7 +342,8 @@ class RunnableAttribute(Attribute):
         )
 
         for key, value, output in self._deserialize(iterator=downloader):
-            self._add_output(output)
+            if output["failed"]:
+                raise ValueError(f"Deserialization failed: {output['combined_output']}")
             yield key, value
 
     def get_first_val(
