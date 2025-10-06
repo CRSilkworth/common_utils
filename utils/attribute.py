@@ -353,7 +353,7 @@ class RunnableAttribute(Attribute):
         sim_iter_num: int,
         time_ranges_key: Text,
         time_range: Optional[TimeRange] = None,
-    ) -> Iterable[Tuple[Tuple[int, Text, TimeRange], Any]]:
+    ) -> Any:
         """
         Get the first value of returned by that query (up to that point)
         Args:
@@ -365,22 +365,19 @@ class RunnableAttribute(Attribute):
         Returns:
             value: The first value retrieved by the query
         """
-        time_range = time_range if time_range else (None, None)
-
-        downloader = BatchDownloader(
-            auth_data=self.auth_data,
-            doc_id=self.doc_id,
-            attribute_name=self.name,
-            sim_iter_nums=[sim_iter_num],
-            value_file_ref=self.value_file_ref,
-            time_ranges_keys=[time_ranges_key],
-            time_range_start=time_range[0],
-            time_range_end=time_range[1],
-            chunked=self.chunked,
-        )
 
         try:
-            return next(self._deserialize(iterator=downloader))
+            _, value = next(
+                self.get_iterator(
+                    sim_iter_nums=[sim_iter_num],
+                    time_ranges_keys=[time_ranges_key],
+                    time_range=time_range,
+                )
+            )
+            print("-" * 10)
+            print(value)
+            print("-" * 10)
+            return value
         except StopIteration:
             return None
 
