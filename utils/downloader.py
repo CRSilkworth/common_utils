@@ -115,6 +115,7 @@ class BatchDownloader:
                         chunk_num,
                     ) = json.loads(key)
                     chunk = batch_data[offset : offset + length]  # noqa: E203
+                    print(key, len(chunk))
                     _value_chunk = chunk.decode("utf-8")
                     yield (
                         sim_iter_num,

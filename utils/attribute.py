@@ -365,17 +365,15 @@ class RunnableAttribute(Attribute):
         Returns:
             value: The first value retrieved by the query
         """
-
+        iterator = self.get_iterator(
+            sim_iter_nums=[sim_iter_num],
+            time_ranges_keys=[time_ranges_key],
+            time_range=time_range,
+        )
         try:
-            _, value = next(
-                self.get_iterator(
-                    sim_iter_nums=[sim_iter_num],
-                    time_ranges_keys=[time_ranges_key],
-                    time_range=time_range,
-                )
-            )
+            key, value = next(iterator)
             print("-" * 10)
-            print(value)
+            print(key, value)
             print("-" * 10)
             return value
         except StopIteration:
