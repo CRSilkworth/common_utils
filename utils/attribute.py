@@ -204,8 +204,6 @@ class RunnableAttribute(Attribute):
         else:
             for key, _value in iterator:
                 value, output, _ = attempt_deserialize(_value, self.value_type)
-                if output:
-                    print(key, output)
                 self._add_output(output)
                 yield key, value
 
