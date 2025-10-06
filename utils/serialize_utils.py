@@ -20,7 +20,7 @@ from utils.quickbooks_utils import QuickBooksProxy
 
 
 def encode_obj(obj: Any):
-    if obj.__class__ is dict and set(obj) == set(["class_def", "model"]):
+    if obj.__class__ is dict and set(obj) == set(["class_def", "model", "metadata"]):
 
         if obj["model"] is not None:
             state_dict = obj["model"].state_dict()
@@ -31,7 +31,11 @@ def encode_obj(obj: Any):
             state_dict = None
         return {
             "__kind__": "TorchModel",
-            "data": {"state_dict": state_dict, "class_def": obj["class_def"]},
+            "data": {
+                "state_dict": state_dict,
+                "class_def": obj["class_def"],
+                "metadata": encode_obj(obj["metadata"]),
+            },
         }
 
     if is_dataclass(obj):
@@ -159,7 +163,11 @@ def decode_obj(obj: Any, known_types: Optional[Dict[Text, Any]] = None):
                 raise ValueError(
                     f"Failed to decode model object: {output['combined_output']}"
                 )
-            return {"model": output["value"], "class_def": class_def}
+            return {
+                "model": output["value"],
+                "class_def": class_def,
+                "metadata": decode_obj(obj["data"]["metadata"]),
+            }
         elif kind == "DataFrame":
             index = []
             columns = {}
