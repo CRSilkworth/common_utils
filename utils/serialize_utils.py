@@ -103,7 +103,7 @@ def encode_obj(obj: Any):
             "shape": obj.shape,
         }
     elif isinstance(obj, np.generic):
-        return obj.item()
+        return {"__kind__": type(obj.item()).__name__, "data": obj.item()}
     elif isinstance(obj, bytes):
         return {"__kind__": "bytes", "data": base64.b64encode(obj).decode("utf-8")}
 
