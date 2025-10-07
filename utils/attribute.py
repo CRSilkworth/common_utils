@@ -208,7 +208,9 @@ class RunnableAttribute(Attribute):
         if not overriden:
             preview = value_to_preview(value_chunk)
             _schema = json.dumps(describe_json_schema(value_chunk))
+            print("before", value_chunk)
             _value_chunk, output = attempt_serialize(value_chunk, self.value_type)
+            print("after", _value_chunk)
             self._add_output(output)
         else:
             preview = ""

@@ -132,6 +132,7 @@ def encode_obj(obj: Any):
             "__kind__": "NoneType",
             "data": obj,
         }
+
     else:
         return {
             "__kind__": obj.__class__.__name__,
