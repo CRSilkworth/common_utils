@@ -4,6 +4,7 @@ from utils.function_utils import run_with_expected_type, run_with_generator
 from utils.generator_utils import merge_key_and_data_iterators
 from utils.downloader import stream_subgraph_by_key
 from utils.doc_obj import DocObj
+from utils.datetime_utils import to_micro
 import datetime
 import logging
 import requests
@@ -293,10 +294,6 @@ def get_key_iterator(
 
     for item in results:
         yield item
-
-
-def to_micro(dt):
-    return dt.replace(microsecond=(dt.microsecond // 1000) * 1000)
 
 
 def get_value_file_ref_groups(docs_to_run, doc_objs, attributes_to_run):
