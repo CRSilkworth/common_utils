@@ -16,6 +16,7 @@ def stream_subgraph_by_key(
         "time_ranges_keys": list(time_ranges_keys) if time_ranges_keys else None,
         "sim_iter_nums": list(sim_iter_nums) if sim_iter_nums else None,
     }
+    print(2, data["time_ranges_keys"])
     resp = requests.post(
         f"{auth_data['dash_app_url']}/stream-by-key", json=data, stream=True
     )

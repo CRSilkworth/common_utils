@@ -52,6 +52,7 @@ def run_sims(
     )
     if time_ranges_keys is not None:
         time_ranges_keys_to_run = time_ranges_keys_to_run & set(time_ranges_keys)
+    print(1, time_ranges_keys_to_run)
     if sim_iter_nums is not None:
         sim_iter_nums_to_run = sim_iter_nums_to_run & set(sim_iter_nums)
     key_iterator = get_key_iterator(
