@@ -23,8 +23,8 @@ def run_sims(
 
     run_config = run_config if run_config else {}
 
-    # time_ranges_keys = set()
-    # sim_iter_nums = set()
+    time_ranges_keys_to_run = set()
+    sim_iter_nums_to_run = set()
     doc_objs = {}
     for doc_id in doc_data:
         doc = DocObj(
@@ -41,21 +41,24 @@ def run_sims(
                 continue
             if not attribute.runnable or attribute.no_function_body:
                 continue
-            # time_ranges_keys.update(attribute.time_ranges_keys)
-            # sim_iter_nums.update(attribute.sim_iter_nums)
+            time_ranges_keys_to_run.update(attribute.time_ranges_keys)
+            sim_iter_nums_to_run.update(attribute.sim_iter_nums)
 
     calc_graph_doc = doc_objs[auth_data["calc_graph_id"]]
 
     value_file_ref_groups, index_to_doc_id_att = get_value_file_ref_groups(
         docs_to_run, doc_objs, attributes_to_run
     )
-
+    if time_ranges_keys is not None:
+        time_ranges_keys_to_run = time_ranges_keys_to_run & set(time_ranges_keys)
+    if sim_iter_nums is not None:
+        sim_iter_nums_to_run = sim_iter_nums_to_run & set(sim_iter_nums)
     key_iterator = get_key_iterator(
         calc_graph_doc=calc_graph_doc,
         is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
         value_ref_groups=value_file_ref_groups,
-        time_ranges_keys=time_ranges_keys,
-        sim_iter_nums=sim_iter_nums,
+        time_ranges_keys=time_ranges_keys_to_run,
+        sim_iter_nums=sim_iter_nums_to_run,
     )
     print("-" * 10)
     for key in key_iterator:
@@ -66,15 +69,15 @@ def run_sims(
         calc_graph_doc=calc_graph_doc,
         is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
         value_ref_groups=value_file_ref_groups,
-        time_ranges_keys=time_ranges_keys,
-        sim_iter_nums=sim_iter_nums,
+        time_ranges_keys=time_ranges_keys_to_run,
+        sim_iter_nums=sim_iter_nums_to_run,
     )
 
     data_iterator = stream_subgraph_by_key(
         auth_data=auth_data,
         value_file_ref_groups=value_file_ref_groups,
-        time_ranges_keys=time_ranges_keys,
-        sim_iter_nums=sim_iter_nums,
+        time_ranges_keys=time_ranges_keys_to_run,
+        sim_iter_nums=sim_iter_nums_to_run,
     )
 
     print("-" * 10)
