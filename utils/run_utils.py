@@ -274,6 +274,7 @@ def get_key_iterator(
             if time_ranges_keys and time_ranges_key not in time_ranges_keys:
                 continue
             for time_range in time_ranges:
+                time_range = to_micro(time_range[0]), to_micro(time_range[1])
                 for group_idx, _ in enumerate(value_ref_groups):
                     results.append(
                         (sim_iter_num, time_range, time_ranges_key, group_idx)
@@ -292,6 +293,10 @@ def get_key_iterator(
 
     for item in results:
         yield item
+
+
+def to_micro(dt):
+    return dt.replace(microsecond=(dt.microsecond // 1000) * 1000)
 
 
 def get_value_file_ref_groups(docs_to_run, doc_objs, attributes_to_run):
