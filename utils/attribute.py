@@ -70,13 +70,6 @@ class Attribute:
             stderr = []
             combined = []
             for _output in outputs:
-                if _output["failed"]:
-                    print(
-                        "fail",
-                        self.name,
-                        context_key,
-                        _output["combined_output"].strip(),
-                    )
                 output["failed"].append(_output["failed"])
                 combined.append(_output["combined_output"].strip())
                 stdout.append(_output["stdout_output"].strip())
@@ -208,9 +201,7 @@ class RunnableAttribute(Attribute):
         if not overriden:
             preview = value_to_preview(value_chunk)
             _schema = json.dumps(describe_json_schema(value_chunk))
-            print("before", value_chunk)
             _value_chunk, output = attempt_serialize(value_chunk, self.value_type)
-            print("after", _value_chunk)
             self._add_output(output)
         else:
             preview = ""
