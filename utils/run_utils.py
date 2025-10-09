@@ -70,7 +70,7 @@ def run_sims(
 
     data_iterator = stream_subgraph_by_key(
         auth_data=auth_data,
-        value_file_ref_groups=ref_dict,
+        ref_dict=ref_dict,
         time_ranges_keys=time_ranges_keys_to_run,
         sim_iter_nums=sim_iter_nums_to_run,
     )
