@@ -54,25 +54,37 @@ def run_sims(
         time_ranges_keys_to_run = time_ranges_keys_to_run & set(time_ranges_keys)
     if sim_iter_nums is not None:
         sim_iter_nums_to_run = sim_iter_nums_to_run & set(sim_iter_nums)
-    key_iterator = get_key_iterator(
-        calc_graph_doc=calc_graph_doc,
-        is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
-        value_ref_groups=value_file_ref_groups,
-        time_ranges_keys=time_ranges_keys_to_run,
-        sim_iter_nums=sim_iter_nums_to_run,
-    )
-    print("-" * 10)
-    for key in key_iterator:
-        print(key)
-        print("+")
+    # key_iterator = get_key_iterator(
+    #     calc_graph_doc=calc_graph_doc,
+    #     is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
+    #     value_ref_groups=value_file_ref_groups,
+    #     time_ranges_keys=time_ranges_keys_to_run,
+    #     sim_iter_nums=sim_iter_nums_to_run,
+    # )
+    # print("-" * 10)
+    # for key in key_iterator:
+    #     print(key)
+    #     print("+")
 
-    key_iterator = get_key_iterator(
-        calc_graph_doc=calc_graph_doc,
-        is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
-        value_ref_groups=value_file_ref_groups,
-        time_ranges_keys=time_ranges_keys_to_run,
-        sim_iter_nums=sim_iter_nums_to_run,
-    )
+    # key_iterator = get_key_iterator(
+    #     calc_graph_doc=calc_graph_doc,
+    #     is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
+    #     value_ref_groups=value_file_ref_groups,
+    #     time_ranges_keys=time_ranges_keys_to_run,
+    #     sim_iter_nums=sim_iter_nums_to_run,
+    # )
+
+    # data_iterator = stream_subgraph_by_key(
+    #     auth_data=auth_data,
+    #     value_file_ref_groups=value_file_ref_groups,
+    #     time_ranges_keys=time_ranges_keys_to_run,
+    #     sim_iter_nums=sim_iter_nums_to_run,
+    # )
+
+    # print("-" * 10)
+    # for key, _ in data_iterator:
+    #     print(key)
+    #     print("+")
 
     data_iterator = stream_subgraph_by_key(
         auth_data=auth_data,
@@ -80,23 +92,16 @@ def run_sims(
         time_ranges_keys=time_ranges_keys_to_run,
         sim_iter_nums=sim_iter_nums_to_run,
     )
+    # iterator = merge_key_and_data_iterators(
+    #     key_iterator, data_iterator, value_file_ref_groups
+    # )
 
-    print("-" * 10)
-    for key, _ in data_iterator:
-        print(key)
-        print("+")
-
-    data_iterator = stream_subgraph_by_key(
-        auth_data=auth_data,
-        value_file_ref_groups=value_file_ref_groups,
-        time_ranges_keys=time_ranges_keys_to_run,
-        sim_iter_nums=sim_iter_nums_to_run,
-    )
-    iterator = merge_key_and_data_iterators(
-        key_iterator, data_iterator, value_file_ref_groups
-    )
-
-    for (sim_iter_num, time_range, time_ranges_key, group_idx), data_dict in iterator:
+    for (
+        sim_iter_num,
+        time_range,
+        time_ranges_key,
+        group_idx,
+    ), data_dict in data_iterator:
         doc_to_run, att = index_to_doc_id_att[group_idx]
         doc = doc_objs[doc_to_run]
         attribute = doc.attributes[att]
