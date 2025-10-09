@@ -45,7 +45,7 @@ def run_sims(
             time_ranges_keys_to_run.update(attribute.time_ranges_keys)
             sim_iter_nums_to_run.update(attribute.sim_iter_nums)
 
-    calc_graph_doc = doc_objs[auth_data["calc_graph_id"]]
+    # calc_graph_doc = doc_objs[auth_data["calc_graph_id"]]
 
     value_file_ref_groups, index_to_doc_id_att = get_value_file_ref_groups(
         docs_to_run, doc_objs, attributes_to_run
@@ -74,17 +74,17 @@ def run_sims(
     #     sim_iter_nums=sim_iter_nums_to_run,
     # )
 
-    # data_iterator = stream_subgraph_by_key(
-    #     auth_data=auth_data,
-    #     value_file_ref_groups=value_file_ref_groups,
-    #     time_ranges_keys=time_ranges_keys_to_run,
-    #     sim_iter_nums=sim_iter_nums_to_run,
-    # )
+    data_iterator = stream_subgraph_by_key(
+        auth_data=auth_data,
+        value_file_ref_groups=value_file_ref_groups,
+        time_ranges_keys=time_ranges_keys_to_run,
+        sim_iter_nums=sim_iter_nums_to_run,
+    )
 
-    # print("-" * 10)
-    # for key, _ in data_iterator:
-    #     print(key)
-    #     print("+")
+    print("-" * 10)
+    for key, _ in data_iterator:
+        print(key)
+        print("+")
 
     data_iterator = stream_subgraph_by_key(
         auth_data=auth_data,
