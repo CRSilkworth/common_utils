@@ -113,7 +113,8 @@ def run_sims(
         runner_kwargs["time_ranges_key"] = time_ranges_key
         runner_kwargs["time_range"] = time_range
         for var_name, input_doc_id in attribute.var_name_to_id.items():
-            input_doc = doc_objs[input_doc_id]
+            input_full_name = doc_id_to_full_name[input_doc_id]
+            input_doc = doc_objs[input_full_name]
             runner_kwargs[var_name] = input_doc
             if input_doc.failures():
                 output = failed_output(
