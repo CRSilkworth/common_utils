@@ -201,7 +201,7 @@ def run_sims(
 
         upstream_failure = False
         attributes_to_run = (
-            list(doc_data[doc.full_name.val].keys())
+            list(doc_data[doc.doc_id].keys())
             if attributes_to_run is None
             else attributes_to_run
         )
