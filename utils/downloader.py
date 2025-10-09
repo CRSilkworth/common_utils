@@ -7,12 +7,10 @@ from itertools import groupby
 import datetime
 
 
-def stream_subgraph_by_key(
-    auth_data, value_file_ref_groups, sim_iter_nums, time_ranges_keys
-):
+def stream_subgraph_by_key(auth_data, ref_dict, sim_iter_nums, time_ranges_keys):
     data = {
         "auth_data": auth_data,
-        "value_file_ref_groups": value_file_ref_groups,
+        "ref_dict": ref_dict,
         "time_ranges_keys": list(time_ranges_keys) if time_ranges_keys else None,
         "sim_iter_nums": list(sim_iter_nums) if sim_iter_nums else None,
     }
@@ -30,12 +28,12 @@ def stream_subgraph_by_key(
         data_dict = {}
         current_key = None
         for index_key, loc in index_map.items():
-            sim_iter, tr_key, start_iso, end_iso, _, vf_id, group_idx = json.loads(
+            sim_iter, tr_key, start_iso, end_iso, _, vf_id, full_name, att = json.loads(
                 index_key
             )
             tr_start = datetime.datetime.fromisoformat(start_iso)
             tr_end = datetime.datetime.fromisoformat(end_iso)
-            key = (sim_iter, (tr_start, tr_end), tr_key, group_idx)
+            key = (sim_iter, (tr_start, tr_end), tr_key, full_name, att)
 
             offset, length = loc["offset"], loc["length"]
             block_bytes = batch_data[offset : offset + length]  # noqa: E203

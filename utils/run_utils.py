@@ -1,7 +1,6 @@
 from typing import Text, Dict, Any, Optional, List
 from utils.misc_utils import failed_output
 from utils.function_utils import run_with_expected_type, run_with_generator
-from utils.generator_utils import merge_key_and_data_iterators
 from utils.downloader import stream_subgraph_by_key
 from utils.doc_obj import DocObj
 from utils.datetime_utils import to_micro
@@ -27,6 +26,7 @@ def run_sims(
     time_ranges_keys_to_run = set()
     sim_iter_nums_to_run = set()
     doc_objs = {}
+    doc_id_to_full_name = {}
     for doc_id in doc_data:
         doc = DocObj(
             doc_id=doc_id,
@@ -34,7 +34,8 @@ def run_sims(
             auth_data=auth_data,
             global_vars=kwargs.get("globals", {}),
         )
-        doc_objs[doc_id] = doc
+        doc_id_to_full_name[doc_id] = doc.full_name.val
+        doc_objs[doc.full_name.val] = doc
         if doc.doc_id not in docs_to_run:
             continue
         for att, attribute in doc.attributes.items():
@@ -47,48 +48,29 @@ def run_sims(
 
     # calc_graph_doc = doc_objs[auth_data["calc_graph_id"]]
 
-    value_file_ref_groups, index_to_doc_id_att = get_value_file_ref_groups(
-        docs_to_run, doc_objs, attributes_to_run
+    ref_dict = get_value_file_ref_groups(
+        docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run
     )
     if time_ranges_keys is not None:
         time_ranges_keys_to_run = time_ranges_keys_to_run & set(time_ranges_keys)
     if sim_iter_nums is not None:
         sim_iter_nums_to_run = sim_iter_nums_to_run & set(sim_iter_nums)
-    # key_iterator = get_key_iterator(
-    #     calc_graph_doc=calc_graph_doc,
-    #     is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
-    #     value_ref_groups=value_file_ref_groups,
+
+    # data_iterator = stream_subgraph_by_key(
+    #     auth_data=auth_data,
+    #     value_file_ref_groups=ref_dict,
     #     time_ranges_keys=time_ranges_keys_to_run,
     #     sim_iter_nums=sim_iter_nums_to_run,
     # )
+
     # print("-" * 10)
-    # for key in key_iterator:
+    # for key, _ in data_iterator:
     #     print(key)
     #     print("+")
 
-    # key_iterator = get_key_iterator(
-    #     calc_graph_doc=calc_graph_doc,
-    #     is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
-    #     value_ref_groups=value_file_ref_groups,
-    #     time_ranges_keys=time_ranges_keys_to_run,
-    #     sim_iter_nums=sim_iter_nums_to_run,
-    # )
-
     data_iterator = stream_subgraph_by_key(
         auth_data=auth_data,
-        value_file_ref_groups=value_file_ref_groups,
-        time_ranges_keys=time_ranges_keys_to_run,
-        sim_iter_nums=sim_iter_nums_to_run,
-    )
-
-    print("-" * 10)
-    for key, _ in data_iterator:
-        print(key)
-        print("+")
-
-    data_iterator = stream_subgraph_by_key(
-        auth_data=auth_data,
-        value_file_ref_groups=value_file_ref_groups,
+        value_file_ref_groups=ref_dict,
         time_ranges_keys=time_ranges_keys_to_run,
         sim_iter_nums=sim_iter_nums_to_run,
     )
@@ -100,10 +82,10 @@ def run_sims(
         sim_iter_num,
         time_range,
         time_ranges_key,
-        group_idx,
+        full_name,
+        att,
     ), data_dict in data_iterator:
-        doc_to_run, att = index_to_doc_id_att[group_idx]
-        doc = doc_objs[doc_to_run]
+        doc = doc_objs[full_name]
         attribute = doc.attributes[att]
         attribute._set_context(
             sim_iter_num=sim_iter_num,
@@ -211,22 +193,24 @@ def run_sims(
 
     logging.info("Sending output")
     outputs = {}
-    for doc_to_run in docs_to_run:
-        doc = doc_objs[doc_to_run]
+    for doc in doc_objs.values():
+
+        if doc.doc_id not in docs_to_run:
+            continue
 
         upstream_failure = False
         attributes_to_run = (
-            list(doc_data[doc_to_run].keys())
+            list(doc_data[doc.full_name.val].keys())
             if attributes_to_run is None
             else attributes_to_run
         )
-        outputs[doc_to_run] = {}
+        outputs[doc.doc_id] = {}
         for att, attribute in doc.attributes.items():
             if not (attributes_to_run is None or att in attributes_to_run):
                 continue
             if not attribute.runnable or attribute.no_function_body:
                 continue
-            outputs[doc_to_run][att] = attribute._get_output()
+            outputs[doc.doc_id][att] = attribute._get_output()
     send_output(outputs, auth_data, caller=kwargs.get("caller"))
 
     logging.info("Cleaning up connections")
@@ -301,29 +285,50 @@ def get_key_iterator(
         yield item
 
 
-def get_value_file_ref_groups(docs_to_run, doc_objs, attributes_to_run):
-    value_file_ref_groups = []
-    index_to_doc_id_att = []
-    for doc_to_run in docs_to_run:
-        doc = doc_objs[doc_to_run]
+def get_value_file_ref_groups(
+    docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run
+):
+    # value_file_ref_groups = []
+    # index_to_doc_id_att = []
+    ref_dict = {}
+    for doc in doc_objs.values():
+        if doc.doc_id not in docs_to_run:
+            continue
+        ref_dict[doc.full_name.val] = {}
         for att, attribute in doc.attributes.items():
             if not (attributes_to_run is None or att in attributes_to_run):
                 continue
             if not attribute.runnable or attribute.no_function_body:
                 continue
+            ref_dict[doc.full_name.val][att] = {
+                "full_name": doc.full_name.val,
+                "attribute_name": att,
+                "doc_id": doc.doc_id,
+                "value_file_ref": attribute.value_file_ref,
+                "inputs": [],
+            }
 
-            value_file_ref_groups.append([])
-            index_to_doc_id_att.append((doc_to_run, att))
+            # value_file_ref_groups.append([])
+            # index_to_doc_id_att.append((doc_to_run, att))
             for _, input_doc_id in attribute.var_name_to_id.items():
-                input_doc = doc_objs[input_doc_id]
-                for _, input_attribute in input_doc.attributes.items():
+                input_full_name = doc_id_to_full_name[input_doc_id]
+                input_doc = doc_objs[input_full_name]
+                for input_att, input_attribute in input_doc.attributes.items():
                     if not input_attribute.runnable:
                         continue
                     if not input_attribute.value_file_ref:
                         continue
-                    value_file_ref_groups[-1].append(input_attribute.value_file_ref)
+                    ref_dict[doc.full_name.val][att]["inputs"].append(
+                        {
+                            "doc_id": input_doc_id,
+                            "full_name": input_doc.full_name.val,
+                            "attribute_name": input_att,
+                            "value_file_ref": input_attribute.value_file_ref,
+                        }
+                    )
+                    # value_file_ref_groups[-1].append(input_attribute.value_file_ref)
 
-    return value_file_ref_groups, index_to_doc_id_att
+    return ref_dict
 
 
 def send_output(
