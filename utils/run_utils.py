@@ -292,19 +292,19 @@ def get_value_file_ref_groups(
     # value_file_ref_groups = []
     # index_to_doc_id_att = []
     ref_dict = {}
-    for doc in doc_objs.values():
-        if doc.doc_id not in docs_to_run:
-            continue
-        ref_dict[doc.full_name.val] = {}
+    for doc_to_run in docs_to_run:
+        full_name = doc_id_to_full_name[doc_to_run]
+        doc = doc_objs[full_name]
+        ref_dict[full_name] = {}
         for att, attribute in doc.attributes.items():
             if not (attributes_to_run is None or att in attributes_to_run):
                 continue
             if not attribute.runnable or attribute.no_function_body:
                 continue
-            ref_dict[doc.full_name.val][att] = {
-                "full_name": doc.full_name.val,
+            ref_dict[full_name][att] = {
+                "full_name": full_name,
                 "attribute_name": att,
-                "doc_id": doc.doc_id,
+                "doc_id": doc_to_run,
                 "value_file_ref": attribute.value_file_ref,
                 "inputs": [],
             }
