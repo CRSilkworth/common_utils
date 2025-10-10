@@ -223,7 +223,7 @@ def cached_stream_subgraph_by_key(
                 path = _key_to_filename(input_key)
                 if os.path.exists(path):
                     data_dict[input_key] = _load_bytes_from_disk(path)
-                else:
+                elif input_key in data_dict:
                     save_bytes_to_disk(input_key, data_dict[input_key], max_cache_bytes)
             yield run_key, data_dict
 
