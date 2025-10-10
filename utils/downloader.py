@@ -39,9 +39,9 @@ def stream_subgraph_by_key(
         for index_key, loc in index_map.items():
             (
                 sim_iter,
-                tr_key,
                 start_iso,
                 end_iso,
+                tr_key,
                 full_name,
                 att,
                 _,
