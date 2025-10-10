@@ -143,9 +143,9 @@ def prefetch_subgraph(
         for (input_full_name, input_att), block_bytes in data_dict.items():
             input_key = (
                 sim_iter,
-                tr_key,
                 start_iso,
                 end_iso,
+                tr_key,
                 input_full_name,
                 input_att,
             )
@@ -183,14 +183,15 @@ def cached_stream_subgraph_by_key(
             input_att = input_dict["attribute_name"]
             input_key = (
                 sim_iter,
-                tr_key,
                 start_iso,
                 end_iso,
+                tr_key,
                 input_full_name,
                 input_att,
             )
             path = _key_to_filename(input_key)
             if os.path.exists(path):
+                print("found", input_key)
                 data_dict[(input_full_name, input_att)] = _load_bytes_from_disk(path)
         yield run_key, data_dict
 
@@ -214,9 +215,9 @@ def cached_stream_subgraph_by_key(
                 input_att = input_dict["attribute_name"]
                 input_key = (
                     sim_iter,
-                    tr_key,
                     start_iso,
                     end_iso,
+                    tr_key,
                     input_full_name,
                     input_att,
                 )
