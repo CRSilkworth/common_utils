@@ -211,9 +211,7 @@ def run_sims(
                 )
                 attribute._upload_chunk(chunk_num=0, value_chunk=output["value"])
                 attribute._flush()
-                _value_chunk = serialize_value(
-                    run_output_chunk["value"], attribute.value_type
-                )
+                _value_chunk = serialize_value(output["value"], attribute.value_type)
                 block_bytes = _value_chunk.encode("utf-8")
                 print("saving", _run_key)
                 save_bytes_to_disk(_run_key, block_bytes, MAX_CACHE_BYTES)
