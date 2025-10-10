@@ -142,7 +142,7 @@ def prefetch_subgraph(
         end_iso = tr_end.isoformat()
         for (input_full_name, input_att), block_bytes in data_dict.items():
 
-            block_key = (
+            input_key = (
                 sim_iter,
                 tr_key,
                 start_iso,
@@ -152,7 +152,8 @@ def prefetch_subgraph(
             )
             if _get_cache_size() + len(block_bytes) > max_cache_bytes:
                 return run_key
-            save_bytes_to_disk(block_key, block_bytes, max_cache_bytes)
+            print("saving", input_key)
+            save_bytes_to_disk(input_key, block_bytes, max_cache_bytes)
 
     return None
 

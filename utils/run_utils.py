@@ -70,6 +70,7 @@ def run_sims(
     start_key = prefetch_subgraph(
         auth_data, ref_dict, sim_iter_nums_to_run, time_ranges_keys_to_run
     )
+    print("start_key", start_key)
 
     run_key_iterator = get_run_key_iterator(
         calc_graph_doc=calc_graph_doc,
@@ -90,6 +91,14 @@ def run_sims(
 
     for run_key, data_dict in data_iterator:
         sim_iter_num, time_range, time_ranges_key, full_name, att = run_key
+        _run_key = (
+            sim_iter_num,
+            time_range[0].isoformat(),
+            time_range[1].isoformat(),
+            time_ranges_key,
+            full_name,
+            att,
+        )
         doc = doc_objs[full_name]
         attribute = doc.attributes[att]
         attribute._set_context(
@@ -187,7 +196,8 @@ def run_sims(
                     run_output_chunk["value"], attribute.value_type
                 )
                 block_bytes = _value_chunk.encode("utf-8")
-                save_bytes_to_disk(run_key, block_bytes, MAX_CACHE_BYTES)
+                print("saving", _run_key)
+                save_bytes_to_disk(_run_key, block_bytes, MAX_CACHE_BYTES)
 
         else:
             output = run_with_expected_type(
