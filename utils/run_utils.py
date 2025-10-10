@@ -40,10 +40,7 @@ def run_sims(
             auth_data=auth_data,
             global_vars=kwargs.get("globals", {}),
         )
-        if auth_data["calc_graph_id"] == doc_id:
-            full_name = "__CALCGRAPH__"
-        else:
-            full_name = doc.full_name.val
+        full_name = doc.full_name.val
 
         doc_id_to_full_name[doc_id] = full_name
         doc_objs[full_name] = doc
@@ -57,7 +54,7 @@ def run_sims(
             time_ranges_keys_to_run.update(attribute.time_ranges_keys)
             sim_iter_nums_to_run.update(attribute.sim_iter_nums)
 
-    calc_graph_doc = doc_objs["__CALCGRAPH__"]
+    calc_graph_doc = doc_objs[doc_id_to_full_name[auth_data["calc_graph_id"]]]
 
     ref_dict = get_ref_dict(
         docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run
@@ -296,17 +293,8 @@ def get_run_key_iterator(
                             (sim_iter_num, time_range, time_ranges_key, full_name, att)
                         )
 
-    # Sort by (sim_iter_num, end, start, time_ranges_key)
-    results.sort(
-        key=lambda x: (
-            x[0],  # sim_iter_num
-            x[1][0],  # time_range_start
-            x[1][1],  # time_range_end
-            x[2],  # time_ranges_key
-            x[3],
-            x[4],
-        )
-    )
+    # Don't sort by full_name/att. They should keep the order from ref_dict
+    results.sort(key=lambda x: (x[0], x[1][0], x[1][1], x[2]))
 
     for item in results:
         yield item
