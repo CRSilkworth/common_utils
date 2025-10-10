@@ -1,9 +1,15 @@
 from typing import Text, Dict, Any, Optional, List
 from utils.misc_utils import failed_output
 from utils.function_utils import run_with_expected_type, run_with_generator
-from utils.downloader import stream_subgraph_by_key
+from utils.downloader import (
+    prefetch_subgraph,
+    cached_stream_subgraph_by_key,
+    save_bytes_to_disk,
+    MAX_CACHE_BYTES,
+)
 from utils.doc_obj import DocObj
 from utils.datetime_utils import to_micro
+from utils.serialize_utils import attempt_serialize
 import datetime
 import logging
 import requests
@@ -46,9 +52,9 @@ def run_sims(
             time_ranges_keys_to_run.update(attribute.time_ranges_keys)
             sim_iter_nums_to_run.update(attribute.sim_iter_nums)
 
-    # calc_graph_doc = doc_objs[auth_data["calc_graph_id"]]
+    calc_graph_doc = doc_objs[auth_data["calc_graph_id"]]
 
-    ref_dict = get_value_file_ref_groups(
+    ref_dict = get_ref_dict(
         docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run
     )
     if time_ranges_keys is not None:
@@ -56,35 +62,29 @@ def run_sims(
     if sim_iter_nums is not None:
         sim_iter_nums_to_run = sim_iter_nums_to_run & set(sim_iter_nums)
 
-    # data_iterator = stream_subgraph_by_key(
-    #     auth_data=auth_data,
-    #     value_file_ref_groups=ref_dict,
-    #     time_ranges_keys=time_ranges_keys_to_run,
-    #     sim_iter_nums=sim_iter_nums_to_run,
-    # )
+    start_key = prefetch_subgraph(
+        auth_data, ref_dict, sim_iter_nums_to_run, time_ranges_keys_to_run
+    )
 
-    # print("-" * 10)
-    # for key, _ in data_iterator:
-    #     print(key)
-    #     print("+")
-
-    data_iterator = stream_subgraph_by_key(
-        auth_data=auth_data,
+    run_key_iterator = get_run_key_iterator(
+        calc_graph_doc=calc_graph_doc,
         ref_dict=ref_dict,
         time_ranges_keys=time_ranges_keys_to_run,
         sim_iter_nums=sim_iter_nums_to_run,
+        is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
     )
-    # iterator = merge_key_and_data_iterators(
-    #     key_iterator, data_iterator, value_file_ref_groups
-    # )
 
-    for (
-        sim_iter_num,
-        time_range,
-        time_ranges_key,
-        full_name,
-        att,
-    ), data_dict in data_iterator:
+    data_iterator = cached_stream_subgraph_by_key(
+        auth_data=auth_data,
+        run_key_iterator=run_key_iterator,
+        ref_dict=ref_dict,
+        time_ranges_keys=time_ranges_keys_to_run,
+        sim_iter_nums=sim_iter_nums_to_run,
+        start_key=start_key,
+    )
+
+    for run_key, data_dict in data_iterator:
+        sim_iter_num, time_range, time_ranges_key, full_name, att = run_key
         doc = doc_objs[full_name]
         attribute = doc.attributes[att]
         attribute._set_context(
@@ -178,6 +178,11 @@ def run_sims(
                     chunk_num=chunk_num, value_chunk=run_output_chunk["value"]
                 )
                 attribute._flush()
+                _value_chunk, _ = attempt_serialize(
+                    run_output_chunk["value"], attribute.value_type
+                )
+                block_bytes = _value_chunk.encode("utf-8")
+                save_bytes_to_disk(run_key, block_bytes, MAX_CACHE_BYTES)
 
         else:
             output = run_with_expected_type(
@@ -222,11 +227,11 @@ def run_sims(
                 attribute.cleanup()
 
 
-def get_key_iterator(
+def get_run_key_iterator(
     calc_graph_doc: DocObj,
     sim_iter_nums: List[str] = None,
     time_ranges_keys: List[str] = None,
-    value_ref_groups: List[List[str]] = None,
+    ref_dict: Optional[Dict[Text, Dict[Text, Dict[Text, Any]]]] = None,
     is_calc_graph_run: bool = False,
 ):
 
@@ -266,10 +271,11 @@ def get_key_iterator(
                 continue
             for time_range in time_ranges:
                 time_range = to_micro(time_range[0]), to_micro(time_range[1])
-                for group_idx, _ in enumerate(value_ref_groups):
-                    results.append(
-                        (sim_iter_num, time_range, time_ranges_key, group_idx)
-                    )
+                for full_name in ref_dict:
+                    for att in ref_dict[full_name]:
+                        results.append(
+                            (sim_iter_num, time_range, time_ranges_key, full_name, att)
+                        )
 
     # Sort by (sim_iter_num, end, start, time_ranges_key)
     results.sort(
@@ -279,6 +285,7 @@ def get_key_iterator(
             x[1][1],  # time_range_end
             x[2],  # time_ranges_key
             x[3],
+            x[4],
         )
     )
 
@@ -286,9 +293,7 @@ def get_key_iterator(
         yield item
 
 
-def get_value_file_ref_groups(
-    docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run
-):
+def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
     # value_file_ref_groups = []
     # index_to_doc_id_att = []
     ref_dict = {}
