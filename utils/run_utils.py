@@ -40,8 +40,13 @@ def run_sims(
             auth_data=auth_data,
             global_vars=kwargs.get("globals", {}),
         )
-        doc_id_to_full_name[doc_id] = doc.full_name.val
-        doc_objs[doc.full_name.val] = doc
+        if auth_data["calc_graph_id"] == doc_id:
+            full_name = "__CALCGRAPH__"
+        else:
+            full_name = doc.full_name.val
+
+        doc_id_to_full_name[doc_id] = full_name
+        doc_objs[full_name] = doc
         if doc.doc_id not in docs_to_run:
             continue
         for att, attribute in doc.attributes.items():
@@ -52,7 +57,7 @@ def run_sims(
             time_ranges_keys_to_run.update(attribute.time_ranges_keys)
             sim_iter_nums_to_run.update(attribute.sim_iter_nums)
 
-    calc_graph_doc = doc_objs[auth_data["calc_graph_id"]]
+    calc_graph_doc = doc_objs["__CALCGRAPH__"]
 
     ref_dict = get_ref_dict(
         docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run
