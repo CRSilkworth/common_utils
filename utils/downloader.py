@@ -141,7 +141,6 @@ def prefetch_subgraph(
         start_iso = tr_start.isoformat()
         end_iso = tr_end.isoformat()
         for (input_full_name, input_att), block_bytes in data_dict.items():
-
             input_key = (
                 sim_iter,
                 tr_key,
@@ -152,7 +151,6 @@ def prefetch_subgraph(
             )
             if _get_cache_size() + len(block_bytes) > max_cache_bytes:
                 return run_key
-            print("saving", input_key)
             save_bytes_to_disk(input_key, block_bytes, max_cache_bytes)
 
     return None
@@ -193,14 +191,7 @@ def cached_stream_subgraph_by_key(
             )
             path = _key_to_filename(input_key)
             if os.path.exists(path):
-                block_bytes = _load_bytes_from_disk(path)
-            else:
-                raise ValueError(
-                    "Something went wrong and the cached file is missing for"
-                    f" {input_key}"
-                )
-            data_dict[(input_full_name, input_att)] = block_bytes
-            # seen_keys.add(json.dumps(key, default=str))
+                data_dict[(input_full_name, input_att)] = _load_bytes_from_disk(path)
             yield run_key, data_dict
 
     if start_key:

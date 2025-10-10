@@ -9,7 +9,7 @@ from utils.downloader import (
 )
 from utils.doc_obj import DocObj
 from utils.datetime_utils import to_micro
-from utils.serialize_utils import attempt_serialize
+from utils.serialize_utils import serialize_value
 import datetime
 import logging
 import requests
@@ -139,7 +139,7 @@ def run_sims(
                 upstream_failure = True
                 print("upstream failure", input_doc.full_name.val, input_doc.failures())
                 break
-            for _, input_attribute in input_doc.attributes.items():
+            for input_att, input_attribute in input_doc.attributes.items():
                 if not input_attribute.runnable:
                     continue
                 input_attribute._set_context(
@@ -157,7 +157,7 @@ def run_sims(
                     )
                 else:
                     input_attribute._set_val(
-                        data_dict.get(input_attribute.value_file_ref), serialized=True
+                        data_dict.get((input_full_name, input_att)), serialized=True
                     )
 
         block_key = [
@@ -192,7 +192,7 @@ def run_sims(
                     chunk_num=chunk_num, value_chunk=run_output_chunk["value"]
                 )
                 attribute._flush()
-                _value_chunk, _ = attempt_serialize(
+                _value_chunk = serialize_value(
                     run_output_chunk["value"], attribute.value_type
                 )
                 block_bytes = _value_chunk.encode("utf-8")
