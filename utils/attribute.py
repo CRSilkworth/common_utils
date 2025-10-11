@@ -330,6 +330,7 @@ class RunnableAttribute(Attribute):
         sim_iter_nums: Optional[Text] = None,
         time_ranges_keys: Optional[Text] = None,
         time_range: Optional[TimeRange] = None,
+        use_cache: bool = True,
     ) -> Iterable[Tuple[Tuple[int, Text, TimeRange], Any]]:
         """
         Get an iterator of some slice of the data computed up until this point.
@@ -358,6 +359,7 @@ class RunnableAttribute(Attribute):
             time_range_start=time_range[0],
             time_range_end=time_range[1],
             chunked=self.chunked,
+            use_cache=use_cache,
         )
 
         for run_key, value, output in self._deserialize(iterator=downloader):
