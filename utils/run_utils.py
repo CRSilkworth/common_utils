@@ -34,7 +34,7 @@ def run_sims(
     for doc_id in doc_data:
         doc = DocObj(
             doc_id=doc_id,
-            full_name=doc_data["full_name"],
+            full_name=doc_data[doc_id]["full_name"],
             doc_dict=doc_data[doc_id],
             auth_data=auth_data,
             global_vars=kwargs.get("globals", {}),
