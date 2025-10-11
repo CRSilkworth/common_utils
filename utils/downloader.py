@@ -351,6 +351,7 @@ class BatchDownloader:
         """
         flat_iter = self.flat_iterator()
         next_flat = None  # holds the next item from the server
+        global full_space
 
         for sim_iter_num, time_range, time_ranges_key in full_space:
             if (
