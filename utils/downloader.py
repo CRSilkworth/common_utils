@@ -250,6 +250,7 @@ class BatchDownloader:
         time_range_start: Optional[datetime.datetime] = None,
         time_range_end: Optional[datetime.datetime] = None,
         chunked: bool = False,
+        use_cache: bool = True,
     ):
         self.auth_data = auth_data
         self.value_file_ref = value_file_ref
@@ -261,6 +262,7 @@ class BatchDownloader:
         self.time_ranges_keys = time_ranges_keys
         self.time_range_start = time_range_start
         self.time_range_end = time_range_end
+        self.use_cache = use_cache
 
     def flat_iterator(self):
         data = {
@@ -420,7 +422,10 @@ class BatchDownloader:
                 yield key_with_none
 
     def __iter__(self):
-        flat = self.merged_iterator()
+        if self.use_cache:
+            flat = self.merged_iterator()
+        else:
+            flat = self.flat_iterator()
         for (sim_id, tr, coll, fn, att), group in groupby(
             flat, key=itemgetter(0, 1, 2, 3, 4)
         ):
