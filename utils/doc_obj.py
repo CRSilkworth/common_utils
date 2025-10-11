@@ -9,12 +9,14 @@ class DocObj(dict):
     def __init__(
         self,
         doc_id: Text,
+        full_name: Text,
         doc_dict: Dict[Text, Any],
         auth_data: Dict[Text, Any],
         global_vars: Optional[Dict[Text, Any]] = None,
     ):
         super().__init__()
         self.doc_id = doc_id
+        self.full_name = full_name
         self.auth_data = auth_data
         self.cleanups = {}
         self.outputs = {}
@@ -22,6 +24,8 @@ class DocObj(dict):
         self.attributes: Dict[Text, Attribute] = {}
         self.doc_dict = copy.deepcopy(doc_dict)
         for att, att_dict in self.doc_dict.items():
+            if att == "full_name":
+                continue
             if isinstance(att_dict, str):
                 value_type = str
                 _value = serialize_value(att_dict)
@@ -41,6 +45,7 @@ class DocObj(dict):
                     name=att,
                     auth_data=auth_data,
                     doc_id=self.doc_id,
+                    doc_full_name=full_name,
                     value_type=value_type,
                     value_file_ref=value_file_ref,
                     chunked=att_dict["chunked"],
@@ -59,6 +64,7 @@ class DocObj(dict):
                 # value_type in (QuickBooks, DBConnection, Files, str)
                 self.attributes[att] = Attribute(
                     name=att,
+                    doc_full_name=full_name,
                     auth_data=auth_data,
                     doc_id=doc_id,
                     value_type=value_type,

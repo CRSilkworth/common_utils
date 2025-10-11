@@ -1,5 +1,4 @@
-from typing import Dict, Text, Optional
-from utils.type_utils import TimeRange
+from typing import Dict, Text, Optional, Tuple
 import io
 import requests
 import json
@@ -9,15 +8,11 @@ class BatchUploader:
     def __init__(
         self,
         auth_data: Dict[Text, Text],
-        value_file_ref: Text,
-        old_value_file_ref: Optional[Text] = None,
         max_batch_bytes: int = 1e7,
         run_at: Optional[Text] = None,
     ):
         self.auth_data = auth_data
         self.max_batch_bytes = max_batch_bytes
-        self.value_file_ref = value_file_ref
-        self.old_value_file_ref = old_value_file_ref
         self.buffer = io.BytesIO()
         self.index_map = {}
         self.item_count = 0
@@ -26,31 +21,23 @@ class BatchUploader:
 
     def add_chunk(
         self,
-        sim_iter_num: Text,
-        time_ranges_key: Text,
-        time_range: TimeRange,
+        _run_key: Tuple[Text],
         chunk_num: int,
         _value_chunk: Text,
-        preview: Optional[Text] = None,
-        _schema: Optional[Text] = None,
+        value_file_ref: Text,
+        preview: Text = "",
+        _schema: Text = "",
         overriden: bool = False,
     ):
         data = _value_chunk.encode("utf-8")
         offset = self.buffer.tell()
         self.buffer.write(data)
-        key = json.dumps(
-            [
-                sim_iter_num,
-                time_ranges_key,
-                (time_range[0].isoformat() if time_range[0] is not None else None),
-                (time_range[1].isoformat() if time_range[1] is not None else None),
-                chunk_num,
-            ]
-        )
+        key = json.dumps(list(_run_key) + [chunk_num])
         length = len(data)
         self.index_map[key] = {
             "offset": offset,
             "length": length,
+            "value_file_ref": value_file_ref,
             "preview": preview,
             "_schema": _schema,
             "overriden": overriden,
@@ -86,8 +73,6 @@ class BatchUploader:
                             "run_at": self.run_at,
                             "index_map": self.index_map,
                             "auth_data": self.auth_data,
-                            "value_file_ref": self.value_file_ref,
-                            "old_value_file_ref": self.old_value_file_ref,
                         }
                     )
                 },
@@ -100,6 +85,3 @@ class BatchUploader:
         self.index_map = {}
         self.item_count = 0
         return resp.ok, resp.text
-
-    def finalize(self):
-        self.flush_batch()

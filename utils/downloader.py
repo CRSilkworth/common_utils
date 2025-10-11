@@ -44,10 +44,15 @@ def stream_subgraph_by_key(
                 tr_key,
                 full_name,
                 att,
-                _,
+                chunk_num,
                 input_full_name,
                 input_att,
             ) = json.loads(index_key)
+
+            # chunked data is not loaded directly into attribute objects.
+            if chunk_num > 0:
+                continue
+
             tr_start = datetime.datetime.fromisoformat(start_iso)
             tr_end = datetime.datetime.fromisoformat(end_iso)
             run_key = (sim_iter, (tr_start, tr_end), tr_key, full_name, att)
@@ -68,12 +73,13 @@ def stream_subgraph_by_key(
             yield current_key, data_dict
 
 
-def _key_to_filename(key):
+def key_to_filename(run_key, chunk_num):
+    key = tuple(list(run_key) + [chunk_num])
     key_hash = hashlib.md5(json.dumps(key, default=str).encode()).hexdigest()
     return os.path.join(CACHE_DIR, f"{key_hash}.bin")
 
 
-_current_cache_size = 0  # module global
+_current_cache_size = 0
 
 
 def _get_cache_size():
@@ -104,9 +110,9 @@ def _enforce_max_cache_size(max_cache_bytes):
             break
 
 
-def save_bytes_to_disk(key, block_bytes, max_cache_bytes):
+def save_bytes_to_disk(run_key, chunk_num, block_bytes, max_cache_bytes):
     """Write raw bytes to disk and enforce max cache size."""
-    path = _key_to_filename(key)
+    path = key_to_filename(run_key, chunk_num)
     with open(path, "wb") as f:
         f.write(block_bytes)
     global _current_cache_size
@@ -114,7 +120,7 @@ def save_bytes_to_disk(key, block_bytes, max_cache_bytes):
     _enforce_max_cache_size(max_cache_bytes)
 
 
-def _load_bytes_from_disk(path):
+def load_bytes_from_disk(path):
     """Read raw bytes from disk."""
     with open(path, "rb") as f:
         return f.read()
@@ -151,7 +157,7 @@ def prefetch_subgraph(
             )
             if _get_cache_size() + len(block_bytes) > max_cache_bytes:
                 return run_key
-            save_bytes_to_disk(input_key, block_bytes, max_cache_bytes)
+            save_bytes_to_disk(input_key, 0, block_bytes, max_cache_bytes)
 
     return None
 
@@ -189,10 +195,10 @@ def cached_stream_subgraph_by_key(
                 input_full_name,
                 input_att,
             )
-            path = _key_to_filename(input_key)
+            path = key_to_filename(input_key, 0)
             if os.path.exists(path):
                 print("found", input_key)
-                data_dict[(input_full_name, input_att)] = _load_bytes_from_disk(path)
+                data_dict[(input_full_name, input_att)] = load_bytes_from_disk(path)
         yield run_key, data_dict
 
     if start_key:
@@ -221,11 +227,13 @@ def cached_stream_subgraph_by_key(
                     input_full_name,
                     input_att,
                 )
-                path = _key_to_filename(input_key)
+                path = key_to_filename(input_key, 0)
                 if os.path.exists(path):
-                    data_dict[input_key] = _load_bytes_from_disk(path)
+                    data_dict[input_key] = load_bytes_from_disk(path)
                 elif input_key in data_dict:
-                    save_bytes_to_disk(input_key, data_dict[input_key], max_cache_bytes)
+                    save_bytes_to_disk(
+                        input_key, 0, data_dict[input_key], max_cache_bytes
+                    )
             yield run_key, data_dict
 
 
@@ -235,6 +243,7 @@ class BatchDownloader:
         auth_data: Dict[Text, Text],
         value_file_ref: Text,
         doc_id: Text,
+        full_name: Text,
         attribute_name: Text,
         sim_iter_nums: Optional[Text] = None,
         time_ranges_keys: Optional[Text] = None,
@@ -246,6 +255,7 @@ class BatchDownloader:
         self.value_file_ref = value_file_ref
         self.chunked = chunked
         self.doc_id = doc_id
+        self.full_name = full_name
         self.attribute_name = attribute_name
         self.sim_iter_nums = sim_iter_nums
         self.time_ranges_keys = time_ranges_keys
@@ -284,35 +294,143 @@ class BatchDownloader:
                     offset, length = loc["offset"], loc["length"]
                     (
                         sim_iter_num,
-                        time_ranges_key,
                         time_range_start,
                         time_range_end,
+                        time_ranges_key,
+                        full_name,
+                        att,
                         chunk_num,
                     ) = json.loads(key)
                     chunk = batch_data[offset : offset + length]  # noqa: E203
                     _value_chunk = chunk.decode("utf-8")
                     yield (
                         sim_iter_num,
-                        time_ranges_key,
                         (
                             datetime.datetime.fromisoformat(time_range_start),
                             datetime.datetime.fromisoformat(time_range_end),
                         ),
+                        time_ranges_key,
+                        full_name,
+                        att,
                         chunk_num,
                         _value_chunk,
                     )
 
+    def cache_iterator(self):
+        global full_space
+        for sim_iter_num, time_range, time_ranges_key in full_space:
+
+            key = (
+                sim_iter_num,
+                time_range,
+                time_ranges_key,
+                self.full_name,
+                self.attribute_name,
+            )
+            chunk_num = 0
+            path = key_to_filename(key, chunk_num)
+            while os.path.exists(path):
+                _value_chunk = load_bytes_from_disk(path).decode("utf-8")
+                yield (
+                    sim_iter_num,
+                    time_ranges_key,
+                    self.full_name,
+                    self.attribute_name,
+                    chunk_num,
+                    _value_chunk,
+                )
+                chunk_num += 1
+                path = key_to_filename(key, chunk_num)
+
+    def merged_iterator(self):
+        """
+        Yield items in the order defined by full_space.
+        Prefer cached data if available; otherwise pull sequentially
+        from the flat iterator (which must be ordered the same way).
+        Saves streamed chunks to cache as it goes.
+        """
+        flat_iter = self.flat_iterator()
+        next_flat = None  # holds the next item from the server
+
+        for sim_iter_num, time_range, time_ranges_key in full_space:
+            if (
+                self.sim_iter_nums is not None
+                and sim_iter_num not in self.sim_iter_nums
+            ):
+                continue
+            if (
+                self.time_ranges_keys is not None
+                and time_ranges_key not in self.time_ranges_keys
+            ):
+                continue
+
+            if (
+                self.time_range_start is not None
+                and self.time_range_start > time_range[0]
+            ):
+                continue
+            if self.time_range_end is not None and self.time_range_end < time_range[1]:
+                continue
+
+            key = (
+                sim_iter_num,
+                time_range,
+                time_ranges_key,
+                self.full_name,
+                self.attribute_name,
+            )
+            key_with_none = (*key, 0, None)
+            path = key_to_filename(key, 0)
+
+            chunk_num = 0
+            found_cached = False
+            while True:
+                path = key_to_filename(key, chunk_num)
+                if not os.path.exists(path):
+                    break
+                found_cached = True
+                _value_chunk = load_bytes_from_disk(path).decode("utf-8")
+                yield (*key, chunk_num, _value_chunk)
+                chunk_num += 1
+
+            if found_cached:
+                continue
+
+            if next_flat is None:
+                try:
+                    next_flat = next(flat_iter)
+                except StopIteration:
+                    next_flat = None
+
+            if next_flat is not None:
+
+                f_key = tuple(list(next_flat)[:-2])
+
+                if f_key == key:
+                    block_bytes = next_flat[-1].encode("utf-8")
+                    save_bytes_to_disk(key, 0, block_bytes, MAX_CACHE_BYTES)
+
+                    yield next_flat
+
+                    next_flat = None
+                else:
+                    yield key_with_none
+            else:
+                yield key_with_none
+
     def __iter__(self):
-        flat = self.flat_iterator()
-        for (sim_id, coll, tr), group in groupby(flat, key=itemgetter(0, 1, 2)):
+        flat = self.merged_iterator()
+        for (sim_id, tr, coll, fn, att), group in groupby(
+            flat, key=itemgetter(0, 1, 2, 3, 4)
+        ):
             if self.chunked:
 
                 def chunk_gen(g=group):
-                    for _, _, _, chunk_num, data in g:
+                    for _, _, _, _, _, chunk_num, data in g:
                         yield chunk_num, data
 
-                yield (sim_id, coll, tr), chunk_gen()
+                yield (sim_id, tr, coll, fn, att), chunk_gen()
             else:
                 # If not chunked there is only one element in the group
-                _, _, _, _, data = next(group)
-                yield (sim_id, coll, tr), data
+                _, _, _, _, _, _, data = next(group)
+                yield (sim_id, tr, coll, fn, att), data

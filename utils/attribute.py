@@ -11,6 +11,12 @@ import requests
 import os
 import datetime
 import inspect
+from utils.downloader import (
+    save_bytes_to_disk,
+    key_to_filename,
+    load_bytes_from_disk,
+    MAX_CACHE_BYTES,
+)
 
 
 class Attribute:
@@ -20,11 +26,13 @@ class Attribute:
         auth_data: Dict[Text, Any],
         doc_id: Text,
         value_type: Any,
+        doc_full_name: Text,
     ):
         self.name = name
         self.auth_data = auth_data
         self.doc_id = doc_id
         self._val = None
+        self.doc_full_name = doc_full_name
         self.value_type = value_type
         self.sim_iter_num = None
         self.time_ranges_key = None
@@ -128,6 +136,7 @@ class RunnableAttribute(Attribute):
         name: Text,
         auth_data: Dict[Text, Text],
         doc_id: Text,
+        doc_full_name: Text,
         value_type: Any,
         value_file_ref: Text,
         var_name_to_id: Dict[Text, Text],
@@ -147,6 +156,7 @@ class RunnableAttribute(Attribute):
             name=name,
             auth_data=auth_data,
             doc_id=doc_id,
+            doc_full_name=doc_full_name,
             value_type=value_type,
         )
         self.auth_data = auth_data
@@ -166,11 +176,11 @@ class RunnableAttribute(Attribute):
         self.sim_iter_nums = sim_iter_nums
         self.time_ranges_keys = time_ranges_keys
         self.var_name_to_id = var_name_to_id
-        self.uploader = BatchUploader(
-            auth_data=auth_data,
-            value_file_ref=value_file_ref,
-            old_value_file_ref=old_value_file_ref,
-        )
+        # self.uploader = BatchUploader(
+        #     auth_data=auth_data,
+        #     value_file_ref=value_file_ref,
+        #     old_value_file_ref=old_value_file_ref,
+        # )
         self.func, output = create_function(
             function_name=self.function_name,
             function_header=self.function_header,
@@ -185,38 +195,56 @@ class RunnableAttribute(Attribute):
             for key, _value in iterator:
 
                 def value_chunk_gen(_value=_value):
-                    for _value_chunk in _value:
+                    for chunk_num, _value_chunk in enumerate(_value):
+                        path = key_to_filename(key, chunk_num)
+                        if os.path.exists(path):
+                            _value = load_bytes_from_disk(path)
                         value_chunk, _, _ = attempt_deserialize(
                             _value_chunk, self.value_type
                         )
+
                         yield value_chunk
 
                 yield key, value_chunk_gen(), {}
         else:
             for key, _value in iterator:
+                path = key_to_filename(key, 0)
+                if os.path.exists(path):
+                    _value = load_bytes_from_disk(path)
                 value, output, _ = attempt_deserialize(_value, self.value_type)
                 yield key, value, output
 
-    def _upload_chunk(self, value_chunk, chunk_num: int = 0, overriden: bool = False):
+    def _upload_chunk(
+        self,
+        uploader: BatchUploader,
+        _run_key: Tuple[Text],
+        value_chunk: Any,
+        chunk_num: int = 0,
+        overriden: bool = False,
+    ):
         if not overriden:
             preview = value_to_preview(value_chunk)
             _schema = json.dumps(describe_json_schema(value_chunk))
             _value_chunk, output = attempt_serialize(value_chunk, self.value_type)
+            block_bytes = _value_chunk.encode("utf-8")
             self._add_output(output)
+
+            save_bytes_to_disk(_run_key, chunk_num, block_bytes, MAX_CACHE_BYTES)
+
+            preview = value_to_preview(output["value"])
+            _schema = json.dumps(describe_json_schema(output["value"]))
         else:
             preview = ""
             _schema = ""
             _value_chunk = ""
 
-        success, message = self.uploader.add_chunk(
-            sim_iter_num=self.sim_iter_num,
-            time_ranges_key=self.time_ranges_key,
-            time_range=self.time_range,
-            _value_chunk=_value_chunk,
+        success, message = uploader.add_chunk(
+            _run_key=_run_key,
             chunk_num=chunk_num,
+            _value_chunk=_value_chunk,
+            value_file_ref=self.value_file_ref,
             preview=preview,
             _schema=_schema,
-            overriden=overriden,
         )
         output = {
             "failed": not success,
@@ -225,9 +253,6 @@ class RunnableAttribute(Attribute):
             "stdout_output": "",
         }
         self._add_output(output)
-
-    def _flush(self):
-        self.uploader.flush_batch()
 
     def time_series(
         self,
@@ -325,6 +350,7 @@ class RunnableAttribute(Attribute):
         downloader = BatchDownloader(
             auth_data=self.auth_data,
             doc_id=self.doc_id,
+            full_name=self.doc_full_name,
             attribute_name=self.name,
             sim_iter_nums=sim_iter_nums,
             value_file_ref=self.value_file_ref,
@@ -334,10 +360,11 @@ class RunnableAttribute(Attribute):
             chunked=self.chunked,
         )
 
-        for key, value, output in self._deserialize(iterator=downloader):
+        for run_key, value, output in self._deserialize(iterator=downloader):
+
             if output.get("failed", False):
                 raise ValueError(f"Deserialization failed: {output['combined_output']}")
-            yield key, value
+            yield run_key, value
 
     def get_first_val(
         self,

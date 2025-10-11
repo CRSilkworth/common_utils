@@ -1,15 +1,11 @@
-from typing import Text, Dict, Any, Optional, List
+from typing import Text, Dict, Any, Optional, List, Tuple
 from utils.misc_utils import failed_output
 from utils.function_utils import run_with_expected_type, run_with_generator
-from utils.downloader import (
-    prefetch_subgraph,
-    cached_stream_subgraph_by_key,
-    save_bytes_to_disk,
-    MAX_CACHE_BYTES,
-)
+from utils.downloader import prefetch_subgraph, cached_stream_subgraph_by_key
 from utils.doc_obj import DocObj
 from utils.datetime_utils import to_micro
-from utils.serialize_utils import serialize_value
+from utils.type_utils import TimeRange
+from utils.uploader import BatchUploader
 import datetime
 import logging
 import requests
@@ -29,6 +25,8 @@ def run_sims(
 
     run_config = run_config if run_config else {}
 
+    uploader = BatchUploader(auth_data=auth_data)
+
     time_ranges_keys_to_run = set()
     sim_iter_nums_to_run = set()
     doc_objs = {}
@@ -36,14 +34,14 @@ def run_sims(
     for doc_id in doc_data:
         doc = DocObj(
             doc_id=doc_id,
+            full_name=doc_data["full_name"],
             doc_dict=doc_data[doc_id],
             auth_data=auth_data,
             global_vars=kwargs.get("globals", {}),
         )
-        full_name = doc.full_name.val
 
-        doc_id_to_full_name[doc_id] = full_name
-        doc_objs[full_name] = doc
+        doc_id_to_full_name[doc_id] = doc.full_name
+        doc_objs[doc.full_name] = doc
         if doc.doc_id not in docs_to_run:
             continue
         for att, attribute in doc.attributes.items():
@@ -67,14 +65,13 @@ def run_sims(
     start_key = prefetch_subgraph(
         auth_data, ref_dict, sim_iter_nums_to_run, time_ranges_keys_to_run
     )
-    print("start_key", start_key)
+    global full_space
+    full_space = get_full_space(calc_graph_doc, calc_graph_doc.doc_id in docs_to_run)
 
     run_key_iterator = get_run_key_iterator(
-        calc_graph_doc=calc_graph_doc,
         ref_dict=ref_dict,
         time_ranges_keys=time_ranges_keys_to_run,
         sim_iter_nums=sim_iter_nums_to_run,
-        is_calc_graph_run=calc_graph_doc.doc_id in docs_to_run,
     )
 
     data_iterator = cached_stream_subgraph_by_key(
@@ -165,8 +162,9 @@ def run_sims(
             0,
         ]
         if block_key in attribute.overrides:
-            attribute._upload_chunk(value_chunk=None, overriden=True)
-            attribute._flush()
+            attribute._upload_chunk(
+                uploader=uploader, _run_key=run_key, value_chunk=None, overriden=True
+            )
             continue
 
         # Convert the functionv string to a callable function
@@ -186,15 +184,11 @@ def run_sims(
                     break
 
                 attribute._upload_chunk(
-                    chunk_num=chunk_num, value_chunk=run_output_chunk["value"]
+                    uploader=uploader,
+                    _run_key=_run_key,
+                    chunk_num=chunk_num,
+                    value_chunk=run_output_chunk["value"],
                 )
-                attribute._flush()
-                _value_chunk = serialize_value(
-                    run_output_chunk["value"], attribute.value_type
-                )
-                block_bytes = _value_chunk.encode("utf-8")
-                print("saving", _run_key)
-                save_bytes_to_disk(_run_key, block_bytes, MAX_CACHE_BYTES)
 
         else:
             output = run_with_expected_type(
@@ -206,13 +200,34 @@ def run_sims(
                     f"uploading {sim_iter_num}, {time_range}, {time_ranges_key},"
                     f" {doc.full_name.val}, {att}"
                 )
-                attribute._upload_chunk(chunk_num=0, value_chunk=output["value"])
-                attribute._flush()
-                _value_chunk = serialize_value(output["value"], attribute.value_type)
-                block_bytes = _value_chunk.encode("utf-8")
-                print("saving", _run_key)
-                save_bytes_to_disk(_run_key, block_bytes, MAX_CACHE_BYTES)
+                attribute._upload_chunk(
+                    uploader=uploader, _run_key=_run_key, value_chunk=output["value"]
+                )
+                # attribute._upload_chunk(chunk_num=0, value_chunk=output["value"])
+                # attribute._flush()
 
+                # _value_chunk = serialize_value(output["value"], attribute.value_type)
+                # block_bytes = _value_chunk.encode("utf-8")
+                # print("saving", _run_key)
+                # save_bytes_to_disk(_run_key, block_bytes, MAX_CACHE_BYTES)
+                # preview = value_to_preview(output["value"])
+                # _schema = json.dumps(describe_json_schema(output["value"]))
+                # success, message = uploader.add_chunk(
+                #     _run_key=_run_key,
+                #     chunk_num=0,
+                #     _value_chunk=_value_chunk,
+                #     value_file_ref=attribute.value_file_ref,
+                #     preview=preview,
+                #     _schema=_schema,
+                # )
+                # output = {
+                #     "failed": not success,
+                #     "combined_output": message,
+                #     "stderr_output": message,
+                #     "stdout_output": "",
+                # }
+                # attribute._add_output(output)
+    uploader.flush_batch()
     logging.info("Sending output")
     outputs = {}
     for doc in doc_objs.values():
@@ -243,26 +258,13 @@ def run_sims(
                 attribute.cleanup()
 
 
-def get_run_key_iterator(
-    calc_graph_doc: DocObj,
-    sim_iter_nums: List[str] = None,
-    time_ranges_keys: List[str] = None,
-    ref_dict: Optional[Dict[Text, Dict[Text, Dict[Text, Any]]]] = None,
-    is_calc_graph_run: bool = False,
-):
+def get_all_time_ranges(
+    calc_graph_doc, is_calc_graph_run
+) -> Dict[Text, List[TimeRange]]:
+    all_time_ranges = {}
 
-    if is_calc_graph_run:
-        sims = {"0": {}}
-        all_time_ranges = {}
-    else:
-        try:
-            _, sims = next(
-                calc_graph_doc.attributes["sims"].get_iterator(
-                    sim_iter_nums=[0], time_ranges_keys=["__BEGIN_TIME__"]
-                )
-            )
-        except StopIteration:
-            sims = {"0": {}}
+    if not is_calc_graph_run:
+
         try:
             __, all_time_ranges = next(
                 calc_graph_doc.attributes["all_time_ranges"].get_iterator(
@@ -274,30 +276,56 @@ def get_run_key_iterator(
                 "__BEGIN_TIME__": [(datetime.datetime.min, datetime.datetime.min)]
             }
 
+    all_time_ranges["__BEGIN_TIME__"] = [(datetime.datetime.min, datetime.datetime.min)]
+    return all_time_ranges
+
+
+def get_sims(calc_graph_doc, is_calc_graph_run) -> List[Dict[Text, Any]]:
+    sims = {"0": {}}
+    if not is_calc_graph_run:
+        try:
+            _, sims = next(
+                calc_graph_doc.attributes["sims"].get_iterator(
+                    sim_iter_nums=[0], time_ranges_keys=["__BEGIN_TIME__"]
+                )
+            )
+        except StopIteration:
+            sims = [{}]
+
     if not sims:
         sims = [{}]
-    all_time_ranges["__BEGIN_TIME__"] = [(datetime.datetime.min, datetime.datetime.min)]
+    return sims
 
-    results = []
+
+def get_full_space(calc_graph_doc, is_calc_graph_run):
+    sims = get_sims(calc_graph_doc, is_calc_graph_run)
+    all_time_ranges = get_all_time_ranges(calc_graph_doc, is_calc_graph_run)
+
+    full_space = []
     for sim_iter_num, _ in enumerate(sims):
-        if sim_iter_nums and sim_iter_num not in sim_iter_nums:
-            continue
         for time_ranges_key, time_ranges in all_time_ranges.items():
-            if time_ranges_keys and time_ranges_key not in time_ranges_keys:
-                continue
             for time_range in time_ranges:
                 time_range = to_micro(time_range[0]), to_micro(time_range[1])
-                for full_name in ref_dict:
-                    for att in ref_dict[full_name]:
-                        results.append(
-                            (sim_iter_num, time_range, time_ranges_key, full_name, att)
-                        )
+                full_space.append((sim_iter_num, time_range, time_ranges_key))
+    return full_space
 
-    # Don't sort by full_name/att. They should keep the order from ref_dict
-    results.sort(key=lambda x: (x[0], x[1][0], x[1][1], x[2]))
 
-    for item in results:
-        yield item
+def get_run_key_iterator(
+    full_space: List[Tuple],
+    sim_iter_nums: List[str] = None,
+    time_ranges_keys: List[str] = None,
+    ref_dict: Optional[Dict[Text, Dict[Text, Dict[Text, Any]]]] = None,
+):
+
+    for sim_iter_num, time_range, time_ranges_key in full_space:
+        if sim_iter_nums and sim_iter_num not in sim_iter_nums:
+            continue
+        if time_ranges_keys and time_ranges_key not in time_ranges_keys:
+            continue
+        for full_name in ref_dict:
+            for att in ref_dict[full_name]:
+
+                yield sim_iter_num, time_range, time_ranges_key, full_name, att
 
 
 def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
