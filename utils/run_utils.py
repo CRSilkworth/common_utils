@@ -69,6 +69,7 @@ def run_sims(
     full_space = get_full_space(calc_graph_doc, calc_graph_doc.doc_id in docs_to_run)
 
     run_key_iterator = get_run_key_iterator(
+        full_space=full_space,
         ref_dict=ref_dict,
         time_ranges_keys=time_ranges_keys_to_run,
         sim_iter_nums=sim_iter_nums_to_run,
