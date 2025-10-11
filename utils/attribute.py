@@ -231,8 +231,8 @@ class RunnableAttribute(Attribute):
 
             save_bytes_to_disk(_run_key, chunk_num, block_bytes, MAX_CACHE_BYTES)
 
-            preview = value_to_preview(output["value"])
-            _schema = json.dumps(describe_json_schema(output["value"]))
+            preview = value_to_preview(value_chunk)
+            _schema = json.dumps(describe_json_schema(value_chunk))
         else:
             preview = ""
             _schema = ""
