@@ -50,7 +50,7 @@ def stream_subgraph_by_key(
             ) = json.loads(index_key)
 
             # chunked data is not loaded directly into attribute objects.
-            if chunk_num > 0:
+            if int(chunk_num) > 0:
                 continue
 
             tr_start = datetime.datetime.fromisoformat(start_iso)
@@ -384,6 +384,7 @@ class BatchDownloader:
                 self.full_name,
                 self.attribute_name,
             )
+            print("looking", key)
             key_with_none = (*key, 0, None)
             path = key_to_filename(key, 0)
 

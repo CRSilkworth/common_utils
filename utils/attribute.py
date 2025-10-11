@@ -233,8 +233,8 @@ class RunnableAttribute(Attribute):
             block_bytes = _value_chunk.encode("utf-8")
             self._add_output(output)
 
+            print("saveing", _run_key)
             save_bytes_to_disk(_run_key, chunk_num, block_bytes, MAX_CACHE_BYTES)
-
             preview = value_to_preview(value_chunk)
             _schema = json.dumps(describe_json_schema(value_chunk))
         else:

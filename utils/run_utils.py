@@ -195,10 +195,10 @@ def run_sims(
             )
             attribute._add_output(output)
             if not output["failed"]:
-                print(
-                    f"uploading {sim_iter_num}, {time_range}, {time_ranges_key},"
-                    f" {doc.full_name}, {att}"
-                )
+                # print(
+                #     f"uploading {sim_iter_num}, {time_range}, {time_ranges_key},"
+                #     f" {doc.full_name}, {att}"
+                # )
                 attribute._upload_chunk(
                     uploader=uploader, _run_key=_run_key, value_chunk=output["value"]
                 )
