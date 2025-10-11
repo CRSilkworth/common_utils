@@ -107,11 +107,11 @@ def run_sims(
 
         logging.info(
             f"Running {sim_iter_num}, {time_range}, {time_ranges_key},"
-            f" {doc.full_name.val}, {att}"
+            f" {doc.full_name}, {att}"
         )
         print(
             f"Running {sim_iter_num}, {time_range}, {time_ranges_key},"
-            f" {doc.full_name.val}, {att}"
+            f" {doc.full_name}, {att}"
         )
 
         upstream_failure = False
@@ -127,11 +127,11 @@ def run_sims(
             if input_doc.failures():
                 output = failed_output(
                     "Upstream failure from "
-                    f"{input_doc.full_name.val}: {sorted(input_doc.failures())}"
+                    f"{input_doc.full_name}: {sorted(input_doc.failures())}"
                 )
                 attribute._add_output(output)
                 upstream_failure = True
-                print("upstream failure", input_doc.full_name.val, input_doc.failures())
+                print("upstream failure", input_doc.full_name, input_doc.failures())
                 break
             for input_att, input_attribute in input_doc.attributes.items():
                 if not input_attribute.runnable:
@@ -170,7 +170,7 @@ def run_sims(
         # Convert the functionv string to a callable function
 
         if upstream_failure or not attribute.func:
-            print(f"Skipping {doc.full_name.val}-{att}")
+            print(f"Skipping {doc.full_name}-{att}")
             attribute._send_output(caller=kwargs.get("caller"))
             continue
 
@@ -198,7 +198,7 @@ def run_sims(
             if not output["failed"]:
                 print(
                     f"uploading {sim_iter_num}, {time_range}, {time_ranges_key},"
-                    f" {doc.full_name.val}, {att}"
+                    f" {doc.full_name}, {att}"
                 )
                 attribute._upload_chunk(
                     uploader=uploader, _run_key=_run_key, value_chunk=output["value"]
@@ -359,10 +359,10 @@ def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
                         continue
                     if not input_attribute.value_file_ref:
                         continue
-                    ref_dict[doc.full_name.val][att]["inputs"].append(
+                    ref_dict[doc.full_name][att]["inputs"].append(
                         {
                             "doc_id": input_doc_id,
-                            "full_name": input_doc.full_name.val,
+                            "full_name": input_doc.full_name,
                             "attribute_name": input_att,
                             "value_file_ref": input_attribute.value_file_ref,
                         }
