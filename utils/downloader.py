@@ -1,4 +1,4 @@
-from typing import Dict, Text, Optional, Tuple
+from typing import Dict, Text, Optional, Tuple, List
 import requests
 import json
 import binascii
@@ -10,7 +10,6 @@ import os
 
 CACHE_DIR = "/tmp/cache"
 MAX_CACHE_BYTES = 2 * 1024**3
-full_space = None
 
 
 def stream_subgraph_by_key(
@@ -250,6 +249,7 @@ class BatchDownloader:
         time_ranges_keys: Optional[Text] = None,
         time_range_start: Optional[datetime.datetime] = None,
         time_range_end: Optional[datetime.datetime] = None,
+        full_space: Optional[List[Tuple]] = None,
         chunked: bool = False,
         use_cache: bool = True,
     ):
@@ -264,6 +264,8 @@ class BatchDownloader:
         self.time_range_start = time_range_start
         self.time_range_end = time_range_end
         self.use_cache = use_cache
+        if use_cache and full_space is None:
+            raise ValueError("Must provide full space when use_cache=True")
 
     def flat_iterator(self):
         data = {
@@ -320,8 +322,7 @@ class BatchDownloader:
                     )
 
     def cache_iterator(self):
-        global full_space
-        for sim_iter_num, time_range, time_ranges_key in full_space:
+        for sim_iter_num, time_range, time_ranges_key in self.full_space:
 
             key = (
                 sim_iter_num,
@@ -354,9 +355,8 @@ class BatchDownloader:
         """
         flat_iter = self.flat_iterator()
         next_flat = None
-        global full_space
 
-        for sim_iter_num, time_range, time_ranges_key in full_space:
+        for sim_iter_num, time_range, time_ranges_key in self.full_space:
             if (
                 self.sim_iter_nums is not None
                 and sim_iter_num not in self.sim_iter_nums

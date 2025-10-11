@@ -65,8 +65,7 @@ def run_sims(
     start_key = prefetch_subgraph(
         auth_data, ref_dict, sim_iter_nums_to_run, time_ranges_keys_to_run
     )
-    global full_space
-    full_space = get_full_space(calc_graph_doc, calc_graph_doc.doc_id in docs_to_run)
+    full_space = get_full_space(calc_graph_doc, doc_objs, docs_to_run)
 
     run_key_iterator = get_run_key_iterator(
         full_space=full_space,
@@ -172,7 +171,6 @@ def run_sims(
 
         if upstream_failure or not attribute.func:
             print(f"Skipping {doc.full_name}-{att}")
-            attribute._send_output(caller=kwargs.get("caller"))
             continue
 
         if attribute.chunked:
@@ -302,7 +300,9 @@ def get_sims(calc_graph_doc, is_calc_graph_run) -> List[Dict[Text, Any]]:
     return sims
 
 
-def get_full_space(calc_graph_doc, is_calc_graph_run):
+def get_full_space(calc_graph_doc, doc_objs, docs_to_run):
+
+    is_calc_graph_run = calc_graph_doc.doc_id in docs_to_run
     sims = get_sims(calc_graph_doc, is_calc_graph_run)
     all_time_ranges = get_all_time_ranges(calc_graph_doc, is_calc_graph_run)
 
@@ -312,6 +312,10 @@ def get_full_space(calc_graph_doc, is_calc_graph_run):
             for time_range in time_ranges:
                 time_range = to_micro(time_range[0]), to_micro(time_range[1])
                 full_space.append((sim_iter_num, time_range, time_ranges_key))
+
+    for doc_obj in doc_objs:
+        for _, attribute in doc_obj.attributes.items():
+            attribute._set_full_space(full_space)
     return full_space
 
 

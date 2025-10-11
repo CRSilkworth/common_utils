@@ -41,6 +41,7 @@ class Attribute:
         self.outputs = {}
         self.cleanup = None
         self.runnable = False
+        self.full_space = None
 
     def _set_context(self, **kwargs):
         self.sim_iter_num = kwargs.get("sim_iter_num", None)
@@ -59,6 +60,9 @@ class Attribute:
             self.cleanup = cleanups[0] if cleanups else None
 
         self._val = val
+
+    def _set_full_space(self, full_space: List[Tuple]):
+        self.full_space = full_space
 
     def _add_output(self, output: Dict[Text, Any]):
         if not output:
@@ -360,6 +364,7 @@ class RunnableAttribute(Attribute):
             time_range_end=time_range[1],
             chunked=self.chunked,
             use_cache=use_cache,
+            full_space=self.full_space,
         )
 
         for run_key, value, output in self._deserialize(iterator=downloader):
