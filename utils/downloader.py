@@ -10,6 +10,7 @@ import os
 
 CACHE_DIR = "/tmp/cache"
 MAX_CACHE_BYTES = 2 * 1024**3
+full_space = None
 
 
 def stream_subgraph_by_key(
@@ -352,7 +353,7 @@ class BatchDownloader:
         Saves streamed chunks to cache as it goes.
         """
         flat_iter = self.flat_iterator()
-        next_flat = None  # holds the next item from the server
+        next_flat = None
         global full_space
 
         for sim_iter_num, time_range, time_ranges_key in full_space:
