@@ -291,7 +291,7 @@ class RunnableAttribute(Attribute):
             time_ranges_keys=[time_ranges_key],
             time_range=time_range,
         )
-        for (sim_iter_num, time_ranges_key, time_range), data in iterator:
+        for (_, time_range, _, _, _), data in iterator:
             yield (time_range, data)
 
     def sims(
@@ -326,7 +326,7 @@ class RunnableAttribute(Attribute):
             time_ranges_keys=[time_ranges_key],
             time_range=time_range,
         )
-        for (sim_iter_num, time_ranges_key, time_range), data in iterator:
+        for (sim_iter_num, _, _, _, _), data in iterator:
             yield (sim_iter_num, data)
 
     def get_iterator(
@@ -396,7 +396,7 @@ class RunnableAttribute(Attribute):
             time_range=time_range,
         )
         try:
-            key, value = next(iterator)
+            _, value = next(iterator)
             return value
         except StopIteration:
             return None
