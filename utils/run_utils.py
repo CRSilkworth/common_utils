@@ -270,7 +270,7 @@ def get_all_time_ranges(
                 calc_graph_doc.attributes["all_time_ranges"].get_iterator(
                     sim_iter_nums=[0],
                     time_ranges_keys=["__BEGIN_TIME__"],
-                    use_cach=False,
+                    use_cache=False,
                 )
             )
         except StopIteration:
@@ -290,7 +290,7 @@ def get_sims(calc_graph_doc, is_calc_graph_run) -> List[Dict[Text, Any]]:
                 calc_graph_doc.attributes["sims"].get_iterator(
                     sim_iter_nums=[0],
                     time_ranges_keys=["__BEGIN_TIME__"],
-                    use_cach=False,
+                    use_cache=False,
                 )
             )
         except StopIteration:
