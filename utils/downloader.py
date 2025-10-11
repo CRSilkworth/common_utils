@@ -266,6 +266,7 @@ class BatchDownloader:
         self.use_cache = use_cache
         if use_cache and full_space is None:
             raise ValueError("Must provide full space when use_cache=True")
+        self.full_space = full_space
 
     def flat_iterator(self):
         data = {
