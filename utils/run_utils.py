@@ -195,37 +195,9 @@ def run_sims(
             )
             attribute._add_output(output)
             if not output["failed"]:
-                # print(
-                #     f"uploading {sim_iter_num}, {time_range}, {time_ranges_key},"
-                #     f" {doc.full_name}, {att}"
-                # )
                 attribute._upload_chunk(
                     uploader=uploader, _run_key=_run_key, value_chunk=output["value"]
                 )
-                # attribute._upload_chunk(chunk_num=0, value_chunk=output["value"])
-                # attribute._flush()
-
-                # _value_chunk = serialize_value(output["value"], attribute.value_type)
-                # block_bytes = _value_chunk.encode("utf-8")
-                # print("saving", _run_key)
-                # save_bytes_to_disk(_run_key, block_bytes, MAX_CACHE_BYTES)
-                # preview = value_to_preview(output["value"])
-                # _schema = json.dumps(describe_json_schema(output["value"]))
-                # success, message = uploader.add_chunk(
-                #     _run_key=_run_key,
-                #     chunk_num=0,
-                #     _value_chunk=_value_chunk,
-                #     value_file_ref=attribute.value_file_ref,
-                #     preview=preview,
-                #     _schema=_schema,
-                # )
-                # output = {
-                #     "failed": not success,
-                #     "combined_output": message,
-                #     "stderr_output": message,
-                #     "stdout_output": "",
-                # }
-                # attribute._add_output(output)
     uploader.flush_batch()
     logging.info("Sending output")
     outputs = {}

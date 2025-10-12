@@ -356,10 +356,8 @@ class BatchDownloader:
         """
         flat_iter = self.flat_iterator()
         next_flat = None
-        print("MERGED")
         for key in self.full_space:
             sim_iter_num, time_range, time_ranges_key = key
-            print(sim_iter_num, time_range, time_ranges_key)
             if (
                 self.sim_iter_nums is not None
                 and sim_iter_num not in self.sim_iter_nums
@@ -389,7 +387,6 @@ class BatchDownloader:
                 self.full_name,
                 self.attribute_name,
             )
-            print("looking", _run_key)
             key_with_none = (*run_key, 0, None)
             path = key_to_filename(_run_key, 0)
 
@@ -430,7 +427,6 @@ class BatchDownloader:
                 yield key_with_none
 
     def __iter__(self):
-        print("iter", self.use_cache)
         if self.use_cache:
             flat = self.merged_iterator()
         else:
