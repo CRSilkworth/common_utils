@@ -197,7 +197,6 @@ def cached_stream_subgraph_by_key(
             )
             path = key_to_filename(input_key, 0)
             if os.path.exists(path):
-                print("found", input_key)
                 data_dict[(input_full_name, input_att)] = load_bytes_from_disk(path)
         yield run_key, data_dict
 
@@ -356,8 +355,9 @@ class BatchDownloader:
         """
         flat_iter = self.flat_iterator()
         next_flat = None
-
+        print("MERGED")
         for sim_iter_num, time_range, time_ranges_key in self.full_space:
+            print(sim_iter_num, time_range, time_ranges_key)
             if (
                 self.sim_iter_nums is not None
                 and sim_iter_num not in self.sim_iter_nums
@@ -379,7 +379,8 @@ class BatchDownloader:
 
             key = (
                 sim_iter_num,
-                time_range,
+                time_range[0].isoformat(),
+                time_range[1].isoformat(),
                 time_ranges_key,
                 self.full_name,
                 self.attribute_name,
@@ -425,6 +426,7 @@ class BatchDownloader:
                 yield key_with_none
 
     def __iter__(self):
+        print("iter", self.use_cache)
         if self.use_cache:
             flat = self.merged_iterator()
         else:
