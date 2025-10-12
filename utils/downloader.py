@@ -337,6 +337,7 @@ class BatchDownloader:
                 _value_chunk = load_bytes_from_disk(path).decode("utf-8")
                 yield (
                     sim_iter_num,
+                    time_range,
                     time_ranges_key,
                     self.full_name,
                     self.attribute_name,
@@ -356,7 +357,8 @@ class BatchDownloader:
         flat_iter = self.flat_iterator()
         next_flat = None
         print("MERGED")
-        for sim_iter_num, time_range, time_ranges_key in self.full_space:
+        for key in self.full_space:
+            sim_iter_num, time_range, time_ranges_key = key
             print(sim_iter_num, time_range, time_ranges_key)
             if (
                 self.sim_iter_nums is not None
@@ -377,7 +379,9 @@ class BatchDownloader:
             if self.time_range_end is not None and self.time_range_end < time_range[1]:
                 continue
 
-            key = (
+            run_key = (*key, self.full_name, self.attribute_name)
+
+            _run_key = (
                 sim_iter_num,
                 time_range[0].isoformat(),
                 time_range[1].isoformat(),
@@ -385,19 +389,19 @@ class BatchDownloader:
                 self.full_name,
                 self.attribute_name,
             )
-            print("looking", key)
-            key_with_none = (*key, 0, None)
-            path = key_to_filename(key, 0)
+            print("looking", _run_key)
+            key_with_none = (*run_key, 0, None)
+            path = key_to_filename(_run_key, 0)
 
             chunk_num = 0
             found_cached = False
             while True:
-                path = key_to_filename(key, chunk_num)
+                path = key_to_filename(_run_key, chunk_num)
                 if not os.path.exists(path):
                     break
                 found_cached = True
                 _value_chunk = load_bytes_from_disk(path).decode("utf-8")
-                yield (*key, chunk_num, _value_chunk)
+                yield (*run_key, chunk_num, _value_chunk)
                 chunk_num += 1
 
             if found_cached:
@@ -413,9 +417,9 @@ class BatchDownloader:
 
                 f_key = tuple(list(next_flat)[:-2])
 
-                if f_key == key:
+                if f_key == _run_key:
                     block_bytes = next_flat[-1].encode("utf-8")
-                    save_bytes_to_disk(key, 0, block_bytes, MAX_CACHE_BYTES)
+                    save_bytes_to_disk(_run_key, 0, block_bytes, MAX_CACHE_BYTES)
 
                     yield next_flat
 
