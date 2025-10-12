@@ -413,7 +413,6 @@ class BatchDownloader:
             if next_flat is not None:
 
                 f_key = next_flat[:-2]
-                print("keys", f_key, run_key)
                 if f_key == run_key:
                     block_bytes = next_flat[-1].encode("utf-8")
                     save_bytes_to_disk(_run_key, 0, block_bytes, MAX_CACHE_BYTES)
