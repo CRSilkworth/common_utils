@@ -146,6 +146,7 @@ def prefetch_subgraph(
         sim_iter, (tr_start, tr_end), tr_key, _, _ = run_key
         start_iso = tr_start.isoformat()
         end_iso = tr_end.isoformat()
+        print("prefetch", run_key, len(data_dict))
         for (input_full_name, input_att), block_bytes in data_dict.items():
             input_key = (
                 sim_iter,
@@ -157,7 +158,6 @@ def prefetch_subgraph(
             )
             if _get_cache_size() + len(block_bytes) > max_cache_bytes:
                 return run_key
-            print("saving", input_key)
             save_bytes_to_disk(input_key, 0, block_bytes, max_cache_bytes)
 
     return None
@@ -390,7 +390,6 @@ class BatchDownloader:
                 self.attribute_name,
             )
             key_with_none = (*run_key, 0, None)
-            print("looking", _run_key)
             path = key_to_filename(_run_key, 0)
 
             chunk_num = 0
