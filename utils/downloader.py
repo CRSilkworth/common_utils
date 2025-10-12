@@ -138,7 +138,6 @@ def prefetch_subgraph(
     Stops once the total cache size exceeds that limit.
     """
     os.makedirs(CACHE_DIR, exist_ok=True)
-    print("before", ref_dict, sim_iter_nums, time_ranges_keys)
     for run_key, data_dict in stream_subgraph_by_key(
         auth_data, ref_dict, sim_iter_nums, time_ranges_keys
     ):
@@ -146,7 +145,6 @@ def prefetch_subgraph(
         sim_iter, (tr_start, tr_end), tr_key, _, _ = run_key
         start_iso = tr_start.isoformat()
         end_iso = tr_end.isoformat()
-        print("prefetch", run_key, len(data_dict))
         for (input_full_name, input_att), block_bytes in data_dict.items():
             input_key = (
                 sim_iter,
@@ -403,6 +401,7 @@ class BatchDownloader:
                 yield (*run_key, chunk_num, _value_chunk)
                 chunk_num += 1
 
+            print(run_key, found_cached, next_flat)
             if found_cached:
                 continue
 
