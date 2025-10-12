@@ -138,7 +138,7 @@ def prefetch_subgraph(
     Stops once the total cache size exceeds that limit.
     """
     os.makedirs(CACHE_DIR, exist_ok=True)
-
+    print("before", ref_dict, sim_iter_nums, time_ranges_keys)
     for run_key, data_dict in stream_subgraph_by_key(
         auth_data, ref_dict, sim_iter_nums, time_ranges_keys
     ):
