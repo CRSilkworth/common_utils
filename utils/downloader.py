@@ -50,7 +50,7 @@ def stream_subgraph_by_key(
             ) = json.loads(index_key)
 
             # chunked data is not loaded directly into attribute objects.
-            if int(chunk_num) > 0:
+            if chunk_num > 0:
                 continue
 
             tr_start = datetime.datetime.fromisoformat(start_iso)
@@ -157,6 +157,7 @@ def prefetch_subgraph(
             )
             if _get_cache_size() + len(block_bytes) > max_cache_bytes:
                 return run_key
+            print("saving", input_key)
             save_bytes_to_disk(input_key, 0, block_bytes, max_cache_bytes)
 
     return None
@@ -324,15 +325,16 @@ class BatchDownloader:
     def cache_iterator(self):
         for sim_iter_num, time_range, time_ranges_key in self.full_space:
 
-            key = (
+            _run_key = (
                 sim_iter_num,
-                time_range,
+                time_range[0].isoformat(),
+                time_range[1].isoformat(),
                 time_ranges_key,
                 self.full_name,
                 self.attribute_name,
             )
             chunk_num = 0
-            path = key_to_filename(key, chunk_num)
+            path = key_to_filename(_run_key, chunk_num)
             while os.path.exists(path):
                 _value_chunk = load_bytes_from_disk(path).decode("utf-8")
                 yield (
@@ -345,7 +347,7 @@ class BatchDownloader:
                     _value_chunk,
                 )
                 chunk_num += 1
-                path = key_to_filename(key, chunk_num)
+                path = key_to_filename(_run_key, chunk_num)
 
     def merged_iterator(self):
         """
@@ -388,6 +390,7 @@ class BatchDownloader:
                 self.attribute_name,
             )
             key_with_none = (*run_key, 0, None)
+            print("looking", _run_key)
             path = key_to_filename(_run_key, 0)
 
             chunk_num = 0
