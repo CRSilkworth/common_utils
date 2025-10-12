@@ -409,13 +409,12 @@ class BatchDownloader:
                     next_flat = next(flat_iter)
                 except StopIteration:
                     next_flat = None
-            print(next_flat)
 
             if next_flat is not None:
 
                 f_key = next_flat[:-2]
-                print(f_key, run_key)
-                if f_key == _run_key:
+                print("keys", f_key, run_key)
+                if f_key == run_key:
                     block_bytes = next_flat[-1].encode("utf-8")
                     save_bytes_to_disk(_run_key, 0, block_bytes, MAX_CACHE_BYTES)
 
