@@ -194,7 +194,6 @@ def run_sims(
                 attribute.func, runner_kwargs, attribute.value_type
             )
             attribute._add_output(output)
-            print(_run_key, output["value"])
             if not output["failed"]:
                 attribute._upload_chunk(
                     uploader=uploader, _run_key=_run_key, value_chunk=output["value"]
