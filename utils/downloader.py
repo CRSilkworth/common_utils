@@ -32,7 +32,8 @@ def stream_subgraph_by_key(
         resp.raise_for_status()
         batch = json.loads(resp.content)
         yield from _process_batch(batch)
-    except Exception:
+    except Exception as e:
+        print(f"FAILED!!! FALLBACK TO STREAMMING {e}")
         # Fallback to streaming if full fetch fails
         resp = requests.post(url, json=data, stream=True)
         resp.raise_for_status()
@@ -72,7 +73,7 @@ def _process_batch(batch):
         run_key = (sim_iter, (tr_start, tr_end), tr_key, full_name, att)
 
         offset, length = loc["offset"], loc["length"]
-        block_bytes = batch_data[offset : offset + length]
+        block_bytes = batch_data[offset : offset + length]  # noqa: E203
 
         if run_key != current_key:
             if current_key is not None:
