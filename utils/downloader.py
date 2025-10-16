@@ -26,13 +26,13 @@ def stream_subgraph_by_key(
 
     try:
         resp = requests.post(f"{auth_data['dash_app_url']}/all-at-once", json=data)
+        if resp.status_code == 413:
+            print("Response too large — falling back to streaming mode.")
+            raise ValueError("too_large")
+
         resp.raise_for_status()
-        # Treat response as lines (even though stream=False)
-        for line in resp.content.decode("utf-8").splitlines():
-            if not line.strip():
-                continue
-            batch = json.loads(line)
-            yield from _process_batch(batch)
+        payload = resp.json()
+        yield from _process_batch(payload)
     except Exception as e:
         print(f"FAILED!!! FALLBACK TO STREAMING {e}")
         # fallback to proper streaming
