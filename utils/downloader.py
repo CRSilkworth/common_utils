@@ -25,7 +25,11 @@ def stream_subgraph_by_key(
     }
 
     try:
-        resp = requests.post(f"{auth_data['dash_app_url']}/all-at-once", json=data)
+        resp = requests.post(
+            f"{auth_data['dash_app_url']}/all-at-once",
+            json=data,
+            headers={"Accept-Encoding": "gzip"},
+        )
         if resp.status_code == 413:
             print("Response too large — falling back to streaming mode.")
             raise ValueError("too_large")
