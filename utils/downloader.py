@@ -31,14 +31,14 @@ def stream_subgraph_by_key(
     current_key = None
     data_dict = {}
 
-    for chunk in resp.iter_content(chunk_size=64 * 1024):  # 64 KB chunks
+    for chunk in resp.iter_content(chunk_size=256 * 1024):
         buffer.extend(chunk)
         while b"\n" in buffer:
             line, _, buffer = buffer.partition(b"\n")
             if not line.strip():
                 continue
             batch = json.loads(line.decode("utf-8"))
-            batch_data = bytes.fromhex(batch["batch_data"])
+            batch_data = batch["batch_data"]
             index_map = batch["index_map"]
 
             for index_key, loc in index_map.items():
