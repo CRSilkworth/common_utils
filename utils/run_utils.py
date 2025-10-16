@@ -163,7 +163,7 @@ def run_sims(
         ]
         if block_key in attribute.overrides:
             attribute._upload_chunk(
-                uploader=uploader, _run_key=run_key, value_chunk=None, overriden=True
+                uploader=uploader, _run_key=_run_key, value_chunk=None, overriden=True
             )
             continue
 
