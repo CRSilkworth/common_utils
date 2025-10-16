@@ -33,7 +33,7 @@ def stream_subgraph_by_key(
         batch = json.loads(resp.content)
         yield from _process_batch(batch)
     except Exception as e:
-        print("FAILED!!! FALLBACK TO STREAMMING {e}")
+        print(f"FAILED!!! FALLBACK TO STREAMMING {e}")
         # Fallback to streaming if full fetch fails
         resp = requests.post(url, json=data, stream=True)
         resp.raise_for_status()
