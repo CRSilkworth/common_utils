@@ -11,6 +11,8 @@ import os
 CACHE_DIR = "/tmp/cache"
 MAX_CACHE_BYTES = 2 * 1024**3
 
+session = requests.Session()
+
 
 def stream_subgraph_by_key(
     auth_data, ref_dict, sim_iter_nums, time_ranges_keys, start_key=None
