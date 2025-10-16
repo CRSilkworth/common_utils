@@ -1,7 +1,7 @@
 from typing import Dict, Text, Optional, Tuple, List
 import requests
 import json
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import binascii
 from operator import itemgetter
 from itertools import groupby
 import datetime
@@ -155,8 +155,8 @@ def prefetch_subgraph(
     Stops once the total cache size exceeds that limit.
     """
     os.makedirs(CACHE_DIR, exist_ok=True)
-    for run_key, data_dict in parallel_stream_subgraph_by_key(
-        auth_data, ref_dict, sim_iter_nums, time_ranges_keys, max_workers=8
+    for run_key, data_dict in stream_subgraph_by_key(
+        auth_data, ref_dict, sim_iter_nums, time_ranges_keys
     ):
 
         sim_iter, (tr_start, tr_end), tr_key, _, _ = run_key
@@ -252,62 +252,6 @@ def cached_stream_subgraph_by_key(
             yield run_key, data_dict
 
 
-def _fetch_single(
-    auth_data: Dict, ref_dict: Dict, sim_iter_num, time_ranges_key, start_key=None
-):
-    """
-    Fetch a single request for one sim_iter_num and one time_ranges_key.
-    Yields raw batches.
-    """
-    data = {
-        "auth_data": auth_data,
-        "ref_dict": ref_dict,
-        "time_ranges_keys": [time_ranges_key] if time_ranges_key else None,
-        "sim_iter_nums": [sim_iter_num] if sim_iter_num else None,
-        "start_key": start_key,
-    }
-    url = f"{auth_data['dash_app_url']}/stream-by-key"
-
-    resp = requests.post(url, json=data, stream=True)
-    resp.raise_for_status()
-    for line in resp.iter_lines(decode_unicode=True):
-        if not line.strip():
-            continue
-        yield json.loads(line)
-
-
-def parallel_stream_subgraph_by_key(
-    auth_data: Dict,
-    ref_dict: Dict,
-    sim_iter_nums: List[Text],
-    time_ranges_keys: List[Text],
-    max_workers: int = 8,
-):
-    """
-    Parallelize fetching all sim_iter_num x time_ranges_key requests independently.
-    Yields processed batches as they arrive.
-    """
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {}
-        for sim_iter_num in sim_iter_nums:
-            for tr_key in time_ranges_keys:
-                future = executor.submit(
-                    _fetch_single, auth_data, ref_dict, sim_iter_num, tr_key
-                )
-                futures[future] = (sim_iter_num, tr_key)
-
-        # as each request completes, yield its batches
-        for future in as_completed(futures):
-            sim_iter_num, tr_key = futures[future]
-            try:
-                for (
-                    batch
-                ) in future.result():  # iterate over batches yielded by _fetch_single
-                    yield from _process_batch(batch)
-            except Exception as e:
-                print(f"Error fetching sim_iter={sim_iter_num}, tr_key={tr_key}: {e}")
-
-
 class BatchDownloader:
     def __init__(
         self,
@@ -366,7 +310,7 @@ class BatchDownloader:
                 except json.JSONDecodeError:
                     print(f"Bad line: {line!r}")
                     continue
-                batch_data = bytes.fromhex(batch["batch_data"])
+                batch_data = binascii.unhexlify(batch["batch_data"])
                 for key, loc in batch["index_map"].items():
                     offset, length = loc["offset"], loc["length"]
                     (
