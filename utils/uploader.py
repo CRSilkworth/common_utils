@@ -60,11 +60,9 @@ class BatchUploader:
     def flush_batch(self):
         if self.item_count == 0:
             return
-        self.buffer.seek(0)
         size_bytes = self.buffer.tell()
         print(f"Batch size: {size_bytes / 1024:.2f} KB")
-        self.buffer.seek(0)  # reset to start before sending
-        # send entire batch in one request
+        self.buffer.seek(0)
         files = {"batch_file": self.buffer}
         try:
             resp = requests.post(
