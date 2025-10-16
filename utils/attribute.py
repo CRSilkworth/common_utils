@@ -185,6 +185,7 @@ class RunnableAttribute(Attribute):
         #     value_file_ref=value_file_ref,
         #     old_value_file_ref=old_value_file_ref,
         # )
+        self.old_value_file_ref = old_value_file_ref
         self.func, output = create_function(
             function_name=self.function_name,
             function_header=self.function_header,
@@ -248,6 +249,7 @@ class RunnableAttribute(Attribute):
             value_file_ref=self.value_file_ref,
             preview=preview,
             _schema=_schema,
+            old_value_file_ref=self.old_value_file_ref,
         )
         output = {
             "failed": not success,

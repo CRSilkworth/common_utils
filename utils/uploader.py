@@ -28,7 +28,10 @@ class BatchUploader:
         preview: Text = "",
         _schema: Text = "",
         overriden: bool = False,
+        old_value_file_ref: Text = "",
     ):
+        if overriden and not old_value_file_ref:
+            raise ValueError("Must supply old_value_file_ref when overriden")
         data = _value_chunk.encode("utf-8")
         offset = self.buffer.tell()
         self.buffer.write(data)
@@ -41,6 +44,7 @@ class BatchUploader:
             "preview": preview,
             "_schema": _schema,
             "overriden": overriden,
+            "old_value_file_ref": old_value_file_ref,
         }
 
         self.item_count += 1
@@ -60,8 +64,6 @@ class BatchUploader:
     def flush_batch(self):
         if self.item_count == 0:
             return
-        size_bytes = self.buffer.tell()
-        print(f"Batch size: {size_bytes / 1024:.2f} KB")
         self.buffer.seek(0)
         files = {"batch_file": self.buffer}
         try:
