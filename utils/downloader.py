@@ -32,14 +32,14 @@ def stream_subgraph_by_key(
     timer = time.time()
     try:
         # Try fetching all at once
-        resp = requests.post(url, json=data, stream=False)
+        resp = session.post(url, json=data, stream=False)
         resp.raise_for_status()
         batch = json.loads(resp.content)
         yield from _process_batch(batch)
     except Exception as e:
         print(f"FAILED!!! FALLBACK TO STREAMMING {e}")
         # Fallback to streaming if full fetch fails
-        resp = requests.post(url, json=data, stream=True)
+        resp = session.post(url, json=data, stream=True)
         resp.raise_for_status()
         for line in resp.iter_lines(decode_unicode=True):
             if not line.strip():
@@ -306,7 +306,7 @@ class BatchDownloader:
                 self.time_range_end.isoformat() if self.time_range_end else None
             ),
         }
-        resp = requests.post(
+        resp = session.post(
             f"{self.auth_data['dash_app_url']}/stream-batches", json=data, stream=True
         )
         for chunk in resp.iter_content(chunk_size=None):
