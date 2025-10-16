@@ -25,17 +25,14 @@ def stream_subgraph_by_key(
     }
 
     url = f"{auth_data['dash_app_url']}/stream-by-key"
-    import time
 
-    timer = time.time()
     try:
         # Try fetching all at once
         resp = requests.post(url, json=data, stream=False)
         resp.raise_for_status()
         batch = json.loads(resp.content)
         yield from _process_batch(batch)
-    except Exception as e:
-        print(f"FAILED!!! FALLBACK TO STREAMMING {e}")
+    except Exception:
         # Fallback to streaming if full fetch fails
         resp = requests.post(url, json=data, stream=True)
         resp.raise_for_status()
@@ -44,7 +41,6 @@ def stream_subgraph_by_key(
                 continue
             batch = json.loads(line.strip())
             yield from _process_batch(batch)
-    print("stream", time.time() - timer)
 
 
 def _process_batch(batch):
@@ -154,9 +150,6 @@ def prefetch_subgraph(
     Pull as much as possible from the server up to max_cache_bytes.
     Stops once the total cache size exceeds that limit.
     """
-    import time
-
-    timer = time.time()
     os.makedirs(CACHE_DIR, exist_ok=True)
     for run_key, data_dict in stream_subgraph_by_key(
         auth_data, ref_dict, sim_iter_nums, time_ranges_keys
@@ -177,7 +170,7 @@ def prefetch_subgraph(
             if _get_cache_size() + len(block_bytes) > max_cache_bytes:
                 return run_key
             save_bytes_to_disk(input_key, 0, block_bytes, max_cache_bytes)
-    print("prefectch", time.time() - timer)
+
     return None
 
 
@@ -195,9 +188,7 @@ def cached_stream_subgraph_by_key(
     Automatically enforces cache size after each write.
     """
     # seen_keys = set()
-    import time
 
-    timer = time.time()
     for run_key in run_key_iterator:
         sim_iter, (tr_start, tr_end), tr_key, full_name, att = run_key
         start_iso = tr_start.isoformat()
@@ -255,7 +246,6 @@ def cached_stream_subgraph_by_key(
                         input_key, 0, data_dict[input_key], max_cache_bytes
                     )
             yield run_key, data_dict
-    print("cache", time.time() - timer)
 
 
 class BatchDownloader:
