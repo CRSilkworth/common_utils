@@ -12,10 +12,66 @@ CACHE_DIR = "/tmp/cache"
 MAX_CACHE_BYTES = 2 * 1024**3
 
 
+def _process_batch(batch: dict):
+    """
+    Convert a batch dictionary from the server into (run_key, data_dict) tuples.
+    """
+    batch_data = bytes.fromhex(batch["batch_data"])
+    index_map = batch["index_map"]
+
+    current_key = None
+    data_dict = {}
+
+    for index_key, loc in index_map.items():
+        (
+            sim_iter,
+            start_iso,
+            end_iso,
+            tr_key,
+            full_name,
+            att,
+            chunk_num,
+            input_full_name,
+            input_att,
+        ) = json.loads(index_key)
+
+        if chunk_num > 0:
+            continue  # skip non-zero chunks
+
+        tr_start = datetime.datetime.fromisoformat(start_iso)
+        tr_end = datetime.datetime.fromisoformat(end_iso)
+        run_key = (sim_iter, (tr_start, tr_end), tr_key, full_name, att)
+
+        offset, length = loc["offset"], loc["length"]
+        block_bytes = batch_data[offset : offset + length]  # noqa: E203
+
+        if run_key != current_key:
+            if current_key is not None:
+                yield current_key, data_dict
+            current_key = run_key
+            data_dict = {}
+
+        data_dict[(input_full_name, input_att)] = block_bytes
+
+    if data_dict:
+        if None in data_dict:
+            data_dict = {}
+        yield current_key, data_dict
+
+
 def stream_subgraph_by_key(
-    auth_data, ref_dict, sim_iter_nums, time_ranges_keys, start_key=None
+    auth_data,
+    ref_dict,
+    sim_iter_nums,
+    time_ranges_keys,
+    start_key=None,
+    small_batch_threshold=5_000_000,
 ):
-    """Streamer optimized to read in chunks instead of line-by-line."""
+    """
+    Stream subgraph batches from the server.
+    Uses full read if estimated total batch is below `small_batch_threshold`,
+    otherwise falls back to line-by-line streaming.
+    """
     data = {
         "auth_data": auth_data,
         "ref_dict": ref_dict,
@@ -23,58 +79,37 @@ def stream_subgraph_by_key(
         "sim_iter_nums": list(sim_iter_nums) if sim_iter_nums else None,
         "start_key": start_key,
     }
-    resp = requests.post(
-        f"{auth_data['dash_app_url']}/stream-by-key", json=data, stream=True
-    )
 
-    buffer = bytearray()
-    current_key = None
-    data_dict = {}
+    # Attempt to estimate response size
+    content_length = 0
+    try:
+        resp_head = requests.head(
+            f"{auth_data['dash_app_url']}/stream-by-key", json=data
+        )
+        content_length = int(resp_head.headers.get("Content-Length", 0))
+    except Exception:
+        pass
 
-    for chunk in resp.iter_content(chunk_size=256 * 1024):
-        buffer.extend(chunk)
-        while b"\n" in buffer:
-            line, _, buffer = buffer.partition(b"\n")
+    if 0 < content_length <= small_batch_threshold:
+        # Small batch: fetch everything at once
+        resp = requests.post(
+            f"{auth_data['dash_app_url']}/stream-by-key", json=data, stream=False
+        )
+        for line in resp.content.decode("utf-8").splitlines():
             if not line.strip():
                 continue
-            batch = json.loads(line.decode("utf-8"))
-            batch_data = batch["batch_data"]
-            index_map = batch["index_map"]
-
-            for index_key, loc in index_map.items():
-                (
-                    sim_iter,
-                    start_iso,
-                    end_iso,
-                    tr_key,
-                    full_name,
-                    att,
-                    chunk_num,
-                    input_full_name,
-                    input_att,
-                ) = json.loads(index_key)
-
-                # skip chunked blocks > 0
-                if chunk_num > 0:
-                    continue
-
-                tr_start = datetime.datetime.fromisoformat(start_iso)
-                tr_end = datetime.datetime.fromisoformat(end_iso)
-                run_key = (sim_iter, (tr_start, tr_end), tr_key, full_name, att)
-                offset, length = loc["offset"], loc["length"]
-                block_bytes = batch_data[offset : offset + length]  # noqa: E203
-
-                if run_key != current_key:
-                    if current_key is not None:
-                        yield current_key, data_dict
-                    current_key = run_key
-                    data_dict = {}
-
-                data_dict[(input_full_name, input_att)] = block_bytes
-
-    # yield remaining data if any
-    if data_dict:
-        yield current_key, data_dict
+            batch = json.loads(line)
+            yield from _process_batch(batch)
+    else:
+        # Large batch: stream line by line
+        resp = requests.post(
+            f"{auth_data['dash_app_url']}/stream-by-key", json=data, stream=True
+        )
+        for line in resp.iter_lines(decode_unicode=True):
+            if not line.strip():
+                continue
+            batch = json.loads(line)
+            yield from _process_batch(batch)
 
 
 def key_to_filename(run_key, chunk_num):
