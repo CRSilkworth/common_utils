@@ -15,7 +15,7 @@ MAX_CACHE_BYTES = 2 * 1024**3
 def stream_subgraph_by_key(
     auth_data, ref_dict, sim_iter_nums, time_ranges_keys, start_key=None
 ):
-    """Try fetching all at once; fallback to streaming if something goes wrong."""
+    """Fetch using stream=False but parse as NDJSON lines."""
     data = {
         "auth_data": auth_data,
         "ref_dict": ref_dict,
@@ -27,14 +27,17 @@ def stream_subgraph_by_key(
     url = f"{auth_data['dash_app_url']}/stream-by-key"
 
     try:
-        # Try fetching all at once
         resp = requests.post(url, json=data, stream=False)
         resp.raise_for_status()
-        batch = json.loads(resp.content)
-        yield from _process_batch(batch)
+        # Treat response as lines (even though stream=False)
+        for line in resp.content.decode("utf-8").splitlines():
+            if not line.strip():
+                continue
+            batch = json.loads(line)
+            yield from _process_batch(batch)
     except Exception as e:
-        print(f"FAILED!!! FALLBACK TO STREAMMING {e}")
-        # Fallback to streaming if full fetch fails
+        print(f"FAILED!!! FALLBACK TO STREAMING {e}")
+        # fallback to proper streaming
         resp = requests.post(url, json=data, stream=True)
         resp.raise_for_status()
         for line in resp.iter_lines(decode_unicode=True):
