@@ -15,7 +15,7 @@ MAX_CACHE_BYTES = 2 * 1024**3
 def stream_subgraph_by_key(
     auth_data, ref_dict, sim_iter_nums, time_ranges_keys, start_key=None
 ):
-    """Fetch using stream=False but parse as NDJSON lines."""
+    """Try fetching all at once; fallback to streaming if something goes wrong."""
     data = {
         "auth_data": auth_data,
         "ref_dict": ref_dict,
@@ -24,25 +24,18 @@ def stream_subgraph_by_key(
         "start_key": start_key,
     }
 
-    try:
-        resp = requests.post(
-            f"{auth_data['dash_app_url']}/all-at-once",
-            json=data,
-            headers={"Accept-Encoding": "gzip"},
-        )
-        if resp.status_code == 413:
-            print("Response too large — falling back to streaming mode.")
-            raise ValueError("too_large")
+    url = f"{auth_data['dash_app_url']}/stream-by-key"
 
+    try:
+        # Try fetching all at once
+        resp = requests.post(url, json=data, stream=False)
         resp.raise_for_status()
-        payload = resp.json()
-        yield from _process_batch(payload)
+        batch = json.loads(resp.content)
+        yield from _process_batch(batch)
     except Exception as e:
-        print(f"FAILED!!! FALLBACK TO STREAMING {e}")
-        # fallback to proper streaming
-        resp = requests.post(
-            f"{auth_data['dash_app_url']}/stream-by-key", json=data, stream=True
-        )
+        print("FAILED!!! FALLBACK TO STREAMMING {e}")
+        # Fallback to streaming if full fetch fails
+        resp = requests.post(url, json=data, stream=True)
         resp.raise_for_status()
         for line in resp.iter_lines(decode_unicode=True):
             if not line.strip():
