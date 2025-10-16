@@ -24,10 +24,8 @@ def stream_subgraph_by_key(
         "start_key": start_key,
     }
 
-    url = f"{auth_data['dash_app_url']}/stream-by-key"
-
     try:
-        resp = requests.post(url, json=data, stream=False)
+        resp = requests.post(f"{auth_data['dash_app_url']}/all-at-once", json=data)
         resp.raise_for_status()
         # Treat response as lines (even though stream=False)
         for line in resp.content.decode("utf-8").splitlines():
@@ -38,7 +36,9 @@ def stream_subgraph_by_key(
     except Exception as e:
         print(f"FAILED!!! FALLBACK TO STREAMING {e}")
         # fallback to proper streaming
-        resp = requests.post(url, json=data, stream=True)
+        resp = requests.post(
+            f"{auth_data['dash_app_url']}/stream-by-key", json=data, stream=True
+        )
         resp.raise_for_status()
         for line in resp.iter_lines(decode_unicode=True):
             if not line.strip():
