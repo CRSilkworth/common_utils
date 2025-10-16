@@ -49,7 +49,7 @@ def stream_subgraph_by_key(
 
 def _process_batch(batch):
     """Turn a single batch dict into run_key -> data_dict items."""
-    batch_data = batch["batch_data"]
+    batch_data = bytes.fromhex(batch["batch_data"])
     index_map = batch["index_map"]
 
     data_dict = {}
@@ -366,7 +366,7 @@ class BatchDownloader:
                 except json.JSONDecodeError:
                     print(f"Bad line: {line!r}")
                     continue
-                batch_data = batch["batch_data"]
+                batch_data = bytes.fromhex(batch["batch_data"])
                 for key, loc in batch["index_map"].items():
                     offset, length = loc["offset"], loc["length"]
                     (
