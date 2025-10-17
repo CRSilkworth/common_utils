@@ -26,21 +26,14 @@ def stream_subgraph_by_key(
 
     url = f"{auth_data['dash_app_url']}/stream-by-key"
 
-    try:
-        # Try fetching all at once
-        resp = requests.post(url, json=data, stream=False)
-        resp.raise_for_status()
-        batch = json.loads(resp.content)
+    # Fallback to streaming if full fetch fails
+    resp = requests.post(url, json=data, stream=True)
+    resp.raise_for_status()
+    for line in resp.iter_lines(decode_unicode=True):
+        if not line.strip():
+            continue
+        batch = json.loads(line.strip())
         yield from _process_batch(batch)
-    except Exception:
-        # Fallback to streaming if full fetch fails
-        resp = requests.post(url, json=data, stream=True)
-        resp.raise_for_status()
-        for line in resp.iter_lines(decode_unicode=True):
-            if not line.strip():
-                continue
-            batch = json.loads(line.strip())
-            yield from _process_batch(batch)
 
 
 def _process_batch(batch):
