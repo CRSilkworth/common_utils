@@ -310,8 +310,6 @@ def get_run_key_iterator(
 
 
 def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
-    # value_file_ref_groups = []
-    # index_to_doc_id_att = []
     ref_dict = {}
     for doc_to_run in docs_to_run:
         full_name = doc_id_to_full_name[doc_to_run]
@@ -330,8 +328,6 @@ def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
                 "inputs": [],
             }
 
-            # value_file_ref_groups.append([])
-            # index_to_doc_id_att.append((doc_to_run, att))
             for _, input_doc_id in attribute.var_name_to_id.items():
                 input_full_name = doc_id_to_full_name[input_doc_id]
                 input_doc = doc_objs[input_full_name]
@@ -348,7 +344,6 @@ def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
                             "value_file_ref": input_attribute.value_file_ref,
                         }
                     )
-                    # value_file_ref_groups[-1].append(input_attribute.value_file_ref)
 
     return ref_dict
 
