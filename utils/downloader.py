@@ -167,6 +167,7 @@ def prefetch_subgraph(
                 input_full_name,
                 input_att,
             )
+            print("saving", input_key)
             if _get_cache_size() + len(block_bytes) > max_cache_bytes:
                 return run_key
             save_bytes_to_disk(input_key, 0, block_bytes, max_cache_bytes)
