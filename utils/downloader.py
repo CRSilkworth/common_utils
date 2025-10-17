@@ -86,17 +86,9 @@ def _process_batch(batch):
         yield current_key, data_dict
 
 
-def fetch_overriden_data(
-    auth_data, ref_dict, sim_iter_nums, time_ranges_keys, start_key=None
-):
+def fetch_overriden_data(auth_data):
     """Try fetching all at once; fallback to streaming if something goes wrong."""
-    data = {
-        "auth_data": auth_data,
-        "ref_dict": ref_dict,
-        "time_ranges_keys": list(time_ranges_keys) if time_ranges_keys else None,
-        "sim_iter_nums": list(sim_iter_nums) if sim_iter_nums else None,
-        "start_key": start_key,
-    }
+    data = {"auth_data": auth_data}
 
     url = f"{auth_data['dash_app_url']}/fetch-overriden-data"
 
