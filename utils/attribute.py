@@ -249,6 +249,7 @@ class RunnableAttribute(Attribute):
             value_file_ref=self.value_file_ref,
             preview=preview,
             _schema=_schema,
+            overriden=overriden,
             old_value_file_ref=self.old_value_file_ref,
         )
         output = {
