@@ -7,6 +7,7 @@ from itertools import groupby
 import datetime
 import hashlib
 import os
+import logging
 
 CACHE_DIR = "/tmp/cache"
 MAX_CACHE_BYTES = 2 * 1024**3
@@ -25,7 +26,7 @@ def stream_subgraph_by_key(
     }
 
     url = f"{auth_data['dash_app_url']}/stream-by-key"
-
+    logging.warning(f"{sim_iter_nums}, {time_ranges_keys}")
     # Fallback to streaming if full fetch fails
     resp = requests.post(url, json=data, stream=True)
     resp.raise_for_status()
