@@ -173,7 +173,6 @@ def prefetch_subgraph(
     os.makedirs(CACHE_DIR, exist_ok=True)
 
     for input_key, block_bytes in fetch_overriden_data(auth_data):
-        print("saving", input_key)
         save_bytes_to_disk(input_key, 0, block_bytes, max_cache_bytes)
 
     for run_key, data_dict in stream_subgraph_by_key(
@@ -265,6 +264,7 @@ def cached_stream_subgraph_by_key(
                     input_att,
                 )
                 path = key_to_filename(input_key, 0)
+                print(input_key, os.path.exists(path))
                 if os.path.exists(path):
                     data_dict[input_key] = load_bytes_from_disk(path)
                 elif input_key in data_dict:
