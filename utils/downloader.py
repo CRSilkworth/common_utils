@@ -205,22 +205,35 @@ def cached_stream_subgraph_by_key(
     ref_dict,
     sim_iter_nums,
     time_ranges_keys,
-    start_key: Optional[Tuple] = None,
     max_cache_bytes=MAX_CACHE_BYTES,
 ):
     """
-    Iterate through cached batches first; if not found, pull from the server and cache.
-    Automatically enforces cache size after each write.
+    Stream results in run_key_iterator order with partial caching support.
+
+    - Loads any cached inputs for a run_key.
+    - If some inputs are missing, lazily consumes stream_subgraph_by_key
+      until the run_key is reached.
+    - Fills missing parts from streamed data and caches them.
+    - Yields the complete combined data_dict.
+    - If neither cached nor streamed data exist, yields {}.
     """
-    # seen_keys = set()
+
+    stream_iter = stream_subgraph_by_key(
+        auth_data, ref_dict, sim_iter_nums, time_ranges_keys
+    )
+    try:
+        current_stream_key, current_stream_data = next(stream_iter)
+    except StopIteration:
+        current_stream_key, current_stream_data = None, None
 
     for run_key in run_key_iterator:
         sim_iter, (tr_start, tr_end), tr_key, full_name, att = run_key
         start_iso = tr_start.isoformat()
         end_iso = tr_end.isoformat()
-        if run_key == start_key:
-            break
-        data_dict = {}
+
+        # 1️⃣ Load any cached data for this run_key
+        cached_data = {}
+        missing_inputs = []
         for input_dict in ref_dict[full_name][att]["inputs"]:
             input_full_name = input_dict["full_name"]
             input_att = input_dict["attribute_name"]
@@ -234,43 +247,63 @@ def cached_stream_subgraph_by_key(
             )
             path = key_to_filename(input_key, 0)
             if os.path.exists(path):
-                data_dict[(input_full_name, input_att)] = load_bytes_from_disk(path)
-        yield run_key, data_dict
+                cached_data[input_key] = load_bytes_from_disk(path)
+            else:
+                missing_inputs.append(input_key)
 
-    if start_key:
-        start_key = (
-            start_key[0],
-            start_key[1][0].isoformat(),
-            start_key[1][1].isoformat(),
-            start_key[2],
-            start_key[3],
-            start_key[4],
-        )
-        for run_key, data_dict in stream_subgraph_by_key(
-            auth_data, ref_dict, sim_iter_nums, time_ranges_keys, start_key=start_key
-        ):
-            sim_iter, (tr_start, tr_end), tr_key, full_name, att = run_key
-            start_iso = tr_start.isoformat()
-            end_iso = tr_end.isoformat()
-            for input_dict in ref_dict[full_name][att]["inputs"]:
-                input_full_name = input_dict["full_name"]
-                input_att = input_dict["attribute_name"]
-                input_key = (
-                    sim_iter,
-                    start_iso,
-                    end_iso,
-                    tr_key,
-                    input_full_name,
-                    input_att,
-                )
-                path = key_to_filename(input_key, 0)
-                if os.path.exists(path):
-                    data_dict[input_key] = load_bytes_from_disk(path)
-                elif input_key in data_dict:
+        # 2️⃣ If all inputs are cached, yield and continue
+        if not missing_inputs:
+            yield run_key, cached_data
+            continue
+
+        # 3️⃣ Otherwise, advance the stream until we reach this run_key
+        streamed_data = {}
+        while current_stream_key is not None:
+            if current_stream_key == run_key:
+                # collect all chunks for this key
+                streamed_data.update(current_stream_data)
+                try:
+                    while True:
+                        next_key, next_data = next(stream_iter)
+                        if next_key == run_key:
+                            streamed_data.update(next_data)
+                        else:
+                            current_stream_key, current_stream_data = (
+                                next_key,
+                                next_data,
+                            )
+                            break
+                except StopIteration:
+                    current_stream_key, current_stream_data = None, None
+                break
+
+            elif current_stream_key < run_key:
+                try:
+                    current_stream_key, current_stream_data = next(stream_iter)
+                except StopIteration:
+                    current_stream_key, current_stream_data = None, None
+                    break
+            else:
+                # stream already passed this run_key
+                break
+
+        # 4️⃣ Merge streamed data (if any) with cached
+        if streamed_data:
+            merged_data = dict(cached_data)
+            merged_data.update(streamed_data)
+
+            # Cache missing parts that were just streamed
+            for input_key in missing_inputs:
+                if input_key in streamed_data:
                     save_bytes_to_disk(
-                        input_key, 0, data_dict[input_key], max_cache_bytes
+                        input_key, 0, streamed_data[input_key], max_cache_bytes
                     )
-            yield run_key, data_dict
+
+            yield run_key, merged_data
+
+        else:
+            # no streamed data — yield whatever cached part we had
+            yield run_key, cached_data or {}
 
 
 class BatchDownloader:

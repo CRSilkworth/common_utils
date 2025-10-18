@@ -62,9 +62,9 @@ def run_sims(
     if sim_iter_nums is not None:
         sim_iter_nums_to_run = sim_iter_nums_to_run & set(sim_iter_nums)
 
-    start_key = prefetch_subgraph(
-        auth_data, ref_dict, sim_iter_nums_to_run, time_ranges_keys_to_run
-    )
+    # start_key = prefetch_subgraph(
+    #     auth_data, ref_dict, sim_iter_nums_to_run, time_ranges_keys_to_run
+    # )
     full_space = get_full_space(calc_graph_doc, doc_objs, docs_to_run)
 
     run_key_iterator = get_run_key_iterator(
@@ -78,9 +78,9 @@ def run_sims(
         auth_data=auth_data,
         run_key_iterator=run_key_iterator,
         ref_dict=ref_dict,
-        time_ranges_keys=time_ranges_keys_to_run,
         sim_iter_nums=sim_iter_nums_to_run,
-        start_key=start_key,
+        time_ranges_keys=time_ranges_keys_to_run,
+        # start_key=start_key,
     )
 
     for run_key, data_dict in data_iterator:
