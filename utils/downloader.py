@@ -94,16 +94,17 @@ def fetch_overriden_data(auth_data):
 
     resp = requests.post(url, json=data, stream=False)
     resp.raise_for_status()
-    batch = json.loads(resp.content)
-    batch_data = bytes.fromhex(batch["batch_data"])
-    index_map = batch["index_map"]
+    if resp.content:
+        batch = json.loads(resp.content)
+        batch_data = bytes.fromhex(batch["batch_data"])
+        index_map = batch["index_map"]
 
-    for block_key, loc in index_map.items():
+        for block_key, loc in index_map.items():
 
-        offset, length = loc["offset"], loc["length"]
-        block_bytes = batch_data[offset : offset + length]  # noqa: E203
-        block_key = json.loads(block_key)
-        yield tuple(block_key[:-1]), block_key[-1], block_bytes
+            offset, length = loc["offset"], loc["length"]
+            block_bytes = batch_data[offset : offset + length]  # noqa: E203
+            block_key = json.loads(block_key)
+            yield tuple(block_key[:-1]), block_key[-1], block_bytes
 
 
 def key_to_filename(run_key, chunk_num):
@@ -173,7 +174,6 @@ def prefetch_subgraph(
     os.makedirs(CACHE_DIR, exist_ok=True)
 
     for input_key, chunk_num, block_bytes in fetch_overriden_data(auth_data):
-        print("saving", input_key)
         save_bytes_to_disk(input_key, chunk_num, block_bytes, max_cache_bytes)
 
     for run_key, data_dict in stream_subgraph_by_key(
@@ -192,7 +192,6 @@ def prefetch_subgraph(
                 input_full_name,
                 input_att,
             )
-            print("saving", input_key)
             if _get_cache_size() + len(block_bytes) > max_cache_bytes:
                 return run_key
             save_bytes_to_disk(input_key, 0, block_bytes, max_cache_bytes)
@@ -234,7 +233,6 @@ def cached_stream_subgraph_by_key(
                 input_att,
             )
             path = key_to_filename(input_key, 0)
-            print(input_key, os.path.exists(path))
             if os.path.exists(path):
                 data_dict[(input_full_name, input_att)] = load_bytes_from_disk(path)
         yield run_key, data_dict
@@ -266,7 +264,6 @@ def cached_stream_subgraph_by_key(
                     input_att,
                 )
                 path = key_to_filename(input_key, 0)
-                print(input_key, os.path.exists(path))
                 if os.path.exists(path):
                     data_dict[input_key] = load_bytes_from_disk(path)
                 elif input_key in data_dict:
