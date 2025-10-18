@@ -171,8 +171,8 @@ def prefetch_subgraph(
     Pull as much as possible from the server up to max_cache_bytes.
     Stops once the total cache size exceeds that limit.
     """
-
     os.makedirs(CACHE_DIR, exist_ok=True)
+
     for input_key, chunk_num, block_bytes in fetch_overriden_data(auth_data):
         save_bytes_to_disk(input_key, chunk_num, block_bytes, max_cache_bytes)
 
@@ -209,33 +209,18 @@ def cached_stream_subgraph_by_key(
     max_cache_bytes=MAX_CACHE_BYTES,
 ):
     """
-    Stream results in run_key_iterator order with caching.
-
-    - Loads cached data for each run_key if available.
-    - If some or all data missing, consumes stream_subgraph_by_key lazily.
-    - Caches any streamed data using save_bytes_to_disk().
-    - Yields merged (cached + streamed) data_dict.
-    - If neither cached nor streamed data exist, yields {}.
+    Iterate through cached batches first; if not found, pull from the server and cache.
+    Automatically enforces cache size after each write.
     """
-
-    os.makedirs(CACHE_DIR, exist_ok=True)
-    stream_iter = stream_subgraph_by_key(
-        auth_data, ref_dict, sim_iter_nums, time_ranges_keys, start_key=start_key
-    )
-
-    try:
-        current_stream_key, current_stream_data = next(stream_iter)
-    except StopIteration:
-        current_stream_key, current_stream_data = None, None
+    # seen_keys = set()
 
     for run_key in run_key_iterator:
         sim_iter, (tr_start, tr_end), tr_key, full_name, att = run_key
         start_iso = tr_start.isoformat()
         end_iso = tr_end.isoformat()
-
-        # 1️⃣ Load cached data
-        cached_data = {}
-        missing_inputs = []
+        if run_key == start_key:
+            break
+        data_dict = {}
         for input_dict in ref_dict[full_name][att]["inputs"]:
             input_full_name = input_dict["full_name"]
             input_att = input_dict["attribute_name"]
@@ -249,52 +234,44 @@ def cached_stream_subgraph_by_key(
             )
             path = key_to_filename(input_key, 0)
             if os.path.exists(path):
-                cached_data[input_key] = load_bytes_from_disk(path)
-            else:
-                missing_inputs.append(input_key)
+                data_dict[(input_full_name, input_att)] = load_bytes_from_disk(path)
+        yield run_key, data_dict
 
-        # 2️⃣ If all inputs cached → yield immediately
-        if not missing_inputs:
-            yield run_key, cached_data
-            continue
-
-        # 3️⃣ If not cached, advance the stream lazily
-        streamed_data = None
-        while current_stream_key is not None:
-            if current_stream_key == run_key:
-                streamed_data = current_stream_data
-                try:
-                    current_stream_key, current_stream_data = next(stream_iter)
-                except StopIteration:
-                    current_stream_key, current_stream_data = None, None
-                break
-
-            elif current_stream_key < run_key:
-                # skip older streamed keys
-                try:
-                    current_stream_key, current_stream_data = next(stream_iter)
-                except StopIteration:
-                    current_stream_key, current_stream_data = None, None
-                    break
-            else:
-                # stream already past this run_key
-                break
-
-        # 4️⃣ Merge and cache streamed data if available
-        if streamed_data:
-            merged_data = dict(cached_data)
-            for input_key, block_bytes in streamed_data.items():
-                merged_data[input_key] = block_bytes
-                # Cache new data
+    if start_key:
+        start_key = (
+            start_key[0],
+            start_key[1][0].isoformat(),
+            start_key[1][1].isoformat(),
+            start_key[2],
+            start_key[3],
+            start_key[4],
+        )
+        for run_key, data_dict in stream_subgraph_by_key(
+            auth_data, ref_dict, sim_iter_nums, time_ranges_keys, start_key=start_key
+        ):
+            sim_iter, (tr_start, tr_end), tr_key, full_name, att = run_key
+            start_iso = tr_start.isoformat()
+            end_iso = tr_end.isoformat()
+            for input_dict in ref_dict[full_name][att]["inputs"]:
+                input_full_name = input_dict["full_name"]
+                input_att = input_dict["attribute_name"]
+                input_key = (
+                    sim_iter,
+                    start_iso,
+                    end_iso,
+                    tr_key,
+                    input_full_name,
+                    input_att,
+                )
                 path = key_to_filename(input_key, 0)
-                if not os.path.exists(path):
-                    save_bytes_to_disk(input_key, 0, block_bytes, max_cache_bytes)
-
-            yield run_key, merged_data
-
-        else:
-            # 5️⃣ No streamed data either — yield whatever we have
-            yield run_key, cached_data or {}
+                print(input_key, os.path.exists(path))
+                if os.path.exists(path):
+                    data_dict[input_key] = load_bytes_from_disk(path)
+                elif input_key in data_dict:
+                    save_bytes_to_disk(
+                        input_key, 0, data_dict[input_key], max_cache_bytes
+                    )
+            yield run_key, data_dict
 
 
 class BatchDownloader:
@@ -305,7 +282,6 @@ class BatchDownloader:
         doc_id: Text,
         full_name: Text,
         attribute_name: Text,
-        old_value_file_ref: Optional[Text] = None,
         sim_iter_nums: Optional[Text] = None,
         time_ranges_keys: Optional[Text] = None,
         time_range_start: Optional[datetime.datetime] = None,
@@ -316,7 +292,6 @@ class BatchDownloader:
     ):
         self.auth_data = auth_data
         self.value_file_ref = value_file_ref
-        self.old_value_file_ref = old_value_file_ref
         self.chunked = chunked
         self.doc_id = doc_id
         self.full_name = full_name
@@ -336,7 +311,6 @@ class BatchDownloader:
             "doc_id": self.doc_id,
             "attribute_name": self.attribute_name,
             "value_file_ref": self.value_file_ref,
-            "old_value_file_ref": self.old_value_file_ref,
             "sim_iter_nums": self.sim_iter_nums,
             "time_ranges_keys": self.time_ranges_keys,
             "time_range_start": (

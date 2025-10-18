@@ -62,9 +62,9 @@ def run_sims(
     if sim_iter_nums is not None:
         sim_iter_nums_to_run = sim_iter_nums_to_run & set(sim_iter_nums)
 
-    # start_key = prefetch_subgraph(
-    #     auth_data, ref_dict, sim_iter_nums_to_run, time_ranges_keys_to_run
-    # )
+    start_key = prefetch_subgraph(
+        auth_data, ref_dict, sim_iter_nums_to_run, time_ranges_keys_to_run
+    )
     full_space = get_full_space(calc_graph_doc, doc_objs, docs_to_run)
 
     run_key_iterator = get_run_key_iterator(
@@ -78,9 +78,9 @@ def run_sims(
         auth_data=auth_data,
         run_key_iterator=run_key_iterator,
         ref_dict=ref_dict,
-        sim_iter_nums=sim_iter_nums_to_run,
         time_ranges_keys=time_ranges_keys_to_run,
-        # start_key=start_key,
+        sim_iter_nums=sim_iter_nums_to_run,
+        start_key=start_key,
     )
 
     for run_key, data_dict in data_iterator:
@@ -325,7 +325,6 @@ def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
                 "attribute_name": att,
                 "doc_id": doc_to_run,
                 "value_file_ref": attribute.value_file_ref,
-                "old_value_file_ref": attribute.old_value_file_ref,
                 "inputs": [],
             }
 
@@ -343,7 +342,6 @@ def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
                             "full_name": input_doc.full_name,
                             "attribute_name": input_att,
                             "value_file_ref": input_attribute.value_file_ref,
-                            "old_value_file_ref": input_attribute.old_value_file_ref,
                         }
                     )
 
