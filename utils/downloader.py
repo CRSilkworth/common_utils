@@ -98,12 +98,12 @@ def fetch_overriden_data(auth_data):
     batch_data = bytes.fromhex(batch["batch_data"])
     index_map = batch["index_map"]
 
-    for input_key, loc in index_map.items():
+    for block_key, loc in index_map.items():
 
         offset, length = loc["offset"], loc["length"]
         block_bytes = batch_data[offset : offset + length]  # noqa: E203
-
-        yield json.loads(input_key), block_bytes
+        block_key = json.loads(block_key)
+        yield tuple(block_key[:-1]), block_key[-1], block_bytes
 
 
 def key_to_filename(run_key, chunk_num):
@@ -172,8 +172,9 @@ def prefetch_subgraph(
     """
     os.makedirs(CACHE_DIR, exist_ok=True)
 
-    for input_key, block_bytes in fetch_overriden_data(auth_data):
-        save_bytes_to_disk(input_key, 0, block_bytes, max_cache_bytes)
+    for input_key, chunk_num, block_bytes in fetch_overriden_data(auth_data):
+        print("saving", input_key)
+        save_bytes_to_disk(input_key, chunk_num, block_bytes, max_cache_bytes)
 
     for run_key, data_dict in stream_subgraph_by_key(
         auth_data, ref_dict, sim_iter_nums, time_ranges_keys
