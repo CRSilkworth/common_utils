@@ -281,6 +281,7 @@ class BatchDownloader:
         doc_id: Text,
         full_name: Text,
         attribute_name: Text,
+        old_value_file_ref: Optional[Text] = None,
         sim_iter_nums: Optional[Text] = None,
         time_ranges_keys: Optional[Text] = None,
         time_range_start: Optional[datetime.datetime] = None,
@@ -291,6 +292,7 @@ class BatchDownloader:
     ):
         self.auth_data = auth_data
         self.value_file_ref = value_file_ref
+        self.old_value_file_ref = old_value_file_ref
         self.chunked = chunked
         self.doc_id = doc_id
         self.full_name = full_name
@@ -310,6 +312,7 @@ class BatchDownloader:
             "doc_id": self.doc_id,
             "attribute_name": self.attribute_name,
             "value_file_ref": self.value_file_ref,
+            "old_value_file_ref": self.old_value_file_ref,
             "sim_iter_nums": self.sim_iter_nums,
             "time_ranges_keys": self.time_ranges_keys,
             "time_range_start": (

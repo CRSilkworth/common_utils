@@ -325,6 +325,7 @@ def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
                 "attribute_name": att,
                 "doc_id": doc_to_run,
                 "value_file_ref": attribute.value_file_ref,
+                "old_value_file_ref": attribute.old_value_file_ref,
                 "inputs": [],
             }
 
@@ -342,6 +343,7 @@ def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
                             "full_name": input_doc.full_name,
                             "attribute_name": input_att,
                             "value_file_ref": input_attribute.value_file_ref,
+                            "old_value_file_ref": input_attribute.old_value_file_ref,
                         }
                     )
 
