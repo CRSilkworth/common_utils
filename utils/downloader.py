@@ -171,8 +171,8 @@ def prefetch_subgraph(
     Pull as much as possible from the server up to max_cache_bytes.
     Stops once the total cache size exceeds that limit.
     """
-    os.makedirs(CACHE_DIR, exist_ok=True)
 
+    os.makedirs(CACHE_DIR, exist_ok=True)
     for input_key, chunk_num, block_bytes in fetch_overriden_data(auth_data):
         save_bytes_to_disk(input_key, chunk_num, block_bytes, max_cache_bytes)
 
@@ -205,22 +205,24 @@ def cached_stream_subgraph_by_key(
     ref_dict,
     sim_iter_nums,
     time_ranges_keys,
+    start_key: Optional[Tuple] = None,
     max_cache_bytes=MAX_CACHE_BYTES,
 ):
     """
-    Stream results in run_key_iterator order with partial caching support.
+    Stream results in run_key_iterator order with caching.
 
-    - Loads any cached inputs for a run_key.
-    - If some inputs are missing, lazily consumes stream_subgraph_by_key
-      until the run_key is reached.
-    - Fills missing parts from streamed data and caches them.
-    - Yields the complete combined data_dict.
+    - Loads cached data for each run_key if available.
+    - If some or all data missing, consumes stream_subgraph_by_key lazily.
+    - Caches any streamed data using save_bytes_to_disk().
+    - Yields merged (cached + streamed) data_dict.
     - If neither cached nor streamed data exist, yields {}.
     """
 
+    os.makedirs(CACHE_DIR, exist_ok=True)
     stream_iter = stream_subgraph_by_key(
-        auth_data, ref_dict, sim_iter_nums, time_ranges_keys
+        auth_data, ref_dict, sim_iter_nums, time_ranges_keys, start_key=start_key
     )
+
     try:
         current_stream_key, current_stream_data = next(stream_iter)
     except StopIteration:
@@ -231,7 +233,7 @@ def cached_stream_subgraph_by_key(
         start_iso = tr_start.isoformat()
         end_iso = tr_end.isoformat()
 
-        # 1️⃣ Load any cached data for this run_key
+        # 1️⃣ Load cached data
         cached_data = {}
         missing_inputs = []
         for input_dict in ref_dict[full_name][att]["inputs"]:
@@ -251,58 +253,47 @@ def cached_stream_subgraph_by_key(
             else:
                 missing_inputs.append(input_key)
 
-        # 2️⃣ If all inputs are cached, yield and continue
+        # 2️⃣ If all inputs cached → yield immediately
         if not missing_inputs:
             yield run_key, cached_data
             continue
 
-        # 3️⃣ Otherwise, advance the stream until we reach this run_key
-        streamed_data = {}
+        # 3️⃣ If not cached, advance the stream lazily
+        streamed_data = None
         while current_stream_key is not None:
             if current_stream_key == run_key:
-                # collect all chunks for this key
-                streamed_data.update(current_stream_data)
+                streamed_data = current_stream_data
                 try:
-                    while True:
-                        next_key, next_data = next(stream_iter)
-                        if next_key == run_key:
-                            streamed_data.update(next_data)
-                        else:
-                            current_stream_key, current_stream_data = (
-                                next_key,
-                                next_data,
-                            )
-                            break
+                    current_stream_key, current_stream_data = next(stream_iter)
                 except StopIteration:
                     current_stream_key, current_stream_data = None, None
                 break
 
             elif current_stream_key < run_key:
+                # skip older streamed keys
                 try:
                     current_stream_key, current_stream_data = next(stream_iter)
                 except StopIteration:
                     current_stream_key, current_stream_data = None, None
                     break
             else:
-                # stream already passed this run_key
+                # stream already past this run_key
                 break
 
-        # 4️⃣ Merge streamed data (if any) with cached
+        # 4️⃣ Merge and cache streamed data if available
         if streamed_data:
             merged_data = dict(cached_data)
-            merged_data.update(streamed_data)
-
-            # Cache missing parts that were just streamed
-            for input_key in missing_inputs:
-                if input_key in streamed_data:
-                    save_bytes_to_disk(
-                        input_key, 0, streamed_data[input_key], max_cache_bytes
-                    )
+            for input_key, block_bytes in streamed_data.items():
+                merged_data[input_key] = block_bytes
+                # Cache new data
+                path = key_to_filename(input_key, 0)
+                if not os.path.exists(path):
+                    save_bytes_to_disk(input_key, 0, block_bytes, max_cache_bytes)
 
             yield run_key, merged_data
 
         else:
-            # no streamed data — yield whatever cached part we had
+            # 5️⃣ No streamed data either — yield whatever we have
             yield run_key, cached_data or {}
 
 
