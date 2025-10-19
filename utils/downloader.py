@@ -235,6 +235,7 @@ def cached_stream_subgraph_by_key(
             )
             path = key_to_filename(input_key, 0)
             if os.path.exists(path):
+                print("exists", input_key)
                 data_dict[(input_full_name, input_att)] = load_bytes_from_disk(path)
         yield run_key, data_dict
 
@@ -265,7 +266,6 @@ def cached_stream_subgraph_by_key(
                     input_att,
                 )
                 path = key_to_filename(input_key, 0)
-                print(input_key, os.path.exists(path))
                 if os.path.exists(path):
                     data_dict[input_key] = load_bytes_from_disk(path)
                 elif input_key in data_dict:
