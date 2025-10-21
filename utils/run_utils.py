@@ -335,6 +335,7 @@ def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
             attribute = doc.attributes[att]
             if not attribute.runnable or attribute.no_function_body:
                 continue
+            print(doc.full_name, att)
             ref_dict[full_name][att] = {
                 "full_name": full_name,
                 "attribute_name": att,
