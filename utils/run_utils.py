@@ -285,7 +285,6 @@ def get_full_space(calc_graph_doc, doc_objs, docs_to_run):
                 time_range = to_micro(time_range[0]), to_micro(time_range[1])
                 full_space.append((sim_iter_num, time_range, time_ranges_key))
     full_space.sort()
-    print(full_space)
     for doc_obj in doc_objs.values():
         for _, attribute in doc_obj.attributes.items():
             attribute._set_full_space(full_space)
