@@ -311,13 +311,28 @@ def get_run_key_iterator(
 
 def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
     ref_dict = {}
+    att_run_order = {
+        k: i
+        for i, k in enumerate(["sims", "all_time_ranges", "basic", "model", "plot"])
+    }
     for doc_to_run in docs_to_run:
         full_name = doc_id_to_full_name[doc_to_run]
         doc = doc_objs[full_name]
         ref_dict[full_name] = {}
-        for att, attribute in doc.attributes.items():
-            if not (attributes_to_run is None or att in attributes_to_run):
+
+        doc_att_order = sorted(
+            doc.attributes.keys(),
+            key=lambda k: att_run_order.get(k, len(att_run_order)),
+        )
+        for att in doc_att_order:
+            if not (
+                attributes_to_run is None
+                or att in attributes_to_run
+                or att not in doc.attributes
+            ):
                 continue
+
+            attribute = doc.attributes[att]
             if not attribute.runnable or attribute.no_function_body:
                 continue
             ref_dict[full_name][att] = {
