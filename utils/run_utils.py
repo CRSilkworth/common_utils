@@ -284,7 +284,8 @@ def get_full_space(calc_graph_doc, doc_objs, docs_to_run):
             for time_range in time_ranges:
                 time_range = to_micro(time_range[0]), to_micro(time_range[1])
                 full_space.append((sim_iter_num, time_range, time_ranges_key))
-
+    full_space.sort()
+    print(full_space)
     for doc_obj in doc_objs.values():
         for _, attribute in doc_obj.attributes.items():
             attribute._set_full_space(full_space)
@@ -335,7 +336,6 @@ def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
             attribute = doc.attributes[att]
             if not attribute.runnable or attribute.no_function_body:
                 continue
-            print(doc.full_name, att)
             ref_dict[full_name][att] = {
                 "full_name": full_name,
                 "attribute_name": att,
