@@ -197,7 +197,6 @@ class RunnableAttribute(Attribute):
         self._add_output(output)
 
     def _deserialize(self, iterator: Iterable):
-        logging.warning("deserialize")
         if self.chunked:
             for key, _value in iterator:
 
@@ -214,15 +213,11 @@ class RunnableAttribute(Attribute):
 
                 yield key, value_chunk_gen(), {}
         else:
-            logging.warning("not chunked")
             for key, _value in iterator:
-                logging.warning((key, _value))
                 path = key_to_filename(key, 0)
                 if os.path.exists(path):
-                    logging.warning("path exists")
                     _value = load_bytes_from_disk(path)
                 value, output, _ = attempt_deserialize(_value, self.value_type)
-                logging.warning((key, value, output))
                 yield key, value, output
 
     def _upload_chunk(
@@ -359,19 +354,7 @@ class RunnableAttribute(Attribute):
                 value: The value at that context key.
         """
         time_range = time_range if time_range else (None, None)
-        logging.warning(
-            dict(
-                doc_id=self.doc_id,
-                full_name=self.doc_full_name,
-                attribute_name=self.name,
-                sim_iter_nums=sim_iter_nums,
-                value_file_ref=self.value_file_ref,
-                time_ranges_keys=time_ranges_keys,
-                chunked=self.chunked,
-                use_cache=use_cache,
-                full_space=self.full_space,
-            )
-        )
+
         downloader = BatchDownloader(
             auth_data=self.auth_data,
             doc_id=self.doc_id,
