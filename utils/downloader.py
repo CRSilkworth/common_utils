@@ -201,7 +201,7 @@ def prefetch_subgraph(
 
 def cached_stream_subgraph_by_key(
     auth_data,
-    run_key_iterator,
+    full_space,
     ref_dict,
     sim_iter_nums,
     time_ranges_keys,
@@ -212,7 +212,12 @@ def cached_stream_subgraph_by_key(
     Iterate through cached batches first; if not found, pull from the server and cache.
     Automatically enforces cache size after each write.
     """
-    # seen_keys = set()
+    run_key_iterator = get_run_key_iterator(
+        full_space=full_space,
+        ref_dict=ref_dict,
+        time_ranges_keys=time_ranges_keys,
+        sim_iter_nums=sim_iter_nums,
+    )
 
     for run_key in run_key_iterator:
         sim_iter, (tr_start, tr_end), tr_key, full_name, att = run_key
@@ -271,6 +276,24 @@ def cached_stream_subgraph_by_key(
                         input_key, 0, data_dict[input_key], max_cache_bytes
                     )
             yield run_key, data_dict
+
+
+def get_run_key_iterator(
+    full_space: List[Tuple],
+    sim_iter_nums: List[str] = None,
+    time_ranges_keys: List[str] = None,
+    ref_dict: Optional[Dict[Text, Dict[Text, Dict[Text, Any]]]] = None,
+):
+
+    for sim_iter_num, time_range, time_ranges_key in full_space:
+        if sim_iter_nums and sim_iter_num not in sim_iter_nums:
+            continue
+        if time_ranges_keys and time_ranges_key not in time_ranges_keys:
+            continue
+        for full_name in ref_dict:
+            for att in ref_dict[full_name]:
+
+                yield sim_iter_num, time_range, time_ranges_key, full_name, att
 
 
 class BatchDownloader:

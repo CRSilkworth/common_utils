@@ -1,4 +1,4 @@
-from typing import Text, Dict, Any, Optional, List, Tuple
+from typing import Text, Dict, Any, Optional, List
 from utils.misc_utils import failed_output
 from utils.function_utils import run_with_expected_type, run_with_generator
 from utils.downloader import prefetch_subgraph, cached_stream_subgraph_by_key
@@ -67,16 +67,9 @@ def run_sims(
     )
     full_space = get_full_space(calc_graph_doc, doc_objs, docs_to_run)
 
-    run_key_iterator = get_run_key_iterator(
-        full_space=full_space,
-        ref_dict=ref_dict,
-        time_ranges_keys=time_ranges_keys_to_run,
-        sim_iter_nums=sim_iter_nums_to_run,
-    )
-
     data_iterator = cached_stream_subgraph_by_key(
         auth_data=auth_data,
-        run_key_iterator=run_key_iterator,
+        full_space=full_space,
         ref_dict=ref_dict,
         time_ranges_keys=time_ranges_keys_to_run,
         sim_iter_nums=sim_iter_nums_to_run,
@@ -289,24 +282,6 @@ def get_full_space(calc_graph_doc, doc_objs, docs_to_run):
         for _, attribute in doc_obj.attributes.items():
             attribute._set_full_space(full_space)
     return full_space
-
-
-def get_run_key_iterator(
-    full_space: List[Tuple],
-    sim_iter_nums: List[str] = None,
-    time_ranges_keys: List[str] = None,
-    ref_dict: Optional[Dict[Text, Dict[Text, Dict[Text, Any]]]] = None,
-):
-
-    for sim_iter_num, time_range, time_ranges_key in full_space:
-        if sim_iter_nums and sim_iter_num not in sim_iter_nums:
-            continue
-        if time_ranges_keys and time_ranges_key not in time_ranges_keys:
-            continue
-        for full_name in ref_dict:
-            for att in ref_dict[full_name]:
-
-                yield sim_iter_num, time_range, time_ranges_key, full_name, att
 
 
 def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
