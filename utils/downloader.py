@@ -455,6 +455,7 @@ class BatchDownloader:
             found_cached = False
             while True:
                 path = key_to_filename(_run_key, chunk_num)
+                print("exists", _run_key, os.path.exists(path))
                 if not os.path.exists(path):
                     break
                 found_cached = True
