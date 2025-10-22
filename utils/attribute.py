@@ -11,7 +11,6 @@ import requests
 import os
 import datetime
 import inspect
-import logging
 from utils.downloader import (
     save_bytes_to_disk,
     key_to_filename,

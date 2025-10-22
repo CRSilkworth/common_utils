@@ -7,7 +7,6 @@ from itertools import groupby
 import datetime
 import hashlib
 import os
-import logging
 
 CACHE_DIR = "/tmp/cache"
 MAX_CACHE_BYTES = 2 * 1024**3
@@ -26,7 +25,6 @@ def stream_subgraph_by_key(
     }
 
     url = f"{auth_data['dash_app_url']}/stream-by-key"
-    logging.warning(f"{sim_iter_nums}, {time_ranges_keys}")
     # Fallback to streaming if full fetch fails
     resp = requests.post(url, json=data, stream=True)
     resp.raise_for_status()
@@ -339,12 +337,10 @@ class BatchDownloader:
         resp = requests.post(
             f"{self.auth_data['dash_app_url']}/stream-batches", json=data, stream=True
         )
-        logging.warning(("sending", data))
         for chunk in resp.iter_content(chunk_size=None):
             for line in chunk.splitlines():
                 if not line.strip():
                     continue
-                logging.warning(("line", line))
                 try:
                     batch = json.loads(line.decode("utf-8"))
                 except json.JSONDecodeError:
@@ -352,7 +348,6 @@ class BatchDownloader:
                     continue
                 batch_data = binascii.unhexlify(batch["batch_data"])
                 for key, loc in batch["index_map"].items():
-                    logging.warning(("key, loc", key))
                     offset, length = loc["offset"], loc["length"]
                     (
                         sim_iter_num,
@@ -487,7 +482,6 @@ class BatchDownloader:
         if self.use_cache:
             flat = self.merged_iterator()
         else:
-            logging.warning("flat")
             flat = self.flat_iterator()
         for (sim_id, tr, coll, fn, att), group in groupby(
             flat, key=itemgetter(0, 1, 2, 3, 4)
@@ -502,5 +496,4 @@ class BatchDownloader:
             else:
                 # If not chunked there is only one element in the group
                 _, _, _, _, _, _, data = next(group)
-                logging.warning(("yielding", (sim_id, tr, coll, fn, att), data))
                 yield (sim_id, tr, coll, fn, att), data
