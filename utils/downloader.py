@@ -7,6 +7,7 @@ from itertools import groupby
 import datetime
 import hashlib
 import os
+import logging
 
 CACHE_DIR = "/tmp/cache"
 MAX_CACHE_BYTES = 2 * 1024**3
@@ -344,7 +345,10 @@ class BatchDownloader:
                 try:
                     batch = json.loads(line.decode("utf-8"))
                 except json.JSONDecodeError:
-                    print(f"Bad line: {line!r}")
+                    logging.warning(
+                        f"bad line: {line.decode('utf-8')}. "
+                        f"This was the data for the post: {data}"
+                    )
                     continue
                 batch_data = binascii.unhexlify(batch["batch_data"])
                 for key, loc in batch["index_map"].items():
