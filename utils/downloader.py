@@ -206,6 +206,10 @@ def cached_stream_subgraph_by_key(
     Iterate through cached batches first; if not found, pull from the server and cache.
     Automatically enforces cache size after each write.
     """
+    print("full_space", full_space)
+    print("ref_dict", ref_dict)
+    print("sim_iter_nums", sim_iter_nums)
+    print("time_range_keys", time_ranges_keys)
     run_key_iterator = get_run_key_iterator(
         full_space=full_space,
         ref_dict=ref_dict,
