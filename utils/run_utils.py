@@ -248,6 +248,8 @@ def get_all_time_ranges(
 
 def get_sims(calc_graph_doc, is_calc_graph_run) -> List[Dict[Text, Any]]:
     sims = {"0": {}}
+    logging.info(("is_calc_graph_run", is_calc_graph_run))
+    logging.info(("calc_graph", calc_graph_doc.id))
     if not is_calc_graph_run:
         try:
             _, sims = next(
@@ -257,7 +259,9 @@ def get_sims(calc_graph_doc, is_calc_graph_run) -> List[Dict[Text, Any]]:
                     use_cache=False,
                 )
             )
-        except StopIteration:
+            logging.info(("try", _, sims))
+        except StopIteration as e:
+            logging.info(("except", e))
             sims = [{}]
 
     if not sims:
