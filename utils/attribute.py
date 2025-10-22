@@ -11,6 +11,7 @@ import requests
 import os
 import datetime
 import inspect
+import logging
 from utils.downloader import (
     save_bytes_to_disk,
     key_to_filename,
@@ -353,7 +354,19 @@ class RunnableAttribute(Attribute):
                 value: The value at that context key.
         """
         time_range = time_range if time_range else (None, None)
-
+        logging.warning(
+            dict(
+                doc_id=self.doc_id,
+                full_name=self.doc_full_name,
+                attribute_name=self.name,
+                sim_iter_nums=sim_iter_nums,
+                value_file_ref=self.value_file_ref,
+                time_ranges_keys=time_ranges_keys,
+                chunked=self.chunked,
+                use_cache=use_cache,
+                full_space=self.full_space,
+            )
+        )
         downloader = BatchDownloader(
             auth_data=self.auth_data,
             doc_id=self.doc_id,
