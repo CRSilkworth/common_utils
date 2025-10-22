@@ -197,6 +197,7 @@ class RunnableAttribute(Attribute):
         self._add_output(output)
 
     def _deserialize(self, iterator: Iterable):
+        logging.warning("deserialize")
         if self.chunked:
             for key, _value in iterator:
 
@@ -213,11 +214,15 @@ class RunnableAttribute(Attribute):
 
                 yield key, value_chunk_gen(), {}
         else:
+            logging.warning("not chunked")
             for key, _value in iterator:
+                logging.warning((key, _value))
                 path = key_to_filename(key, 0)
                 if os.path.exists(path):
+                    logging.warning("path exists")
                     _value = load_bytes_from_disk(path)
                 value, output, _ = attempt_deserialize(_value, self.value_type)
+                logging.warning((key, value, output))
                 yield key, value, output
 
     def _upload_chunk(
