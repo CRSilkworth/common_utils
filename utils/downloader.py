@@ -80,6 +80,27 @@ def _process_batch(batch):
         yield current_key, data_dict
 
 
+def fetch_overriden_data(auth_data):
+    """Try fetching all at once; fallback to streaming if something goes wrong."""
+    data = {"auth_data": auth_data}
+
+    url = f"{auth_data['dash_app_url']}/fetch-overriden-data"
+
+    resp = requests.post(url, json=data, stream=False)
+    resp.raise_for_status()
+    if resp.content:
+        batch = json.loads(resp.content)
+        batch_data = bytes.fromhex(batch["batch_data"])
+        index_map = batch["index_map"]
+
+        for block_key, loc in index_map.items():
+
+            offset, length = loc["offset"], loc["length"]
+            block_bytes = batch_data[offset : offset + length]  # noqa: E203
+            block_key = json.loads(block_key)
+            yield tuple(block_key[:-1]), block_key[-1], block_bytes
+
+
 def key_to_filename(run_key, chunk_num):
     key = tuple(list(run_key) + [chunk_num])
     key_hash = hashlib.md5(json.dumps(key, default=str).encode()).hexdigest()
@@ -145,6 +166,10 @@ def prefetch_subgraph(
     Stops once the total cache size exceeds that limit.
     """
     os.makedirs(CACHE_DIR, exist_ok=True)
+
+    for input_key, chunk_num, block_bytes in fetch_overriden_data(auth_data):
+        save_bytes_to_disk(input_key, chunk_num, block_bytes, max_cache_bytes)
+
     for run_key, data_dict in stream_subgraph_by_key(
         auth_data, ref_dict, sim_iter_nums, time_ranges_keys
     ):
@@ -234,7 +259,7 @@ def cached_stream_subgraph_by_key(
                 )
                 path = key_to_filename(input_key, 0)
                 if os.path.exists(path):
-                    data_dict[input_key] = load_bytes_from_disk(path)
+                    data_dict[(input_full_name, input_att)] = load_bytes_from_disk(path)
                 elif input_key in data_dict:
                     save_bytes_to_disk(
                         input_key, 0, data_dict[input_key], max_cache_bytes

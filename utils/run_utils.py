@@ -284,7 +284,7 @@ def get_full_space(calc_graph_doc, doc_objs, docs_to_run):
             for time_range in time_ranges:
                 time_range = to_micro(time_range[0]), to_micro(time_range[1])
                 full_space.append((sim_iter_num, time_range, time_ranges_key))
-
+    full_space.sort()
     for doc_obj in doc_objs.values():
         for _, attribute in doc_obj.attributes.items():
             attribute._set_full_space(full_space)
@@ -310,16 +310,29 @@ def get_run_key_iterator(
 
 
 def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
-    # value_file_ref_groups = []
-    # index_to_doc_id_att = []
     ref_dict = {}
+    att_run_order = {
+        k: i
+        for i, k in enumerate(["sims", "all_time_ranges", "basic", "model", "plot"])
+    }
     for doc_to_run in docs_to_run:
         full_name = doc_id_to_full_name[doc_to_run]
         doc = doc_objs[full_name]
         ref_dict[full_name] = {}
-        for att, attribute in doc.attributes.items():
-            if not (attributes_to_run is None or att in attributes_to_run):
+
+        doc_att_order = sorted(
+            doc.attributes.keys(),
+            key=lambda k: att_run_order.get(k, len(att_run_order)),
+        )
+        for att in doc_att_order:
+            if not (
+                attributes_to_run is None
+                or att in attributes_to_run
+                or att not in doc.attributes
+            ):
                 continue
+
+            attribute = doc.attributes[att]
             if not attribute.runnable or attribute.no_function_body:
                 continue
             ref_dict[full_name][att] = {
@@ -330,8 +343,6 @@ def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
                 "inputs": [],
             }
 
-            # value_file_ref_groups.append([])
-            # index_to_doc_id_att.append((doc_to_run, att))
             for _, input_doc_id in attribute.var_name_to_id.items():
                 input_full_name = doc_id_to_full_name[input_doc_id]
                 input_doc = doc_objs[input_full_name]
@@ -348,7 +359,6 @@ def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
                             "value_file_ref": input_attribute.value_file_ref,
                         }
                     )
-                    # value_file_ref_groups[-1].append(input_attribute.value_file_ref)
 
     return ref_dict
 
