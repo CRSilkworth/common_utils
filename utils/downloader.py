@@ -338,44 +338,48 @@ class BatchDownloader:
         resp = requests.post(
             f"{self.auth_data['dash_app_url']}/stream-batches", json=data, stream=True
         )
+        buffer = b""
         for chunk in resp.iter_content(chunk_size=None):
-            for line in chunk.splitlines():
+            if not chunk:
+                continue
+            buffer += chunk
+            while b"\n" in buffer:
+                line, buffer = buffer.split(b"\n", 1)
                 if not line.strip():
                     continue
                 try:
                     batch = json.loads(line.decode("utf-8"))
-                except json.JSONDecodeError:
-                    logging.warning(
-                        f"bad line: {line.decode('utf-8')}. "
-                        f"This was the data for the post: {data}"
-                    )
-                    continue
-                batch_data = binascii.unhexlify(batch["batch_data"])
-                for key, loc in batch["index_map"].items():
-                    offset, length = loc["offset"], loc["length"]
-                    (
-                        sim_iter_num,
-                        time_range_start,
-                        time_range_end,
-                        time_ranges_key,
-                        full_name,
-                        att,
-                        chunk_num,
-                    ) = json.loads(key)
-                    chunk = batch_data[offset : offset + length]  # noqa: E203
-                    _value_chunk = chunk.decode("utf-8")
-                    yield (
-                        sim_iter_num,
-                        (
-                            datetime.datetime.fromisoformat(time_range_start),
-                            datetime.datetime.fromisoformat(time_range_end),
-                        ),
-                        time_ranges_key,
-                        full_name,
-                        att,
-                        chunk_num,
-                        _value_chunk,
-                    )
+                    yield from self._process_batch(batch)
+                except json.JSONDecodeError as e:
+                    logging.warning(f"Failed to parse JSON line: {line!r} ({e})")
+
+    def _process_batch(self, batch):
+        batch_data = binascii.unhexlify(batch["batch_data"])
+        for key, loc in batch["index_map"].items():
+            offset, length = loc["offset"], loc["length"]
+            (
+                sim_iter_num,
+                time_range_start,
+                time_range_end,
+                time_ranges_key,
+                full_name,
+                att,
+                chunk_num,
+            ) = json.loads(key)
+            chunk = batch_data[offset : offset + length]  # noqa: E203
+            _value_chunk = chunk.decode("utf-8")
+            yield (
+                sim_iter_num,
+                (
+                    datetime.datetime.fromisoformat(time_range_start),
+                    datetime.datetime.fromisoformat(time_range_end),
+                ),
+                time_ranges_key,
+                full_name,
+                att,
+                chunk_num,
+                _value_chunk,
+            )
 
     def cache_iterator(self):
         for sim_iter_num, time_range, time_ranges_key in self.full_space:
