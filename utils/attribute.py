@@ -279,7 +279,7 @@ class RunnableAttribute(Attribute):
             _run_key=_run_key,
             chunk_num=chunk_num,
             _value_chunk=_value_chunk,
-            value_file_ref=self.new_value_file_ref,
+            new_value_file_ref=self.new_value_file_ref,
             preview=preview,
             _schema=_schema,
             overriden=overriden,

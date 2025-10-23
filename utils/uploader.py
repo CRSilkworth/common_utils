@@ -24,7 +24,7 @@ class BatchUploader:
         _run_key: Tuple[Text],
         chunk_num: int,
         _value_chunk: Text,
-        value_file_ref: Text,
+        new_value_file_ref: Text,
         preview: Text = "",
         _schema: Text = "",
         overriden: bool = False,
@@ -40,7 +40,7 @@ class BatchUploader:
         self.index_map[key] = {
             "offset": offset,
             "length": length,
-            "value_file_ref": value_file_ref,
+            "new_value_file_ref": new_value_file_ref,
             "preview": preview,
             "_schema": _schema,
             "overriden": overriden,
