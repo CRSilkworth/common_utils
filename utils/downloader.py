@@ -293,10 +293,12 @@ class BatchDownloader:
     def __init__(
         self,
         auth_data: Dict[Text, Text],
-        value_file_ref: Text,
         doc_id: Text,
         full_name: Text,
         attribute_name: Text,
+        _cur_run_key: Optional[Tuple] = None,
+        new_value_file_ref: Optional[Text] = None,
+        old_value_file_ref: Optional[Text] = None,
         sim_iter_nums: Optional[Text] = None,
         time_ranges_keys: Optional[Text] = None,
         time_range_start: Optional[datetime.datetime] = None,
@@ -306,7 +308,8 @@ class BatchDownloader:
         use_cache: bool = True,
     ):
         self.auth_data = auth_data
-        self.value_file_ref = value_file_ref
+        self.new_value_file_ref = new_value_file_ref
+        self.old_value_file_ref = old_value_file_ref
         self.chunked = chunked
         self.doc_id = doc_id
         self.full_name = full_name
@@ -316,6 +319,7 @@ class BatchDownloader:
         self.time_range_start = time_range_start
         self.time_range_end = time_range_end
         self.use_cache = use_cache
+        self._run_key = _cur_run_key
         if use_cache and full_space is None:
             raise ValueError("Must provide full space when use_cache=True")
         self.full_space = full_space
@@ -325,7 +329,9 @@ class BatchDownloader:
             "auth_data": self.auth_data,
             "doc_id": self.doc_id,
             "attribute_name": self.attribute_name,
-            "value_file_ref": self.value_file_ref,
+            "_run_key": self._run_key,
+            "new_value_file_ref": self.new_value_file_ref,
+            "old_value_file_ref": self.old_value_file_ref,
             "sim_iter_nums": self.sim_iter_nums,
             "time_ranges_keys": self.time_ranges_keys,
             "time_range_start": (

@@ -42,12 +42,45 @@ class Attribute:
         self.cleanup = None
         self.runnable = False
         self.full_space = None
+        self.run_key = None
+        self._run_key = None
 
     def _set_context(self, **kwargs):
         self.sim_iter_num = kwargs.get("sim_iter_num", None)
         self.time_ranges_key = kwargs.get("time_ranges_key", None)
         self.time_range = kwargs.get("time_range", None)
         self.context_key = (self.sim_iter_num, self.time_ranges_key, self.time_range)
+
+        if not self.sim_iter_num or not self.time_ranges_key or not self.time_range:
+            self.run_key = None
+            self._run_key = None
+            return
+
+        self.run_key = (
+            self.sim_iter_num,
+            self.time_range,
+            self.time_ranges_key,
+            self.doc_full_name,
+            self.name,
+        )
+        _time_range_start = (
+            self.time_range[0].isoformat()
+            if self.time_range and self.time_range[0]
+            else None
+        )
+        _time_range_end = (
+            self.time_range[1].isoformat()
+            if self.time_range and self.time_range[1]
+            else None
+        )
+        self._run_key = (
+            self.sim_iter_num,
+            _time_range_start,
+            _time_range_end,
+            self.time_ranges_key,
+            self.doc_full_name,
+            self.name,
+        )
 
     @property
     def val(self) -> Any:
@@ -142,15 +175,15 @@ class RunnableAttribute(Attribute):
         doc_id: Text,
         doc_full_name: Text,
         value_type: Any,
-        value_file_ref: Text,
         var_name_to_id: Dict[Text, Text],
         sim_iter_nums: List[Text],
         time_ranges_keys: List[Text],
         function_name: Text,
         function_header: Text,
         function_string: Text,
-        chunked: bool = False,
+        new_value_file_ref: Optional[Text] = None,
         old_value_file_ref: Optional[Text] = None,
+        chunked: bool = False,
         no_function_body: bool = False,
         overrides: Optional[List[Tuple]] = None,
         global_vars: Dict[Text, Any] = None,
@@ -164,7 +197,7 @@ class RunnableAttribute(Attribute):
             value_type=value_type,
         )
         self.auth_data = auth_data
-        self.value_file_ref = value_file_ref
+        self.new_value_file_ref = new_value_file_ref
         self._val = None
         self.chunked = chunked
         self.sim_iter_num = None
@@ -246,7 +279,7 @@ class RunnableAttribute(Attribute):
             _run_key=_run_key,
             chunk_num=chunk_num,
             _value_chunk=_value_chunk,
-            value_file_ref=self.value_file_ref,
+            value_file_ref=self.new_value_file_ref,
             preview=preview,
             _schema=_schema,
             overriden=overriden,
@@ -281,10 +314,22 @@ class RunnableAttribute(Attribute):
                 time_range: The time range at which that value was computed.
                 value: The value at that time range.
         """
-        sim_iter_num = sim_iter_num or self.sim_iter_num
-        time_ranges_key = time_ranges_key or self.time_ranges_key
-        time_range = time_range or (datetime.datetime.min, datetime.datetime.max)
 
+        sim_iter_num = sim_iter_num or self.sim_iter_num
+        if sim_iter_num not in self.sim_iter_nums:
+            raise ValueError(
+                f"sim_iter_num {sim_iter_num} not in {self.doc_full_name}-{self.name}"
+                f" list of sim_iter_nums: {self.sim_iter_nums}"
+            )
+        time_ranges_key = time_ranges_key or self.time_ranges_key
+        if time_ranges_key not in self.time_ranges_keys:
+            raise ValueError(
+                f"time_ranges_key {time_ranges_key} not in "
+                f"{self.doc_full_name}-{self.name} list of time_ranges_keys:"
+                f" {self.time_ranges_keys}"
+            )
+
+        time_range = time_range or (datetime.datetime.min, datetime.datetime.max)
         # Only take data that has been 'completed' already
         if time_range[1] > self.time_range[0]:
             time_range = (time_range[0], self.time_range[0])
@@ -316,6 +361,12 @@ class RunnableAttribute(Attribute):
                 value: The value for that simulation number.
         """
         time_ranges_key = time_ranges_key or self.time_ranges_key
+        if time_ranges_key not in self.time_ranges_keys:
+            raise ValueError(
+                f"time_ranges_key {time_ranges_key} not in "
+                f"{self.doc_full_name}-{self.name} list of time_ranges_keys:"
+                f" {self.time_ranges_keys}"
+            )
 
         # NOTE: No restriction on taking multiple time ranges
         time_range = time_range or self.time_range
@@ -354,13 +405,18 @@ class RunnableAttribute(Attribute):
         """
         time_range = time_range if time_range else (None, None)
 
+        sim_iter_nums = sorted(set(self.sim_iter_nums) & set(sim_iter_nums))
+        time_ranges_keys = sorted(set(self.time_ranges_keys) & set(time_ranges_keys))
+
         downloader = BatchDownloader(
             auth_data=self.auth_data,
             doc_id=self.doc_id,
             full_name=self.doc_full_name,
             attribute_name=self.name,
+            _cur_run_key=self._run_key,
             sim_iter_nums=sim_iter_nums,
-            value_file_ref=self.value_file_ref,
+            new_value_file_ref=self.new_value_file_ref,
+            old_value_file_ref=self.old_value_file_ref,
             time_ranges_keys=time_ranges_keys,
             time_range_start=time_range[0],
             time_range_end=time_range[1],

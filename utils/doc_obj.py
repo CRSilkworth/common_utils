@@ -38,22 +38,20 @@ class DocObj(dict):
                 runnable = att_dict.get("runnable", False)
 
             if runnable:
-                value_file_ref = att_dict.get("new_value_file_ref")
-                if not value_file_ref:
-                    value_file_ref = att_dict.get("value_file_ref")
+
                 self.attributes[att] = RunnableAttribute(
                     name=att,
                     auth_data=auth_data,
                     doc_id=self.doc_id,
                     doc_full_name=full_name,
                     value_type=value_type,
-                    value_file_ref=value_file_ref,
+                    new_value_file_ref=att_dict.get("new_value_file_ref"),
+                    old_value_file_ref=att_dict.get("old_value_file_ref"),
                     chunked=att_dict["chunked"],
                     var_name_to_id=att_dict.get("var_name_to_id"),
                     function_name=att_dict.get("function_name"),
                     function_header=att_dict.get("function_header"),
                     function_string=att_dict.get("function_string"),
-                    old_value_file_ref=att_dict.get("value_file_ref"),
                     no_function_body=att_dict.get("empty", False),
                     sim_iter_nums=att_dict["sim_iter_nums"],
                     time_ranges_keys=att_dict["time_ranges_keys"],

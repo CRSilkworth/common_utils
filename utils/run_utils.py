@@ -286,25 +286,21 @@ def get_full_space(calc_graph_doc, doc_objs, docs_to_run):
 
 def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
     ref_dict = {}
-    att_run_order = {
-        k: i
-        for i, k in enumerate(["sims", "all_time_ranges", "basic", "model", "plot"])
-    }
+    # att_run_order = {
+    #     k: i
+    #     for i, k in enumerate(["sims", "all_time_ranges", "basic", "model", "plot"])
+    # }
     for doc_to_run in docs_to_run:
         full_name = doc_id_to_full_name[doc_to_run]
         doc = doc_objs[full_name]
         ref_dict[full_name] = {}
 
-        doc_att_order = sorted(
-            doc.attributes.keys(),
-            key=lambda k: att_run_order.get(k, len(att_run_order)),
-        )
-        for att in doc_att_order:
-            if not (
-                attributes_to_run is None
-                or att in attributes_to_run
-                or att not in doc.attributes
-            ):
+        # doc_att_order = sorted(
+        #     doc.attributes.keys(),
+        #     key=lambda k: att_run_order.get(k, len(att_run_order)),
+        # )
+        for att, attribute in doc.attributes.items():
+            if not (attributes_to_run is None or att in attributes_to_run):
                 continue
 
             attribute = doc.attributes[att]
@@ -314,7 +310,8 @@ def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
                 "full_name": full_name,
                 "attribute_name": att,
                 "doc_id": doc_to_run,
-                "value_file_ref": attribute.value_file_ref,
+                "new_value_file_ref": attribute.new_value_file_ref,
+                "old_value_file_ref": attribute.old_value_file_ref,
                 "inputs": [],
             }
 
@@ -324,14 +321,15 @@ def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
                 for input_att, input_attribute in input_doc.attributes.items():
                     if not input_attribute.runnable:
                         continue
-                    if not input_attribute.value_file_ref:
-                        continue
+                    # if not input_attribute.value_file_ref:
+                    #     continue
                     ref_dict[doc.full_name][att]["inputs"].append(
                         {
                             "doc_id": input_doc_id,
                             "full_name": input_doc.full_name,
                             "attribute_name": input_att,
-                            "value_file_ref": input_attribute.value_file_ref,
+                            "new_value_file_ref": input_attribute.new_value_file_ref,
+                            "old_value_file_ref": input_attribute.old_value_file_ref,
                         }
                     )
 
