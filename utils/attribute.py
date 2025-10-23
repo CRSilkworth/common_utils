@@ -139,7 +139,7 @@ class Attribute:
         output["combined_output"] = "\n".join(output["combined_output"])
         output["stderr_output"] = "\n".join(output["stderr_output"])
         output["stdout_output"] = "\n".join(output["stdout_output"])
-        output["new_value_file_ref"] = getattr(self, "value_file_ref", None)
+        output["new_value_file_ref"] = getattr(self, "new_value_file_ref", None)
         return output
 
     def _clear_output(self):
