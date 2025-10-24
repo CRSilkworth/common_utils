@@ -421,7 +421,7 @@ class BatchDownloader:
         from the flat iterator (which must be ordered the same way).
         Saves streamed chunks to cache as it goes.
         """
-        flat_iter = self.flat_iterator()
+        flat_iter = None
         next_flat = None
         for key in self.full_space:
             sim_iter_num, time_range, time_ranges_key = key
@@ -475,6 +475,8 @@ class BatchDownloader:
 
             if next_flat is None:
                 try:
+                    if flat_iter is None:
+                        flat_iter = self.flat_iterator()
                     next_flat = next(flat_iter)
                 except StopIteration:
                     next_flat = None
