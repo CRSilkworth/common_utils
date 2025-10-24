@@ -38,7 +38,7 @@ def stream_subgraph_by_key(
 
 def _process_batch(batch):
     """Turn a single batch dict into run_key -> data_dict items."""
-    batch_data = bytes.fromhex(batch["batch_data"])
+    batch_data = base64.b64decode(batch["batch_data"])
     index_map = batch["index_map"]
 
     data_dict = {}
@@ -89,7 +89,7 @@ def fetch_overriden_data(auth_data):
     resp.raise_for_status()
     if resp.content:
         batch = json.loads(resp.content)
-        batch_data = bytes.fromhex(batch["batch_data"])
+        batch_data = base64.b64decode(batch["batch_data"])
         index_map = batch["index_map"]
 
         for block_key, loc in index_map.items():
@@ -469,7 +469,9 @@ class BatchDownloader:
                 chunk_num += 1
 
             if found_cached:
+                print(_run_key, "using")
                 continue
+            print(_run_key, "not using")
 
             if next_flat is None:
                 try:
