@@ -1,13 +1,13 @@
 from typing import Dict, Text, Optional, Tuple, List, Any
 import requests
 import json
-import binascii
 from operator import itemgetter
 from itertools import groupby
 import datetime
 import hashlib
 import os
 import logging
+import base64
 
 CACHE_DIR = "/tmp/cache"
 MAX_CACHE_BYTES = 2 * 1024**3
@@ -360,7 +360,7 @@ class BatchDownloader:
                     logging.warning(f"Failed to parse JSON line: {line!r} ({e})")
 
     def _process_batch(self, batch):
-        batch_data = binascii.unhexlify(batch["batch_data"])
+        batch_data = base64.b64decode(batch["batch_data"])
         for key, loc in batch["index_map"].items():
             offset, length = loc["offset"], loc["length"]
             (
