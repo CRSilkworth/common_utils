@@ -469,9 +469,7 @@ class BatchDownloader:
                 chunk_num += 1
 
             if found_cached:
-                print(_run_key, "using")
                 continue
-            print(_run_key, "not using")
 
             if next_flat is None:
                 try:
