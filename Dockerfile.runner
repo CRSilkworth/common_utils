@@ -1,0 +1,31 @@
+# Use the official Python image from the Docker Hub
+FROM python:3.14-slim
+
+
+# Create a non-root user
+RUN useradd -m appuser
+
+# Set the working directory in the container
+WORKDIR /home/appuser/app
+
+# Install Poetry
+RUN pip install --no-cache-dir poetry
+
+# Copy only pyproject.toml / poetry.lock first (for caching)
+COPY pyproject.toml poetry.lock ./
+
+# Install dependencies (without copying code yet)
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-root --no-interaction --no-ansi
+
+# Copy your source code (for prod) OR mount it in dev
+COPY . .
+
+# Change ownership of the app directory
+RUN chown -R appuser:appuser /home/appuser/app
+
+# Switch to the non-root user
+USER appuser
+RUN python -m compileall .
+
+ENTRYPOINT ["python", "run_main.py"]
