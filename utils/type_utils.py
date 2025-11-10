@@ -33,6 +33,7 @@ from psycopg2.extensions import connection as Psycopg2Connection
 from google.cloud.bigquery import Client as BigQueryClient
 import pymongo
 import json
+import logging
 
 TextOrint = TypeVar("TextOrint", Text, int)
 
@@ -471,7 +472,7 @@ def deserialize_typehint(s: str, custom_types: dict = None) -> type:
     try:
         return eval(s, known_types)
     except Exception as e:
-        print(e)
+        logging.warning(e)
         raise ValueError(f"Cannot deserialize type hint from: {s}") from e
 
 

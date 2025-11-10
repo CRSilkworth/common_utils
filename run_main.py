@@ -6,6 +6,7 @@ import requests
 import traceback
 import logging
 from pathlib import Path
+
 # blob_url = os.environ.get("BLOB_URL")
 
 
@@ -26,7 +27,6 @@ def main():
     except Exception as e:
         logging.info(e.args[0])
         logging.info(traceback.format_exc())
-        print(traceback.format_exc())
         run_output = {
             "failed": True,
             "message": f"An unhandled exception has occured:\n{traceback.format_exc()}",

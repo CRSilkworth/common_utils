@@ -1,117 +1,290 @@
-from typing import Dict, Text, Optional, Tuple, List, Any
-import requests
+from typing import Dict, Text, Optional, Tuple, List, Any, Set
 import json
-from operator import itemgetter
-from itertools import groupby
-import datetime
 import hashlib
 import os
+from itertools import islice
+from google.cloud.firestore_v1 import FieldFilter, And
 import logging
-import base64
+from utils.datetime_utils import normalize_datetime
 
 CACHE_DIR = "/tmp/cache"
 MAX_CACHE_BYTES = 2 * 1024**3
 
 
-def stream_subgraph_by_key(
-    auth_data, ref_dict, sim_iter_nums, time_ranges_keys, start_key=None
-):
-    """Try fetching all at once; fallback to streaming if something goes wrong."""
-    data = {
-        "auth_data": auth_data,
-        "ref_dict": ref_dict,
-        "time_ranges_keys": list(time_ranges_keys) if time_ranges_keys else None,
-        "sim_iter_nums": list(sim_iter_nums) if sim_iter_nums else None,
-        "start_key": start_key,
-    }
-
-    url = f"{auth_data['dash_app_url']}/stream-by-key"
-    # Fallback to streaming if full fetch fails
-    resp = requests.post(url, json=data, stream=True)
-    resp.raise_for_status()
-    for line in resp.iter_lines(decode_unicode=True):
-        if not line.strip():
-            continue
-        batch = json.loads(line.strip())
-        yield from _process_batch(batch)
+def init_cache_size():
+    global _current_cache_size
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    _current_cache_size = sum(
+        os.path.getsize(os.path.join(CACHE_DIR, f))
+        for f in os.listdir(CACHE_DIR)
+        if f.endswith(".bin")
+    )
 
 
-def _process_batch(batch):
-    """Turn a single batch dict into run_key -> data_dict items."""
-    batch_data = base64.b64decode(batch["batch_data"])
-    index_map = batch["index_map"]
+init_cache_size()
 
+
+def pull_inputs_from_firestore(
+    fs_db,
+    auth_data: Dict[Text, Any],
+    key: Tuple[str, str, str, str],
+    doc_ids: List[str],
+) -> Dict[Tuple[str, str], bytes]:
+    """
+    Pull all Firestore value_file_blocks for a given sim/time range combination
+    across multiple docs and attributes, returning the latest versions.
+
+    Args:
+        fs_db: Firestore client.
+        auth_data:
+        sim_iter_num: Simulation iteration identifier.
+        time_ranges_key: The key identifying the time range group.
+        doc_ids: List of document IDs to fetch blocks for.
+        ref_dict: Reference metadata for determining which attributes belong to each doc.
+
+    Returns:
+        Dict mapping (input_full_name, attribute_name) -> bytes (_value_chunk).
+    """
+    user_id = auth_data.get("user_id")
+    calc_graph_id = auth_data.get("calc_graph_id")
     data_dict = {}
-    current_key = None
+    sim_iter_num, (time_range_start, time_range_end), time_ranges_key = key
 
-    for index_key, loc in index_map.items():
-        (
-            sim_iter,
-            start_iso,
-            end_iso,
-            tr_key,
-            full_name,
-            att,
-            chunk_num,
-            input_full_name,
-            input_att,
-        ) = json.loads(index_key)
+    for doc_batch in batched(doc_ids, 30):
+        query = (
+            fs_db.collection_group("value_file_block")
+            .where(filter=FieldFilter("user_id", "==", user_id))
+            .where(filter=FieldFilter("calc_graph_id", "==", calc_graph_id))
+            .where(filter=FieldFilter("doc_id", "in", doc_batch))
+            .where(filter=FieldFilter("sim_iter_num", "==", sim_iter_num))
+            .where(filter=FieldFilter("time_range_start", "==", time_range_start))
+            .where(filter=FieldFilter("time_range_end", "==", time_range_end))
+            .where(filter=FieldFilter("time_ranges_key", "==", time_ranges_key))
+        )
+        latest_versions = {}
+        for doc_snap in query.stream():
+            data = doc_snap.to_dict()
+            for k in ["time_range_start", "time_range_end", "version"]:
+                data[k] = normalize_datetime(data[k])
+            full_name = data.get("full_name")
+            version = normalize_datetime(data.get("version"))
+            att = data.get("attribute_name")
+            run_key = (
+                data.get("sim_iter_num"),
+                (data.get("time_range_start"), data.get("time_range_end")),
+                data.get("time_ranges_key"),
+                full_name,
+                att,
+            )
+            if (full_name, att) in latest_versions and version <= latest_versions[
+                (full_name, att)
+            ]:
+                continue
 
-        if chunk_num > 0:
-            continue  # skip chunked pieces
+            latest_versions[(full_name, att)] = version
+            data_dict[(full_name, att)] = data.get("_value_chunk")
+            save_to_disk(run_key, 0, data_dict[(full_name, att)], MAX_CACHE_BYTES)
 
-        tr_start = datetime.datetime.fromisoformat(start_iso)
-        tr_end = datetime.datetime.fromisoformat(end_iso)
-        run_key = (sim_iter, (tr_start, tr_end), tr_key, full_name, att)
-
-        offset, length = loc["offset"], loc["length"]
-        block_bytes = batch_data[offset : offset + length]  # noqa: E203
-
-        if run_key != current_key:
-            if current_key is not None:
-                yield current_key, data_dict
-            current_key = run_key
-            data_dict = {}
-
-        data_dict[(input_full_name, input_att)] = block_bytes
-
-    if data_dict:
-        yield current_key, data_dict
+    return data_dict
 
 
-def fetch_overriden_data(auth_data):
-    """Try fetching all at once; fallback to streaming if something goes wrong."""
-    data = {"auth_data": auth_data}
+def batched(iterable, size=30):
+    """Yield successive batches of length <= size."""
+    it = iter(iterable)
+    while True:
+        batch = list(islice(it, size))
+        if not batch:
+            break
+        yield batch
 
-    url = f"{auth_data['dash_app_url']}/fetch-overriden-data"
 
-    resp = requests.post(url, json=data, stream=False)
-    resp.raise_for_status()
-    if resp.content:
-        batch = json.loads(resp.content)
-        batch_data = base64.b64decode(batch["batch_data"])
-        index_map = batch["index_map"]
+def prefetch(
+    fs_db,
+    auth_data: Dict[Text, Any],
+    docs_to_run: List[str],
+    ref_dict: Dict[str, Dict[str, Dict[str, Any]]],
+    doc_id_to_full_name: Dict[str, str],
+    sim_iter_nums: Optional[List[str]] = None,
+    time_ranges_keys: Optional[List[str]] = None,
+) -> None:
+    """
+    Prefetch and locally cache latest Firestore value_file_blocks for all input nodes
+    of the given documents, filtered by sim_iter_nums and time_ranges_keys.
 
-        for block_key, loc in index_map.items():
+    This respects Firestore’s 30-value limit for each 'in' filter by batching over
+    doc_ids, attribute_names, sim_iter_nums, and time_ranges_keys.
 
-            offset, length = loc["offset"], loc["length"]
-            block_bytes = batch_data[offset : offset + length]  # noqa: E203
-            block_key = json.loads(block_key)
-            yield tuple(block_key[:-1]), block_key[-1], block_bytes
+    Args:
+        fs_db: Firestore client
+        user_id: Firestore user ID
+        calc_graph_id: Firestore calc graph ID
+        doc_to_runs: The doc_ids to prefetch inputs for
+        ref_dict: Reference dictionary describing dependencies
+        doc_id_to_full_name: Mapping of doc_id -> full_name
+        sim_iter_nums: Optional list of simulation iteration identifiers
+        time_ranges_keys: Optional list of time range keys
+    """
+    user_id = auth_data.get("user_id")
+    calc_graph_id = auth_data.get("calc_graph_id")
+
+    # ---- Collect all input document IDs and attributes ----
+    input_doc_ids: Set[str] = set()
+    input_atts: Set[str] = set()
+    inputs: Set[Tuple[str, str]] = set()
+
+    for doc_id in docs_to_run:
+        full_name = doc_id_to_full_name.get(doc_id)
+
+        for att, meta in ref_dict[full_name].items():
+            for input_info in meta.get("inputs", []):
+                input_doc_id = input_info.get("doc_id")
+                input_full_name = doc_id_to_full_name.get(input_doc_id)
+                input_att = input_info.get("attribute_name")
+                if input_doc_id and input_att:
+                    input_doc_ids.add(input_doc_id)
+                    input_atts.add(input_att)
+                    inputs.add((input_full_name, input_att))
+
+    input_doc_ids -= set(docs_to_run)
+    if not inputs:
+        return
+
+    latest_versions = {}
+    for doc_batch in batched(sorted(input_doc_ids), 30):
+        for sim_iter_num in sim_iter_nums:
+            for time_ranges_key in time_ranges_keys:
+
+                query = fs_db.collection_group("value_file_block").where(
+                    filter=And(
+                        filters=[
+                            FieldFilter("user_id", "==", user_id),
+                            FieldFilter("calc_graph_id", "==", calc_graph_id),
+                            FieldFilter("doc_id", "in", doc_batch),
+                            FieldFilter("sim_iter_num", "==", sim_iter_num),
+                            FieldFilter("time_ranges_key", "==", time_ranges_key),
+                        ]
+                    )
+                )
+
+                for doc_snap in query.stream():
+                    data = doc_snap.to_dict()
+                    for k in ["time_range_start", "time_range_end", "version"]:
+                        data[k] = normalize_datetime(data[k])
+                    input_full_name = data.get("full_name")
+                    input_att = data.get("attribute_name")
+
+                    _input_key = (
+                        data.get("sim_iter_num"),
+                        (data.get("time_range_start"), data.get("time_range_end")),
+                        data.get("time_ranges_key"),
+                        input_full_name,
+                        input_att,
+                    )
+
+                    if (input_full_name, input_att) not in inputs:
+                        continue
+                    if (
+                        _input_key in latest_versions
+                        and data.get("version") <= latest_versions[_input_key]
+                    ):
+                        continue
+                    latest_versions[_input_key] = data.get("version")
+
+                    if _get_cache_size() >= MAX_CACHE_BYTES:
+                        return
+
+                    # Cache locally (latest version first)
+                    save_to_disk(
+                        _input_key,
+                        0,
+                        data["_value_chunk"],
+                        MAX_CACHE_BYTES,
+                    )
+
+
+def cached_stream_subgraph_by_key(
+    fs_db,
+    auth_data: Dict[Text, Any],
+    full_space: List[Tuple],
+    docs_to_run: List[Text],
+    ref_dict: Dict[str, Dict[str, Dict[str, Any]]],
+    sim_iter_nums: Optional[List[str]] = None,
+    time_ranges_keys: Optional[List[str]] = None,
+    doc_id_to_full_name: Optional[Dict[Text, Text]] = None,
+):
+    """
+    Iterate through cached data first, then stream from Firestore and cache results.
+    """
+
+    run_key_iterator = get_run_key_iterator(
+        full_space=full_space,
+        docs_to_run=docs_to_run,
+        ref_dict=ref_dict,
+        time_ranges_keys=time_ranges_keys,
+        sim_iter_nums=sim_iter_nums,
+        doc_id_to_full_name=doc_id_to_full_name,
+    )
+
+    for run_key in run_key_iterator:
+        sim_iter, (tr_start, tr_end), tr_key, full_name, att = run_key
+        data_dict = {}
+        not_in_cache = set()
+        for input_dict in ref_dict[full_name][att]["inputs"]:
+            input_full_name = input_dict["full_name"]
+            input_att = input_dict["attribute_name"]
+            input_doc_id = input_dict["doc_id"]
+            _input_key = (
+                sim_iter,
+                (tr_start, tr_end),
+                tr_key,
+                input_full_name,
+                input_att,
+            )
+            path = key_to_filename(_input_key, 0)
+            if os.path.exists(path):
+                data_dict[(input_full_name, input_att)] = load_from_disk(path)
+            else:
+                not_in_cache.add(input_doc_id)
+
+        if not_in_cache:
+
+            data_dict.update(
+                pull_inputs_from_firestore(
+                    fs_db=fs_db,
+                    auth_data=auth_data,
+                    key=_input_key[:-2],
+                    doc_ids=list(not_in_cache),
+                )
+            )
+
+        yield run_key, data_dict
 
 
 def key_to_filename(run_key, chunk_num):
     key = tuple(list(run_key) + [chunk_num])
     key_hash = hashlib.md5(json.dumps(key, default=str).encode()).hexdigest()
-    return os.path.join(CACHE_DIR, f"{key_hash}.bin")
+    return os.path.join(CACHE_DIR, f"{key_hash}.json")
 
 
-_current_cache_size = 0
+def load_from_disk(path):
+    """Read raw bytes from disk."""
+    with open(path, "r") as f:
+        return f.read()
 
 
 def _get_cache_size():
     global _current_cache_size
     return _current_cache_size
+
+
+def save_to_disk(run_key, chunk_num, _value_chunk, max_cache_bytes):
+    """Write raw bytes to disk and enforce max cache size."""
+    path = key_to_filename(run_key, chunk_num)
+    with open(path, "w") as f:
+        f.write(_value_chunk)
+    global _current_cache_size
+    _current_cache_size += len(_value_chunk)
+    _enforce_max_cache_size(max_cache_bytes)
 
 
 def _enforce_max_cache_size(max_cache_bytes):
@@ -137,379 +310,20 @@ def _enforce_max_cache_size(max_cache_bytes):
             break
 
 
-def save_bytes_to_disk(run_key, chunk_num, block_bytes, max_cache_bytes):
-    """Write raw bytes to disk and enforce max cache size."""
-    path = key_to_filename(run_key, chunk_num)
-    with open(path, "wb") as f:
-        f.write(block_bytes)
-    global _current_cache_size
-    _current_cache_size += len(block_bytes)
-    _enforce_max_cache_size(max_cache_bytes)
-
-
-def load_bytes_from_disk(path):
-    """Read raw bytes from disk."""
-    with open(path, "rb") as f:
-        return f.read()
-
-
-def prefetch_subgraph(
-    auth_data,
-    ref_dict,
-    sim_iter_nums,
-    time_ranges_keys,
-    max_cache_bytes=MAX_CACHE_BYTES,
-):
-    """
-    Pull as much as possible from the server up to max_cache_bytes.
-    Stops once the total cache size exceeds that limit.
-    """
-    os.makedirs(CACHE_DIR, exist_ok=True)
-
-    for input_key, chunk_num, block_bytes in fetch_overriden_data(auth_data):
-        save_bytes_to_disk(input_key, chunk_num, block_bytes, max_cache_bytes)
-
-    for run_key, data_dict in stream_subgraph_by_key(
-        auth_data, ref_dict, sim_iter_nums, time_ranges_keys
-    ):
-
-        sim_iter, (tr_start, tr_end), tr_key, _, _ = run_key
-        start_iso = tr_start.isoformat()
-        end_iso = tr_end.isoformat()
-        for (input_full_name, input_att), block_bytes in data_dict.items():
-            input_key = (
-                sim_iter,
-                start_iso,
-                end_iso,
-                tr_key,
-                input_full_name,
-                input_att,
-            )
-            if _get_cache_size() + len(block_bytes) > max_cache_bytes:
-                return run_key
-            save_bytes_to_disk(input_key, 0, block_bytes, max_cache_bytes)
-
-    return None
-
-
-def cached_stream_subgraph_by_key(
-    auth_data,
-    full_space,
-    ref_dict,
-    sim_iter_nums,
-    time_ranges_keys,
-    start_key: Optional[Tuple] = None,
-    max_cache_bytes=MAX_CACHE_BYTES,
-):
-    """
-    Iterate through cached batches first; if not found, pull from the server and cache.
-    Automatically enforces cache size after each write.
-    """
-    run_key_iterator = get_run_key_iterator(
-        full_space=full_space,
-        ref_dict=ref_dict,
-        time_ranges_keys=time_ranges_keys,
-        sim_iter_nums=sim_iter_nums,
-    )
-
-    for run_key in run_key_iterator:
-        sim_iter, (tr_start, tr_end), tr_key, full_name, att = run_key
-        start_iso = tr_start.isoformat()
-        end_iso = tr_end.isoformat()
-        if run_key == start_key:
-            break
-        data_dict = {}
-        for input_dict in ref_dict[full_name][att]["inputs"]:
-            input_full_name = input_dict["full_name"]
-            input_att = input_dict["attribute_name"]
-            input_key = (
-                sim_iter,
-                start_iso,
-                end_iso,
-                tr_key,
-                input_full_name,
-                input_att,
-            )
-            path = key_to_filename(input_key, 0)
-            if os.path.exists(path):
-                data_dict[(input_full_name, input_att)] = load_bytes_from_disk(path)
-        yield run_key, data_dict
-
-    if start_key:
-        start_key = (
-            start_key[0],
-            start_key[1][0].isoformat(),
-            start_key[1][1].isoformat(),
-            start_key[2],
-            start_key[3],
-            start_key[4],
-        )
-        for run_key, data_dict in stream_subgraph_by_key(
-            auth_data, ref_dict, sim_iter_nums, time_ranges_keys, start_key=start_key
-        ):
-            sim_iter, (tr_start, tr_end), tr_key, full_name, att = run_key
-            start_iso = tr_start.isoformat()
-            end_iso = tr_end.isoformat()
-            for input_dict in ref_dict[full_name][att]["inputs"]:
-                input_full_name = input_dict["full_name"]
-                input_att = input_dict["attribute_name"]
-                input_key = (
-                    sim_iter,
-                    start_iso,
-                    end_iso,
-                    tr_key,
-                    input_full_name,
-                    input_att,
-                )
-                path = key_to_filename(input_key, 0)
-                if os.path.exists(path):
-                    data_dict[(input_full_name, input_att)] = load_bytes_from_disk(path)
-                elif input_key in data_dict:
-                    save_bytes_to_disk(
-                        input_key, 0, data_dict[input_key], max_cache_bytes
-                    )
-            yield run_key, data_dict
-
-
 def get_run_key_iterator(
     full_space: List[Tuple],
+    docs_to_run: List[Text],
     sim_iter_nums: List[str] = None,
     time_ranges_keys: List[str] = None,
-    ref_dict: Optional[Dict[Text, Dict[Text, Dict[Text, Any]]]] = None,
+    ref_dict: Optional[Dict[str, Dict[str, Dict[str, Any]]]] = None,
+    doc_id_to_full_name: Optional[Dict[Text, Text]] = None,
 ):
-
     for sim_iter_num, time_range, time_ranges_key in full_space:
         if sim_iter_nums and sim_iter_num not in sim_iter_nums:
             continue
         if time_ranges_keys and time_ranges_key not in time_ranges_keys:
             continue
-        for full_name in ref_dict:
+        for doc_id in docs_to_run:
+            full_name = doc_id_to_full_name[doc_id]
             for att in ref_dict[full_name]:
-
                 yield sim_iter_num, time_range, time_ranges_key, full_name, att
-
-
-class BatchDownloader:
-    def __init__(
-        self,
-        auth_data: Dict[Text, Text],
-        doc_id: Text,
-        full_name: Text,
-        attribute_name: Text,
-        _cur_run_key: Optional[Tuple] = None,
-        new_value_file_ref: Optional[Text] = None,
-        old_value_file_ref: Optional[Text] = None,
-        sim_iter_nums: Optional[Text] = None,
-        time_ranges_keys: Optional[Text] = None,
-        time_range_start: Optional[datetime.datetime] = None,
-        time_range_end: Optional[datetime.datetime] = None,
-        full_space: Optional[List[Tuple]] = None,
-        chunked: bool = False,
-        use_cache: bool = True,
-    ):
-        self.auth_data = auth_data
-        self.new_value_file_ref = new_value_file_ref
-        self.old_value_file_ref = old_value_file_ref
-        self.chunked = chunked
-        self.doc_id = doc_id
-        self.full_name = full_name
-        self.attribute_name = attribute_name
-        self.sim_iter_nums = sim_iter_nums
-        self.time_ranges_keys = time_ranges_keys
-        self.time_range_start = time_range_start
-        self.time_range_end = time_range_end
-        self.use_cache = use_cache
-        self._run_key = _cur_run_key
-        if use_cache and full_space is None:
-            raise ValueError("Must provide full space when use_cache=True")
-        self.full_space = full_space
-
-    def flat_iterator(self):
-        data = {
-            "auth_data": self.auth_data,
-            "doc_id": self.doc_id,
-            "attribute_name": self.attribute_name,
-            "_run_key": self._run_key,
-            "new_value_file_ref": self.new_value_file_ref,
-            "old_value_file_ref": self.old_value_file_ref,
-            "sim_iter_nums": self.sim_iter_nums,
-            "time_ranges_keys": self.time_ranges_keys,
-            "time_range_start": (
-                self.time_range_start.isoformat() if self.time_range_start else None
-            ),
-            "time_range_end": (
-                self.time_range_end.isoformat() if self.time_range_end else None
-            ),
-        }
-        resp = requests.post(
-            f"{self.auth_data['dash_app_url']}/stream-batches", json=data, stream=True
-        )
-        buffer = b""
-        for chunk in resp.iter_content(chunk_size=None):
-            if not chunk:
-                continue
-            buffer += chunk
-            while b"\n" in buffer:
-                line, buffer = buffer.split(b"\n", 1)
-                if not line.strip():
-                    continue
-                try:
-                    batch = json.loads(line.decode("utf-8"))
-                    yield from self._process_batch(batch)
-                except json.JSONDecodeError as e:
-                    logging.warning(f"Failed to parse JSON line: {line!r} ({e})")
-
-    def _process_batch(self, batch):
-        batch_data = base64.b64decode(batch["batch_data"])
-        for key, loc in batch["index_map"].items():
-            offset, length = loc["offset"], loc["length"]
-            (
-                sim_iter_num,
-                time_range_start,
-                time_range_end,
-                time_ranges_key,
-                full_name,
-                att,
-                chunk_num,
-            ) = json.loads(key)
-            chunk = batch_data[offset : offset + length]  # noqa: E203
-            _value_chunk = chunk.decode("utf-8")
-            yield (
-                sim_iter_num,
-                (
-                    datetime.datetime.fromisoformat(time_range_start),
-                    datetime.datetime.fromisoformat(time_range_end),
-                ),
-                time_ranges_key,
-                full_name,
-                att,
-                chunk_num,
-                _value_chunk,
-            )
-
-    def cache_iterator(self):
-        for sim_iter_num, time_range, time_ranges_key in self.full_space:
-
-            _run_key = (
-                sim_iter_num,
-                time_range[0].isoformat(),
-                time_range[1].isoformat(),
-                time_ranges_key,
-                self.full_name,
-                self.attribute_name,
-            )
-            chunk_num = 0
-            path = key_to_filename(_run_key, chunk_num)
-            while os.path.exists(path):
-                _value_chunk = load_bytes_from_disk(path).decode("utf-8")
-                yield (
-                    sim_iter_num,
-                    time_range,
-                    time_ranges_key,
-                    self.full_name,
-                    self.attribute_name,
-                    chunk_num,
-                    _value_chunk,
-                )
-                chunk_num += 1
-                path = key_to_filename(_run_key, chunk_num)
-
-    def merged_iterator(self):
-        """
-        Yield items in the order defined by full_space.
-        Prefer cached data if available; otherwise pull sequentially
-        from the flat iterator (which must be ordered the same way).
-        Saves streamed chunks to cache as it goes.
-        """
-        flat_iter = None
-        next_flat = None
-        for key in self.full_space:
-            sim_iter_num, time_range, time_ranges_key = key
-            if (
-                self.sim_iter_nums is not None
-                and sim_iter_num not in self.sim_iter_nums
-            ):
-                continue
-            if (
-                self.time_ranges_keys is not None
-                and time_ranges_key not in self.time_ranges_keys
-            ):
-                continue
-
-            if (
-                self.time_range_start is not None
-                and self.time_range_start > time_range[0]
-            ):
-                continue
-            if self.time_range_end is not None and self.time_range_end < time_range[1]:
-                continue
-
-            run_key = (*key, self.full_name, self.attribute_name)
-
-            _run_key = (
-                sim_iter_num,
-                time_range[0].isoformat(),
-                time_range[1].isoformat(),
-                time_ranges_key,
-                self.full_name,
-                self.attribute_name,
-            )
-            key_with_none = (*run_key, 0, None)
-            path = key_to_filename(_run_key, 0)
-
-            chunk_num = 0
-            found_cached = False
-            while True:
-                path = key_to_filename(_run_key, chunk_num)
-                if not os.path.exists(path):
-                    break
-                found_cached = True
-                _value_chunk = load_bytes_from_disk(path).decode("utf-8")
-                yield (*run_key, chunk_num, _value_chunk)
-                chunk_num += 1
-
-            if found_cached:
-                continue
-
-            if next_flat is None:
-                try:
-                    if flat_iter is None:
-                        flat_iter = self.flat_iterator()
-                    next_flat = next(flat_iter)
-                except StopIteration:
-                    next_flat = None
-
-            if next_flat is not None:
-
-                f_key = next_flat[:-2]
-                if f_key == run_key:
-                    block_bytes = next_flat[-1].encode("utf-8")
-                    save_bytes_to_disk(_run_key, 0, block_bytes, MAX_CACHE_BYTES)
-
-                    yield next_flat
-
-                    next_flat = None
-                else:
-                    yield key_with_none
-            else:
-                yield key_with_none
-
-    def __iter__(self):
-        if self.use_cache:
-            flat = self.merged_iterator()
-        else:
-            flat = self.flat_iterator()
-        for (sim_id, tr, coll, fn, att), group in groupby(
-            flat, key=itemgetter(0, 1, 2, 3, 4)
-        ):
-            if self.chunked:
-
-                def chunk_gen(g=group):
-                    for _, _, _, _, _, chunk_num, data in g:
-                        yield chunk_num, data
-
-                yield (sim_id, tr, coll, fn, att), chunk_gen()
-            else:
-                # If not chunked there is only one element in the group
-                _, _, _, _, _, _, data = next(group)
-                yield (sim_id, tr, coll, fn, att), data

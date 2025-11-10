@@ -1,34 +1,45 @@
-# Use the official Python image from the Docker Hub
+# Use the official Python image
 FROM python:3.14-slim
-
 
 # Create a non-root user
 RUN useradd -m appuser
 
-# Set the working directory in the container
+# Set working directory
 WORKDIR /home/appuser/app
 
-# Install system dependencies for building Python packages
+# Install build system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    gcc \
-    libffi-dev \
-    python3-dev \
+    build-essential gcc libffi-dev python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
 RUN pip install --no-cache-dir poetry
 
-COPY . .
-# --- INSTALL DEPENDENCIES ---
+# ------------------------------------------------------------
+# STEP 1: Copy *only dependency files* first (cached layer)
+# ------------------------------------------------------------
+ARG PYPROJECT_FILE=pyproject.toml
+COPY ${PYPROJECT_FILE} pyproject.toml
+COPY poetry.lock .
+
+# Install dependencies system-wide (no venv)
 RUN poetry config virtualenvs.create false \
     && poetry install --no-root --no-interaction --no-ansi
 
-# Change ownership of the app directory
+# ------------------------------------------------------------
+# STEP 2: Copy the actual source *after* deps are cached
+# ------------------------------------------------------------
+COPY ./utils ./utils
+COPY ./exceptions ./exceptions
+COPY ./run_main.py ./run_main.py
+
+# Fix permissions
 RUN chown -R appuser:appuser /home/appuser/app
 
-# Switch to the non-root user
+# Switch to non-root user
 USER appuser
+
+# Optionally pre-compile python bytecode
 RUN python -m compileall .
 
 ENTRYPOINT ["python", "run_main.py"]

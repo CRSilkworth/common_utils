@@ -1,15 +1,16 @@
 from typing import Text, Dict, Any, Optional, List
 from utils.misc_utils import failed_output
 from utils.function_utils import run_with_expected_type, run_with_generator
-from utils.downloader import prefetch_subgraph, cached_stream_subgraph_by_key
+from utils.downloader import cached_stream_subgraph_by_key, prefetch
 from utils.doc_obj import DocObj
-from utils.datetime_utils import to_micro
+from utils.datetime_utils import to_micro, convert_timestamps
 from utils.type_utils import TimeRange
-from utils.uploader import BatchUploader
 import datetime
 import logging
 import requests
 import os
+from google.oauth2 import service_account
+import json
 
 
 def run_sims(
@@ -23,17 +24,32 @@ def run_sims(
     **kwargs,
 ):
 
-    run_config = run_config if run_config else {}
+    key_dict = json.loads(auth_data["sa_key"])
 
-    uploader = BatchUploader(auth_data=auth_data)
+    if key_dict:
+        credentials = service_account.Credentials.from_service_account_info(key_dict)
+        fs_kwargs = dict(credentials=credentials, project=key_dict["project_id"])
+    else:
+        os.environ["FIRESTORE_EMULATOR_HOST"] = (
+            "firestore-emulator.default.svc.cluster.local:8080"
+        )
+        fs_kwargs = {}
+
+    from google.cloud import firestore
+
+    fs_db = firestore.Client(**fs_kwargs)
+
+    run_config = run_config if run_config else {}
 
     time_ranges_keys_to_run = set()
     sim_iter_nums_to_run = set()
     doc_objs = {}
     doc_id_to_full_name = {}
+    doc_full_name_to_id = {}
     for doc_id in doc_data:
         doc = DocObj(
             doc_id=doc_id,
+            fs_db=fs_db,
             full_name=doc_data[doc_id]["full_name"],
             doc_dict=doc_data[doc_id],
             auth_data=auth_data,
@@ -41,6 +57,7 @@ def run_sims(
         )
 
         doc_id_to_full_name[doc_id] = doc.full_name
+        doc_full_name_to_id[doc.full_name] = doc_id
         doc_objs[doc.full_name] = doc
         if doc.doc_id not in docs_to_run:
             continue
@@ -62,30 +79,29 @@ def run_sims(
     if sim_iter_nums is not None:
         sim_iter_nums_to_run = sim_iter_nums_to_run & set(sim_iter_nums)
 
-    start_key = prefetch_subgraph(
-        auth_data, ref_dict, sim_iter_nums_to_run, time_ranges_keys_to_run
+    prefetch(
+        fs_db=fs_db,
+        auth_data=auth_data,
+        docs_to_run=docs_to_run,
+        ref_dict=ref_dict,
+        doc_id_to_full_name=doc_id_to_full_name,
+        sim_iter_nums=sim_iter_nums_to_run,
+        time_ranges_keys=time_ranges_keys_to_run,
     )
     full_space = get_full_space(calc_graph_doc, doc_objs, docs_to_run)
-
     data_iterator = cached_stream_subgraph_by_key(
+        fs_db=fs_db,
         auth_data=auth_data,
         full_space=full_space,
+        docs_to_run=docs_to_run,
         ref_dict=ref_dict,
         time_ranges_keys=time_ranges_keys_to_run,
         sim_iter_nums=sim_iter_nums_to_run,
-        start_key=start_key,
+        doc_id_to_full_name=doc_id_to_full_name,
     )
 
     for run_key, data_dict in data_iterator:
         sim_iter_num, time_range, time_ranges_key, full_name, att = run_key
-        _run_key = (
-            sim_iter_num,
-            time_range[0].isoformat(),
-            time_range[1].isoformat(),
-            time_ranges_key,
-            full_name,
-            att,
-        )
         doc = doc_objs[full_name]
         attribute = doc.attributes[att]
         attribute._set_context(
@@ -98,11 +114,7 @@ def run_sims(
         if time_ranges_key not in attribute.time_ranges_keys:
             continue
 
-        logging.info(
-            f"Running {sim_iter_num}, {time_range}, {time_ranges_key},"
-            f" {doc.full_name}, {att}"
-        )
-        print(
+        logging.warning(
             f"Running {sim_iter_num}, {time_range}, {time_ranges_key},"
             f" {doc.full_name}, {att}"
         )
@@ -124,7 +136,9 @@ def run_sims(
                 )
                 attribute._add_output(output)
                 upstream_failure = True
-                print("upstream failure", input_doc.full_name, input_doc.failures())
+                logging.warning(
+                    ("upstream failure", input_doc.full_name, input_doc.failures())
+                )
                 break
             for input_att, input_attribute in input_doc.attributes.items():
                 if not input_attribute.runnable:
@@ -149,21 +163,19 @@ def run_sims(
 
         block_key = [
             sim_iter_num,
+            convert_timestamps(time_range),
             time_ranges_key,
-            time_range[0].isoformat(),
-            time_range[1].isoformat(),
             0,
         ]
         if block_key in attribute.overrides:
-            attribute._upload_chunk(
-                uploader=uploader, _run_key=_run_key, value_chunk=None, overriden=True
-            )
+            logging.warning(f"override found {block_key}")
+            attribute._upload_chunk(run_key=run_key, value_chunk=None, overriden=True)
             continue
 
-        # Convert the functionv string to a callable function
-
-        if upstream_failure or not attribute.func:
-            print(f"Skipping {doc.full_name}-{att}")
+        if not attribute.func:
+            continue
+        if upstream_failure:
+            attribute._delete_value_file_blocks(version=attribute.new_version)
             continue
 
         if attribute.chunked:
@@ -173,11 +185,19 @@ def run_sims(
             for chunk_num, run_output_chunk in enumerate(run_generator):
                 attribute._add_output(run_output_chunk)
                 if run_output_chunk["failed"]:
+                    attribute._delete_value_file_blocks(version=attribute.new_version)
                     break
 
+                logging.warning("about to upload chunk")
+                logging.warning(
+                    dict(
+                        run_key=run_key,
+                        chunk_num=chunk_num,
+                        value_chunk=run_output_chunk["value"],
+                    )
+                )
                 attribute._upload_chunk(
-                    uploader=uploader,
-                    _run_key=_run_key,
+                    run_key=run_key,
                     chunk_num=chunk_num,
                     value_chunk=run_output_chunk["value"],
                 )
@@ -188,11 +208,12 @@ def run_sims(
             )
             attribute._add_output(output)
             if not output["failed"]:
-                attribute._upload_chunk(
-                    uploader=uploader, _run_key=_run_key, value_chunk=output["value"]
-                )
-    uploader.flush_batch()
-    logging.info("Sending output")
+                # logging.warning("about to upload")
+                # logging.warning(dict(run_key=run_key, value_chunk=output["value"]))
+                attribute._upload_chunk(run_key=run_key, value_chunk=output["value"])
+            else:
+                attribute._delete_value_file_blocks(version=attribute.new_version)
+    logging.warning("Sending output")
     outputs = {}
     for doc in doc_objs.values():
 
@@ -212,9 +233,11 @@ def run_sims(
             if not attribute.runnable or attribute.no_function_body:
                 continue
             outputs[doc.doc_id][att] = attribute._get_output()
+
+            attribute._finalize()
     send_output(outputs, auth_data, caller=kwargs.get("caller"))
 
-    logging.info("Cleaning up connections")
+    logging.warning("Cleaning up connections")
     # cleanup any connections
     for doc in doc_objs.values():
         for attribute in doc.attributes.values():
@@ -286,19 +309,12 @@ def get_full_space(calc_graph_doc, doc_objs, docs_to_run):
 
 def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
     ref_dict = {}
-    # att_run_order = {
-    #     k: i
-    #     for i, k in enumerate(["sims", "all_time_ranges", "basic", "model", "plot"])
-    # }
+
     for doc_to_run in docs_to_run:
         full_name = doc_id_to_full_name[doc_to_run]
         doc = doc_objs[full_name]
         ref_dict[full_name] = {}
 
-        # doc_att_order = sorted(
-        #     doc.attributes.keys(),
-        #     key=lambda k: att_run_order.get(k, len(att_run_order)),
-        # )
         for att, attribute in doc.attributes.items():
             if not (attributes_to_run is None or att in attributes_to_run):
                 continue
@@ -310,8 +326,8 @@ def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
                 "full_name": full_name,
                 "attribute_name": att,
                 "doc_id": doc_to_run,
-                "new_value_file_ref": attribute.new_value_file_ref,
-                "old_value_file_ref": attribute.old_value_file_ref,
+                "new_version": attribute.new_version,
+                "old_version": attribute.old_version,
                 "inputs": [],
             }
 
@@ -321,15 +337,15 @@ def get_ref_dict(docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run):
                 for input_att, input_attribute in input_doc.attributes.items():
                     if not input_attribute.runnable:
                         continue
-                    # if not input_attribute.value_file_ref:
+                    # if not input_attribute.version:
                     #     continue
                     ref_dict[doc.full_name][att]["inputs"].append(
                         {
                             "doc_id": input_doc_id,
                             "full_name": input_doc.full_name,
                             "attribute_name": input_att,
-                            "new_value_file_ref": input_attribute.new_value_file_ref,
-                            "old_value_file_ref": input_attribute.old_value_file_ref,
+                            "new_version": input_attribute.new_version,
+                            "old_version": input_attribute.old_version,
                         }
                     )
 

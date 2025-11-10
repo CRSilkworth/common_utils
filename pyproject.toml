@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "common-utils"
-version = "0.10.0"
+version = "0.10.85"
 description = "Shared utilities for app and runner"
 authors = ["Christopher Silkworth"]
 packages = [
@@ -25,6 +25,8 @@ sshtunnel = ">=0.4.0,<0.5.0"
 pillow = ">=12.0.0,<13.0.0"
 pypdf2 = ">=3.0.1,<4.0.0"
 black = ">=25.9.0,<26.0.0"
+google-cloud-firestore = "^2.21.0"
+google-auth = "^2.42.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0"]

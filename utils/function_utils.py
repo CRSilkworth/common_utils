@@ -214,8 +214,7 @@ def capture_output_generator(
         except Exception:
             failed = True
             stderr_pipe.write(traceback.format_exc())
-            logging.info("stderr", traceback.format_exc())
-            print(traceback.format_exc())
+            logging.warning(traceback.format_exc())
 
     return wrapper(), output, stdout, stderr, failed_flag
 

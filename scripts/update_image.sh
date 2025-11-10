@@ -20,12 +20,22 @@ else
     echo "Warning: Terraform tfvars file not found at $TFVARS_PATH"
 fi
 
+# Make normalized temporary pyproject (for caching)
+cp pyproject.toml pyproject.tmp.toml
+sed -i.bak -E 's/^version = ".*"/version = "0.0.0"/' pyproject.tmp.toml
+rm -f pyproject.tmp.toml.bak
 
 # Build image tag
 IMAGE_TAG="${REGION}-docker.pkg.dev/carbon-432311/carbon/runner:${VERSION_TAG}-${ENVIRONMENT}"
 
 echo "Building Docker image: $IMAGE_TAG"
-docker build . -f Dockerfile.runner -t "$IMAGE_TAG"
+docker build \
+    --build-arg PYPROJECT_FILE=pyproject.tmp.toml \
+    -f Dockerfile.runner \
+    -t "$IMAGE_TAG" .
+
+# Clean temp file
+rm pyproject.tmp.toml
 
 # Conditional push or load
 if [ "$ENVIRONMENT" = "prd" ]; then
@@ -36,4 +46,3 @@ else
     minikube image load "$IMAGE_TAG"
 fi
 
-cd ..

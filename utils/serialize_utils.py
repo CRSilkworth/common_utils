@@ -59,7 +59,7 @@ def encode_obj(obj: Any):
         for idx in df.index:
             row = {"index": encode_obj(idx), "columns": {}}
             for col in df.columns:
-                row["columns"][col] = encode_obj(df.at(idx, col))
+                row["columns"][col] = encode_obj(df.at[idx, col])
             data.append(row)
         return {"__kind__": "DataFrame", "data": data}
 

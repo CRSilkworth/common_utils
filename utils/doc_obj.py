@@ -3,6 +3,7 @@ from utils.serialize_utils import serialize_value
 from utils.type_utils import deserialize_typehint
 import copy
 from utils.attribute import RunnableAttribute, Attribute
+from utils.datetime_utils import convert_timestamps
 
 
 class DocObj(dict):
@@ -12,12 +13,14 @@ class DocObj(dict):
         full_name: Text,
         doc_dict: Dict[Text, Any],
         auth_data: Dict[Text, Any],
+        fs_db: Any,
         global_vars: Optional[Dict[Text, Any]] = None,
     ):
         super().__init__()
         self.doc_id = doc_id
         self.full_name = full_name
         self.auth_data = auth_data
+        self.fs_db = fs_db
         self.cleanups = {}
         self.outputs = {}
         self.uploaders = {}
@@ -42,11 +45,12 @@ class DocObj(dict):
                 self.attributes[att] = RunnableAttribute(
                     name=att,
                     auth_data=auth_data,
+                    fs_db=self.fs_db,
                     doc_id=self.doc_id,
                     doc_full_name=full_name,
                     value_type=value_type,
-                    new_value_file_ref=att_dict.get("new_value_file_ref"),
-                    old_value_file_ref=att_dict.get("old_value_file_ref"),
+                    new_version=att_dict.get("new_version"),
+                    old_version=att_dict.get("old_version"),
                     chunked=att_dict["chunked"],
                     var_name_to_id=att_dict.get("var_name_to_id"),
                     function_name=att_dict.get("function_name"),
