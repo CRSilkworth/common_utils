@@ -299,17 +299,14 @@ class RunnableAttribute(Attribute):
                 )
         preview = value_to_preview(value_chunk)
         _schema = json.dumps(describe_json_schema(value_chunk))
-        logging.warning(("value_chunk", type(value_chunk), self.value_type))
         _value_chunk, output = attempt_serialize(value_chunk, self.value_type)
         # _value_chunk = encode_obj(value_chunk)
 
-        logging.warning(("_value_chunk", type(_value_chunk)))
         self._add_output(output)
         if output.get("failed", False):
             return
         preview = value_to_preview(value_chunk)
         _schema = json.dumps(describe_json_schema(value_chunk))
-        logging.warning(("_value_chunk", type(_value_chunk)))
         save_to_disk(run_key, chunk_num, _value_chunk, MAX_CACHE_BYTES)
 
         # Test size limit
@@ -344,12 +341,9 @@ class RunnableAttribute(Attribute):
             f"{doc_data['chunk_num']}_"
             f"{doc_data['version']}"
         )
-        # logging.warning(("upload", doc_data))
         # Write directly to Firestore
         chunk_ref = self._get_collection().document(version_key)
         chunk_ref.set(doc_data)
-        # for d in self.fs_db.collection_group("value_file_block").stream():
-        #     logging.warning(("upload row", d.to_dict()))
 
     def _get_output(self):
         output = super()._get_output()

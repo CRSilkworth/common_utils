@@ -5,6 +5,17 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.."
 
+
+# Auto-increment patch version in pyproject.toml
+CURRENT_VERSION=$(grep '^version =' pyproject.toml | sed -E 's/version = "(.*)"/\1/')
+IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
+PATCH=$((PATCH + 1))
+NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+
+echo "Bumping version: $CURRENT_VERSION → $NEW_VERSION"
+sed -i.bak -E "s/version = \".*\"/version = \"${NEW_VERSION}\"/" pyproject.toml
+rm -f pyproject.toml.bak
+
 # Extract version from pyproject.toml
 VERSION=$(grep '^version =' pyproject.toml | sed -E 's/version = "(.*)"/\1/')
 VERSION_TAG="v${VERSION}"
@@ -25,24 +36,26 @@ cp pyproject.toml pyproject.tmp.toml
 sed -i.bak -E 's/^version = ".*"/version = "0.0.0"/' pyproject.tmp.toml
 rm -f pyproject.tmp.toml.bak
 
-# Build image tag
-IMAGE_TAG="${REGION}-docker.pkg.dev/carbon-432311/carbon/runner:${VERSION_TAG}-${ENVIRONMENT}"
+(
+    echo "Building Docker image: $IMAGE_TAG"
+    docker build \
+        --build-arg PYPROJECT_FILE=pyproject.tmp.toml \
+        -f Dockerfile.runner \
+        -t "$IMAGE_TAG" .
 
-echo "Building Docker image: $IMAGE_TAG"
-docker build \
-    --build-arg PYPROJECT_FILE=pyproject.tmp.toml \
-    -f Dockerfile.runner \
-    -t "$IMAGE_TAG" .
+    rm pyproject.tmp.toml
 
-# Clean temp file
-rm pyproject.tmp.toml
+    if [ "$ENVIRONMENT" = "prd" ]; then
+        echo "Environment is prd — pushing to registry..."
+        docker push "$IMAGE_TAG"
+    else
+        echo "Environment is $ENVIRONMENT — loading into Minikube..."
+        minikube image load "$IMAGE_TAG"
+    fi
+) &
 
-# Conditional push or load
-if [ "$ENVIRONMENT" = "prd" ]; then
-    echo "Environment is prd — pushing to registry..."
-    docker push "$IMAGE_TAG"
-else
-    echo "Environment is $ENVIRONMENT — loading into Minikube..."
-    minikube image load "$IMAGE_TAG"
-fi
+cd $SCRIPT_DIR/../../../terraform/dev/main/
+terraform apply -var-file=../terraform.tfvars -compact-warnings -auto-approve
+cd - 
+kubectl port-forward svc/app-carbon 8000:80
 
