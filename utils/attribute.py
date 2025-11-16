@@ -5,16 +5,14 @@ from utils.function_utils import create_function
 from utils.preview_utils import value_to_preview
 from utils.type_utils import get_known_types
 from utils.datetime_utils import convert_timestamps
-from utils.serialize_utils import encode_obj
 import json
 import requests
 import os
 import datetime
 import inspect
 from utils.downloader import (
-    save_to_disk,
-    key_to_filename,
-    load_from_disk,
+    save_to_memory,
+    _cache,
     MAX_CACHE_BYTES,
 )
 from operator import itemgetter
@@ -231,9 +229,7 @@ class RunnableAttribute(Attribute):
 
                 def value_chunk_gen(_value=_value):
                     for chunk_num, _value_chunk in enumerate(_value):
-                        path = key_to_filename(key, chunk_num)
-                        if os.path.exists(path):
-                            _value_chunk = load_from_disk(path)
+                        _value_chunk = _cache.get((key, chunk_num), _value_chunk)
                         value_chunk, _, _ = attempt_deserialize(
                             _value_chunk, self.value_type
                         )
@@ -243,9 +239,7 @@ class RunnableAttribute(Attribute):
                 yield key, value_chunk_gen(), {}
         else:
             for key, _value in iterator:
-                path = key_to_filename(key, 0)
-                if os.path.exists(path):
-                    _value = load_from_disk(path)
+                _value = _cache.get((key, 0), _value)
                 value, output, _ = attempt_deserialize(_value, self.value_type)
                 yield key, value, output
 
@@ -280,7 +274,6 @@ class RunnableAttribute(Attribute):
         chunk_num: int = 0,
         overriden: bool = False,
     ):
-        logging.warning(f"OVERRIDEN: {overriden}")
         if overriden:
             try:
                 _, value_chunk = next(
@@ -292,7 +285,6 @@ class RunnableAttribute(Attribute):
                         use_cache=False,
                     )
                 )
-                logging.warning(f"Overriden value: {type(value_chunk)}, {value_chunk}")
             except StopIteration:
                 logging.warning(
                     f"Overriden value not found: {self.run_key}, {self.old_version}"
@@ -307,7 +299,7 @@ class RunnableAttribute(Attribute):
             return
         preview = value_to_preview(value_chunk)
         _schema = json.dumps(describe_json_schema(value_chunk))
-        save_to_disk(run_key, chunk_num, _value_chunk, MAX_CACHE_BYTES)
+        save_to_memory(run_key, chunk_num, _value_chunk)
 
         # Test size limit
         if len(_value_chunk) > MAX_CACHE_BYTES:
@@ -480,10 +472,6 @@ class RunnableAttribute(Attribute):
             if batch_count:
                 batch.commit()
 
-        logging.warning(
-            f"✅ Finalized Firestore blocks: {total_deleted} deleted, {total_updated} updated to version {self.new_version}."
-        )
-
     def time_series(
         self,
         sim_iter_num: Optional[int] = None,
@@ -629,9 +617,7 @@ class RunnableAttribute(Attribute):
 
                 def value_chunk_gen(g=group):
                     for _, _, _, _, _, chunk_num, _value_chunk in g:
-                        path = key_to_filename(key, chunk_num)
-                        if os.path.exists(path):
-                            _value_chunk = load_from_disk(path)
+                        _value_chunk = _cache.get((key, chunk_num), _value_chunk)
                         value_chunk, _, _ = attempt_deserialize(
                             _value_chunk, self.value_type
                         )
@@ -642,11 +628,7 @@ class RunnableAttribute(Attribute):
             else:
                 # If not chunked there is only one element in the group
                 _, _, _, _, _, _, _value = next(group)
-                logging.warning(f"ITER_VALUE: {_value}")
-                path = key_to_filename(key, 0)
-                if os.path.exists(path):
-                    _value = load_from_disk(path)
-                    logging.warning(f"LOADED FROM DISK: {_value}")
+                _value = _cache.get((key, 0), _value)
                 value, output, _ = attempt_deserialize(_value, self.value_type)
                 if output.get("failed", False):
                     raise ValueError(
@@ -749,16 +731,14 @@ class RunnableAttribute(Attribute):
                 self.name,
             )
             key_with_none = (*run_key, 0, None)
-            path = key_to_filename(run_key, 0)
 
             chunk_num = 0
             found_cached = False
             while True:
-                path = key_to_filename(run_key, chunk_num)
-                if not os.path.exists(path):
+                if (run_key, chunk_num) not in _cache:
                     break
                 found_cached = True
-                _value_chunk = load_from_disk(path)
+                _value_chunk = _cache.get((run_key, chunk_num))
                 yield (*run_key, chunk_num, _value_chunk)
                 chunk_num += 1
 
@@ -783,7 +763,7 @@ class RunnableAttribute(Attribute):
                 f_key = next_flat[:-2]
                 if f_key == run_key:
                     _value_chunk = next_flat[-1]
-                    save_to_disk(run_key, 0, _value_chunk, MAX_CACHE_BYTES)
+                    save_to_memory(run_key, 0, _value_chunk)
 
                     yield next_flat
 

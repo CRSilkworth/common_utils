@@ -98,6 +98,7 @@ def run_sims(
         time_ranges_keys=time_ranges_keys_to_run,
         sim_iter_nums=sim_iter_nums_to_run,
         doc_id_to_full_name=doc_id_to_full_name,
+        doc_full_name_to_id=doc_full_name_to_id,
     )
 
     for run_key, data_dict in data_iterator:

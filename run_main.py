@@ -7,7 +7,7 @@ import traceback
 import logging
 from pathlib import Path
 
-# blob_url = os.environ.get("BLOB_URL")
+# import cProfile, pstats, io
 
 
 def main():
@@ -72,4 +72,18 @@ def send_output(
 
 
 if __name__ == "__main__":
+
+    # pr = cProfile.Profile()
+    # pr.enable()
+
     main()
+
+    # pr.disable()
+    # s = io.StringIO()
+    # ps = pstats.Stats(pr, stream=s)
+    # ps.sort_stats("cumulative")
+    # ps.print_stats()
+
+    # logging.warning("===PROFILE-START===")
+    # logging.warning(s.getvalue())
+    # logging.warning("===PROFILE-END===")

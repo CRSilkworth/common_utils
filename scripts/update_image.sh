@@ -32,10 +32,12 @@ else
 fi
 
 # Make normalized temporary pyproject (for caching)
+
 cp pyproject.toml pyproject.tmp.toml
 sed -i.bak -E 's/^version = ".*"/version = "0.0.0"/' pyproject.tmp.toml
 rm -f pyproject.tmp.toml.bak
 
+IMAGE_TAG="${REGION}-docker.pkg.dev/carbon-432311/carbon/runner:${VERSION_TAG}-${ENVIRONMENT}"
 (
     echo "Building Docker image: $IMAGE_TAG"
     docker build \
@@ -49,7 +51,7 @@ rm -f pyproject.tmp.toml.bak
         echo "Environment is prd — pushing to registry..."
         docker push "$IMAGE_TAG"
     else
-        echo "Environment is $ENVIRONMENT — loading into Minikube..."
+        echo "Environment is $ENVIRONMENT — loading $IMAGE_TAG into Minikube..."
         minikube image load "$IMAGE_TAG"
     fi
 ) &

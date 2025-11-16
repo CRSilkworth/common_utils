@@ -1,27 +1,16 @@
 from typing import Dict, Text, Optional, Tuple, List, Any, Set
 import json
 import hashlib
-import os
+from utils.serialize_utils import serialize_value
 from itertools import islice
 from google.cloud.firestore_v1 import FieldFilter, And
 import logging
 from utils.datetime_utils import normalize_datetime
 
-CACHE_DIR = "/tmp/cache"
-MAX_CACHE_BYTES = 2 * 1024**3
-
-
-def init_cache_size():
-    global _current_cache_size
-    os.makedirs(CACHE_DIR, exist_ok=True)
-    _current_cache_size = sum(
-        os.path.getsize(os.path.join(CACHE_DIR, f))
-        for f in os.listdir(CACHE_DIR)
-        if f.endswith(".bin")
-    )
-
-
-init_cache_size()
+_cache = {}
+_cache_order = []  # list for FIFO eviction
+_cache_size = 0  # total bytes
+MAX_CACHE_BYTES = 500_000_000  # adjust
 
 
 def pull_inputs_from_firestore(
@@ -83,7 +72,7 @@ def pull_inputs_from_firestore(
 
             latest_versions[(full_name, att)] = version
             data_dict[(full_name, att)] = data.get("_value_chunk")
-            save_to_disk(run_key, 0, data_dict[(full_name, att)], MAX_CACHE_BYTES)
+            save_to_memory(run_key, 0, data_dict[(full_name, att)])
 
     return data_dict
 
@@ -190,16 +179,8 @@ def prefetch(
                         continue
                     latest_versions[_input_key] = data.get("version")
 
-                    if _get_cache_size() >= MAX_CACHE_BYTES:
-                        return
-
                     # Cache locally (latest version first)
-                    save_to_disk(
-                        _input_key,
-                        0,
-                        data["_value_chunk"],
-                        MAX_CACHE_BYTES,
-                    )
+                    save_to_memory(_input_key, 0, data["_value_chunk"])
 
 
 def cached_stream_subgraph_by_key(
@@ -211,6 +192,7 @@ def cached_stream_subgraph_by_key(
     sim_iter_nums: Optional[List[str]] = None,
     time_ranges_keys: Optional[List[str]] = None,
     doc_id_to_full_name: Optional[Dict[Text, Text]] = None,
+    doc_full_name_to_id: Optional[Dict[Text, Text]] = None,
 ):
     """
     Iterate through cached data first, then stream from Firestore and cache results.
@@ -232,7 +214,6 @@ def cached_stream_subgraph_by_key(
         for input_dict in ref_dict[full_name][att]["inputs"]:
             input_full_name = input_dict["full_name"]
             input_att = input_dict["attribute_name"]
-            input_doc_id = input_dict["doc_id"]
             _input_key = (
                 sim_iter,
                 (tr_start, tr_end),
@@ -240,74 +221,54 @@ def cached_stream_subgraph_by_key(
                 input_full_name,
                 input_att,
             )
-            path = key_to_filename(_input_key, 0)
-            if os.path.exists(path):
-                data_dict[(input_full_name, input_att)] = load_from_disk(path)
+
+            if (_input_key, 0) in _cache:
+                data_dict[(input_full_name, input_att)] = _cache.get((_input_key, 0))
             else:
-                not_in_cache.add(input_doc_id)
+                not_in_cache.add((_input_key, 0))
 
         if not_in_cache:
-
+            not_found_ids = set([doc_full_name_to_id[k[0][3]] for k in not_in_cache])
             data_dict.update(
                 pull_inputs_from_firestore(
                     fs_db=fs_db,
                     auth_data=auth_data,
                     key=_input_key[:-2],
-                    doc_ids=list(not_in_cache),
+                    doc_ids=sorted(not_found_ids),
                 )
             )
+            for _input_key, chunk_num in not_in_cache:
+                _, _, _, input_full_name, input_att = _input_key
+                if (input_full_name, input_att) in data_dict:
+                    continue
+                _cache[(_input_key, chunk_num)] = serialize_value(None)
 
         yield run_key, data_dict
 
 
-def key_to_filename(run_key, chunk_num):
-    key = tuple(list(run_key) + [chunk_num])
-    key_hash = hashlib.md5(json.dumps(key, default=str).encode()).hexdigest()
-    return os.path.join(CACHE_DIR, f"{key_hash}.json")
+def save_to_memory(run_key, chunk_num, chunk_bytes):
+    """chunk_bytes MUST be bytes."""
+    global _cache_size
 
+    key = (run_key, chunk_num)
+    size = len(chunk_bytes)
 
-def load_from_disk(path):
-    """Read raw bytes from disk."""
-    with open(path, "r") as f:
-        return f.read()
+    # Remove previous value if exists
+    if key in _cache:
+        old = _cache.pop(key)
+        _cache_size -= len(old)
+        _cache_order.remove(key)
 
+    # Evict until room
+    while _cache_size + size > MAX_CACHE_BYTES and _cache_order:
+        oldest = _cache_order.pop(0)
+        old_bytes = _cache.pop(oldest)
+        _cache_size -= len(old_bytes)
 
-def _get_cache_size():
-    global _current_cache_size
-    return _current_cache_size
-
-
-def save_to_disk(run_key, chunk_num, _value_chunk, max_cache_bytes):
-    """Write raw bytes to disk and enforce max cache size."""
-    path = key_to_filename(run_key, chunk_num)
-    with open(path, "w") as f:
-        f.write(_value_chunk)
-    global _current_cache_size
-    _current_cache_size += len(_value_chunk)
-    _enforce_max_cache_size(max_cache_bytes)
-
-
-def _enforce_max_cache_size(max_cache_bytes):
-    """Evict oldest files until total size <= max_cache_bytes."""
-    total = _get_cache_size()
-    if total <= max_cache_bytes:
-        return
-
-    files = [
-        (os.path.join(CACHE_DIR, f), os.path.getmtime(os.path.join(CACHE_DIR, f)))
-        for f in os.listdir(CACHE_DIR)
-        if f.endswith(".bin")
-    ]
-    files.sort(key=lambda x: x[1])  # oldest first
-
-    for path, _ in files:
-        try:
-            os.remove(path)
-        except FileNotFoundError:
-            continue
-        total = _get_cache_size()
-        if total <= max_cache_bytes:
-            break
+    # Insert
+    _cache[key] = chunk_bytes
+    _cache_order.append(key)
+    _cache_size += size
 
 
 def get_run_key_iterator(
