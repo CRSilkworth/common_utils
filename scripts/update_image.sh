@@ -58,6 +58,7 @@ IMAGE_TAG="${REGION}-docker.pkg.dev/carbon-432311/carbon/runner:${VERSION_TAG}-$
 
 cd $SCRIPT_DIR/../../../terraform/dev/main/
 terraform apply -var-file=../terraform.tfvars -compact-warnings -auto-approve
-cd - 
+cd -
 kubectl port-forward svc/app-carbon 8000:80
+
 

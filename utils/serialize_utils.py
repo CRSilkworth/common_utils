@@ -1,4 +1,4 @@
-from typing import Any, Optional, Dict, Text
+from typing import Any, Optional, Dict, Text, List
 import pandas as pd
 import numpy as np
 import json
@@ -327,3 +327,196 @@ def model_builder():
   return model
 """
     return function_string
+
+
+def build_category_maps(data_list: List[Any]) -> Tuple[Dict[Any, int], Dict[int, Any]]:
+    """
+    Build category maps for all strings and None values recursively found
+    inside the provided data list. Creates a special "__UNK__" category.
+    """
+    categories = set()
+
+    def walk(x: Any):
+        if isinstance(x, dict):
+            for k, v in x.items():
+                walk(k)
+                walk(v)
+
+        elif isinstance(x, (list, tuple)):
+            for item in x:
+                walk(item)
+
+        elif isinstance(x, np.ndarray):
+            if x.dtype == object:
+                for i in x.flatten():
+                    walk(i)
+
+        elif isinstance(x, (pd.Series, pd.DataFrame)):
+            walk(x.values)
+
+        elif isinstance(x, (str, type(None))):
+            categories.add(x)
+
+    for d in data_list:
+        walk(d)
+
+    sorted_categories = sorted(categories, key=lambda x: str(x))
+    cat_map = {"__UNK__": 0}
+    idx = 1
+
+    for cat in sorted_categories:
+        cat_map[cat] = idx
+        idx += 1
+
+    inv_map = {v: k for k, v in cat_map.items()}
+    return cat_map, inv_map
+
+
+def _encode_string(x, cat_map):
+    return float(cat_map.get(x, cat_map["__UNK__"]))
+
+
+def _encode_datetime(x):
+    """Convert datetime, pandas.Timestamp, or date to a UNIX timestamp float."""
+    if isinstance(x, pd.Timestamp):
+        return float(x.timestamp())
+    if isinstance(x, datetime):
+        return float(x.timestamp())
+    if isinstance(x, date):
+        return datetime(x.year, x.month, x.day).timestamp()
+    raise TypeError("not a datetime-like object")
+
+
+def _datetime_from_ts(ts):
+    """Reverse: convert timestamp float back to datetime."""
+    return datetime.fromtimestamp(ts)
+
+
+def flatten_structure(x: Any, cat_map: Dict[Any, int]) -> Tuple[List[float], Any]:
+    """
+    Flatten arbitrarily nested structures to a flat numeric vector.
+    Returns (flat_vector, spec_for_reconstruction).
+    """
+    flat = []
+
+    if isinstance(x, pd.Series):
+        return flatten_structure(x.values.tolist(), cat_map)
+
+    if isinstance(x, pd.DataFrame):
+        return flatten_structure(x.values.tolist(), cat_map)
+
+    if isinstance(x, dict):
+        spec = ("dict", [])
+        for k, v in x.items():
+            k_flat, k_spec = flatten_structure(k, cat_map)
+            flat.extend(k_flat)
+
+            v_flat, v_spec = flatten_structure(v, cat_map)
+            flat.extend(v_flat)
+
+            spec[1].append((k_spec, v_spec))
+        return flat, spec
+
+    if isinstance(x, (list, tuple)):
+        spec = ("list", [])
+        for item in x:
+            subflat, subspec = flatten_structure(item, cat_map)
+            flat.extend(subflat)
+            spec[1].append((subspec, len(subflat)))
+        return flat, spec
+
+    if isinstance(x, np.ndarray):
+        if x.dtype == object:
+            arr = []
+            for item in x.flatten():
+                subflat, _spec_dummy = flatten_structure(item, cat_map)
+                arr.extend(subflat)
+        else:
+            arr = x.astype(float).flatten().tolist()
+        spec = ("array", len(arr))
+        return arr, spec
+
+    if isinstance(x, (pd.Timestamp, datetime.datetime, datetime.date)):
+        ts = _encode_datetime(x)
+        return [ts], ("datetime", 1)
+
+    if isinstance(x, (str, type(None))):
+        cat = _encode_string(x, cat_map)
+        return [cat], ("cat", 1)
+
+    if isinstance(x, (int, float, np.integer, np.floating)):
+        return [float(x)], ("scalar", 1)
+
+    raise TypeError(f"Unsupported type during flatten: {type(x)}")
+
+
+def unflatten_structure(
+    flat: List[float], spec: Any, idx: int = 0, inv_map: Dict[int, Any] = None
+):
+    type_ = spec[0]
+
+    # ----- numeric scalar -----
+    if type_ == "scalar":
+        return flat[idx], idx + 1
+
+    # ----- categorical -----
+    if type_ == "cat":
+        if inv_map is None:
+            raise ValueError("inv_map required to decode categorical values")
+        cat_id = int(flat[idx])
+        return inv_map.get(cat_id, None), idx + 1
+
+    # ----- datetime -----
+    if type_ == "datetime":
+        ts = flat[idx]
+        return _datetime_from_ts(ts), idx + 1
+
+    # ----- numpy array -----
+    if type_ == "array":
+        length = spec[1]
+        arr = np.array(flat[idx : idx + length])
+        return arr, idx + length
+
+    # ----- list -----
+    if type_ == "list":
+        out = []
+        for subspec, _length in spec[1]:
+            val, idx = unflatten_structure(flat, subspec, idx, inv_map)
+            out.append(val)
+        return out, idx
+
+    # ----- dict -----
+    if type_ == "dict":
+        out = {}
+        for k_spec, v_spec in spec[1]:
+            k, idx = unflatten_structure(flat, k_spec, idx, inv_map)
+            v, idx = unflatten_structure(flat, v_spec, idx, inv_map)
+            out[k] = v
+        return out, idx
+
+    raise ValueError(f"Unknown spec type: {type_}")
+
+
+# =====================================================================
+# FULL PREDICTION PIPELINE
+# =====================================================================
+
+
+def predict_nested(
+    x: Any, predict_fn, cat_map: Dict[Any, int], inv_map: Dict[int, Any]
+):
+    """
+    Flatten → predict → unflatten for a single nested structure.
+    predict_fn should accept a 1D numeric array and return a 1D array.
+    """
+    flat, spec = flatten_structure(x, cat_map)
+    flat_arr = np.array(flat, dtype=float)
+
+    pred_flat = predict_fn(flat_arr)
+
+    # ensure list
+    if isinstance(pred_flat, np.ndarray):
+        pred_flat = pred_flat.tolist()
+
+    result, _ = unflatten_structure(pred_flat, spec, 0, inv_map)
+    return result

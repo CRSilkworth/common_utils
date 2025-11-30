@@ -26,7 +26,7 @@ def to_micro(dt):
 def _to_iso(dt: datetime.datetime) -> str:
     if dt.tzinfo is not None:
         dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-    return dt.isoformat()
+    return dt.isoformat(timespec="microseconds")
 
 
 def convert_timestamps(obj):

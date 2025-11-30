@@ -2,8 +2,6 @@ from typing import Dict, Text, Any, Set, Optional
 from utils.serialize_utils import serialize_value
 from utils.type_utils import deserialize_typehint
 import copy
-from utils.attribute import RunnableAttribute, Attribute
-from utils.datetime_utils import convert_timestamps
 
 
 class DocObj(dict):
@@ -16,6 +14,8 @@ class DocObj(dict):
         fs_db: Any,
         global_vars: Optional[Dict[Text, Any]] = None,
     ):
+        from utils.attribute import RunnableAttribute, Attribute
+
         super().__init__()
         self.doc_id = doc_id
         self.full_name = full_name
@@ -24,6 +24,8 @@ class DocObj(dict):
         self.cleanups = {}
         self.outputs = {}
         self.uploaders = {}
+        self.doc_objs = None
+        self.doc_id_to_full_name = None
         self.attributes: Dict[Text, Attribute] = {}
         self.doc_dict = copy.deepcopy(doc_dict)
         for att, att_dict in self.doc_dict.items():
@@ -45,9 +47,8 @@ class DocObj(dict):
                 self.attributes[att] = RunnableAttribute(
                     name=att,
                     auth_data=auth_data,
+                    doc_obj=self,
                     fs_db=self.fs_db,
-                    doc_id=self.doc_id,
-                    doc_full_name=full_name,
                     value_type=value_type,
                     new_version=att_dict.get("new_version"),
                     old_version=att_dict.get("old_version"),
@@ -66,9 +67,8 @@ class DocObj(dict):
                 # value_type in (QuickBooks, DBConnection, Files, str)
                 self.attributes[att] = Attribute(
                     name=att,
-                    doc_full_name=full_name,
                     auth_data=auth_data,
-                    doc_id=doc_id,
+                    doc_obj=self,
                     value_type=value_type,
                 )
                 self.attributes[att]._set_val(val=_value, serialized=True)

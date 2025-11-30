@@ -241,7 +241,7 @@ def cached_stream_subgraph_by_key(
                 _, _, _, input_full_name, input_att = _input_key
                 if (input_full_name, input_att) in data_dict:
                     continue
-                _cache[(_input_key, chunk_num)] = serialize_value(None)
+                save_to_memory(_input_key, chunk_num, serialize_value(None))
 
         yield run_key, data_dict
 

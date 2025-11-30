@@ -1,5 +1,11 @@
 from typing import Text, Iterable, Any, Optional, Dict, List, Tuple
-from utils.serialize_utils import attempt_deserialize, attempt_serialize
+from utils.serialize_utils import (
+    attempt_deserialize,
+    attempt_serialize,
+    build_category_maps,
+    flatten_structure,
+    unflatten_structure,
+)
 from utils.type_utils import TimeRange, describe_json_schema
 from utils.function_utils import create_function
 from utils.preview_utils import value_to_preview
@@ -19,6 +25,10 @@ from operator import itemgetter
 from itertools import groupby
 import logging
 from utils.datetime_utils import normalize_datetime
+from utils.doc_obj import DocObj
+
+
+TABDPT_URL = "http://tabdpt-service.default.svc.cluster.local:6789"
 
 
 class Attribute:
@@ -26,15 +36,16 @@ class Attribute:
         self,
         name: Text,
         auth_data: Dict[Text, Any],
-        doc_id: Text,
+        doc_obj: DocObj,
         value_type: Any,
-        doc_full_name: Text,
     ):
+        self.doc_obj = doc_obj
         self.name = name
         self.auth_data = auth_data
-        self.doc_id = doc_id
+        self.doc_id = self.doc_obj.doc_id
         self._val = None
-        self.doc_full_name = doc_full_name
+        self._pred_val = None
+        self.doc_full_name = self.doc_obj.full_name
         self.value_type = value_type
         self.sim_iter_num = None
         self.time_ranges_key = None
@@ -52,6 +63,9 @@ class Attribute:
         self.time_range = kwargs.get("time_range", None)
         self.context_key = (self.sim_iter_num, self.time_ranges_key, self.time_range)
 
+        self._val = None
+        self._pred_val = None
+
         if not self.sim_iter_num or not self.time_ranges_key or not self.time_range:
             self.run_key = None
             return
@@ -67,6 +81,12 @@ class Attribute:
     @property
     def val(self) -> Any:
         return self._val
+
+    @property
+    def pred_val(self) -> Any:
+        if self._pred_val is None:
+            self._pred_val = self._get_predicted_value()
+        return self._pred_val
 
     def _set_val(self, val: Any, serialized: bool = False):
         if serialized:
@@ -154,8 +174,7 @@ class RunnableAttribute(Attribute):
         name: Text,
         fs_db: Any,
         auth_data: Dict[Text, Text],
-        doc_id: Text,
-        doc_full_name: Text,
+        doc_obj: DocObj,
         value_type: Any,
         var_name_to_id: Dict[Text, Text],
         sim_iter_nums: List[Text],
@@ -175,8 +194,7 @@ class RunnableAttribute(Attribute):
         super().__init__(
             name=name,
             auth_data=auth_data,
-            doc_id=doc_id,
-            doc_full_name=doc_full_name,
+            doc_obj=doc_obj,
             value_type=value_type,
         )
         self.auth_data = auth_data
@@ -276,15 +294,31 @@ class RunnableAttribute(Attribute):
     ):
         if overriden:
             try:
-                _, value_chunk = next(
-                    self.get_iterator(
-                        sim_iter_nums=[self.sim_iter_num],
-                        time_ranges_keys=[self.time_ranges_key],
-                        time_range=self.time_range,
-                        version=self.old_version,
-                        use_cache=False,
-                    )
-                )
+                value_chunk = None
+                for _, value_chunk_iter in self.get_iterator(
+                    sim_iter_nums=[self.sim_iter_num],
+                    time_ranges_keys=[self.time_ranges_key],
+                    time_range=self.time_range,
+                    overriden=overriden,
+                    # version=self.old_version,
+                    use_cache=False,
+                ):
+                    if value_chunk is None:
+                        value_chunk = value_chunk_iter
+                        continue
+                    logging.warning(f"FOUND {value_chunk}")
+
+                # _, value_chunk = next(
+                #     self.get_iterator(
+                #         sim_iter_nums=[self.sim_iter_num],
+                #         time_ranges_keys=[self.time_ranges_key],
+                #         time_range=self.time_range,
+                #         overriden=overriden,
+                #         # version=self.old_version,
+                #         use_cache=False,
+                #     )
+                # )
+                logging.warning(f"OVERRIDE {value_chunk}")
             except StopIteration:
                 logging.warning(
                     f"Overriden value not found: {self.run_key}, {self.old_version}"
@@ -331,10 +365,12 @@ class RunnableAttribute(Attribute):
             f"{doc_data['time_range_end'].isoformat()}_"
             f"{doc_data['time_ranges_key']}_"
             f"{doc_data['chunk_num']}_"
-            f"{doc_data['version']}"
+            f"{doc_data['version'].isoformat()}"
         )
+        logging.warning(f"writing {self.doc_full_name} {self.name} {version_key}")
         # Write directly to Firestore
         chunk_ref = self._get_collection().document(version_key)
+        logging.warning(doc_data["version"])
         chunk_ref.set(doc_data)
 
     def _get_output(self):
@@ -472,6 +508,76 @@ class RunnableAttribute(Attribute):
             if batch_count:
                 batch.commit()
 
+    def predict(
+        self,
+        sim_iter_num: Optional[int] = None,
+        time_ranges_key: Optional[Text] = None,
+        train_time_range: Optional[TimeRange] = None,
+        regression: bool = True,
+        window_size: int = 100,
+    ):
+
+        # 1. Build variable → list of time series values
+        all_time_series = {
+            "self": [
+                v
+                for _, v in self.time_series(
+                    sim_iter_num=sim_iter_num, time_ranges_key=time_ranges_key
+                )
+            ]
+        }
+        logging.warning("-" * 10)
+        logging.warning(f"{all_time_series['self']}")
+
+        for input_doc_id in self.var_name_to_id.values():
+            full_name = self.doc_obj.doc_id_to_full_name[input_doc_id]
+            doc = self.doc_obj.doc_objs[full_name]
+            if not hasattr(doc, "basic") or input_doc_id == self.doc_id:
+                continue
+
+            all_time_series[full_name] = [
+                v
+                for _, v in self.time_series(
+                    sim_iter_num=sim_iter_num, time_ranges_key=time_ranges_key
+                )
+            ]
+        if all([not v for v in all_time_series.values()]):
+            raise ValueError(
+                f"Cannot make prediction when {self.doc_obj.full_name}.{self.name} has no data:"
+            )
+        # 2. Build category maps
+        cat_map, inv_cat_map = build_category_maps(list(all_time_series.values()))
+
+        all_flats = {}
+        all_specs = {}
+        for full_name, ts in all_time_series.items():
+            all_flats[full_name] = []
+            all_specs[full_name] = []
+            for val in ts:
+                flat, spec = flatten_structure(val, cat_map)
+                all_flats[full_name].append(flat)
+                all_specs[full_name].append(spec)
+        logging.warning(all_flats["self"])
+
+        payload = {"data": all_flats, "window_size": window_size}
+        resp = requests.post(
+            f"{TABDPT_URL}/time_series/{'regressor' if regression else 'classifier'}",
+            json=payload,
+        )
+        resp.raise_for_status()
+
+        pred = resp.json()
+        pred_vector = pred["predictions"][0]  # list of floats
+
+        # use the spec corresponding to the last timestamp of "self"
+        last_spec = all_specs["self"][-1]
+
+        unflattened, _ = unflatten_structure(
+            pred_vector, last_spec, idx=0, inv_map=inv_cat_map
+        )
+
+        return unflattened
+
     def time_series(
         self,
         sim_iter_num: Optional[int] = None,
@@ -567,6 +673,7 @@ class RunnableAttribute(Attribute):
         time_ranges_keys: Optional[Text] = None,
         time_range: Optional[TimeRange] = None,
         use_cache: bool = True,
+        overriden: Optional[bool] = None,
         version: Optional[Text] = None,
     ) -> Iterable[Tuple[Tuple[int, Text, TimeRange], Any]]:
         """
@@ -602,6 +709,7 @@ class RunnableAttribute(Attribute):
                 sim_iter_nums=sim_iter_nums,
                 time_ranges_keys=time_ranges_keys,
                 time_range=time_range,
+                overriden=overriden,
                 version=version,
             )
         else:
@@ -609,6 +717,7 @@ class RunnableAttribute(Attribute):
                 sim_iter_nums=sim_iter_nums,
                 time_ranges_keys=time_ranges_keys,
                 time_range=time_range,
+                overriden=overriden,
                 version=version,
             )
 
@@ -641,6 +750,7 @@ class RunnableAttribute(Attribute):
         sim_iter_nums: Optional[Text] = None,
         time_ranges_keys: Optional[Text] = None,
         time_range: Optional[TimeRange] = None,
+        overriden: Optional[bool] = None,
         version: Optional[Text] = None,
     ):
         """
@@ -662,6 +772,8 @@ class RunnableAttribute(Attribute):
             query = query.where("time_range_end", "<=", time_range_end)
         if version:
             query = query.where("version", "==", version)
+        if overriden is not None:
+            query = query.where("overriden", "==", overriden)
 
         query = (
             query.order_by("sim_iter_num")
@@ -699,6 +811,7 @@ class RunnableAttribute(Attribute):
         sim_iter_nums: Optional[Text] = None,
         time_ranges_keys: Optional[Text] = None,
         time_range: Optional[TimeRange] = None,
+        overriden: Optional[bool] = None,
         version: Optional[Text] = None,
     ):
         """
@@ -752,6 +865,7 @@ class RunnableAttribute(Attribute):
                             sim_iter_nums=sim_iter_nums,
                             time_ranges_keys=time_ranges_keys,
                             time_range=time_range,
+                            overriden=overriden,
                             version=version,
                         )
                     next_flat = next(fire_iter)

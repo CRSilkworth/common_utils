@@ -104,6 +104,8 @@ def run_sims(
     for run_key, data_dict in data_iterator:
         sim_iter_num, time_range, time_ranges_key, full_name, att = run_key
         doc = doc_objs[full_name]
+        doc.doc_objs = doc_objs
+        doc.doc_id_to_full_name = doc_id_to_full_name
         attribute = doc.attributes[att]
         attribute._set_context(
             sim_iter_num=sim_iter_num,
