@@ -18,7 +18,6 @@ from collections.abc import Iterable as abc_Iterable
 import numpy as np
 import pandas as pd
 from collections.abc import Mapping, Sequence
-import hashlib
 import builtins
 import typing
 import typing_extensions
@@ -31,6 +30,7 @@ import datetime
 from pymongo.mongo_client import MongoClient as PyMongoClient
 from psycopg2.extensions import connection as Psycopg2Connection
 from google.cloud.bigquery import Client as BigQueryClient
+from utils.json_schema_utils import describe_json_schema
 import pymongo
 import json
 import logging
@@ -118,189 +118,12 @@ class GCSPath(str):
         return self.split("/", 3)[3] if "/" in self[5:] else ""
 
 
-def hash_schema(schema):
-    return hashlib.md5(str(schema).encode()).hexdigest()
-
-
-def describe_json_schema(obj, definitions=None, path="", max_len: int = 32):
-    if definitions is None:
-        definitions = {}
-
-    import torch
-
-    if isinstance(obj, torch.nn.Module):
-        import inspect
-
-        try:
-            sig = inspect.signature(obj.__class__.__init__)
-            args_info = {
-                k: str(v.annotation) if v.annotation != inspect._empty else "Any"
-                for k, v in sig.parameters.items()
-                if k != "self"
-            }
-        except Exception:
-            args_info = {}
-
-        schema = {
-            "x-type": "torch.nn.Module",
-            "type": "object",
-            "properties": {"class": obj.__class__.__name__, "args": args_info},
-        }
-
-    if isinstance(obj, dict):
-        # Represent dict as array of [key, value] pairs
-        if len(obj) < max_len:
-            properties = {}
-            required = []
-            for k, v in obj.items():
-                k = str(k)
-                key_schema, definitions = describe_json_schema(
-                    k, definitions, f"{path}/key/{k}"
-                )
-                val_schema, definitions = describe_json_schema(
-                    v, definitions, f"{path}/value/{k}"
-                )
-
-                properties[k] = {"key": key_schema, "value": val_schema}
-                required.append(k)
-            schema = {
-                "x-type": "dict",
-                "type": "object",
-                "properties": properties,
-                "required": required,
-            }
-        else:
-            # Get the schema from the *first* key and value
-            first_key, first_val = next(iter(obj.items()))
-            key_schema, definitions = describe_json_schema(
-                first_key, definitions, path + "/key"
-            )
-            val_schema, definitions = describe_json_schema(
-                first_val, definitions, path + "/value"
-            )
-
-            schema = {
-                "x-type": "dict",
-                "type": "object",
-                "properties": {
-                    "keys": key_schema,
-                    "values": val_schema,
-                    "length": len(obj),
-                },
-            }
-
-    elif isinstance(obj, list):
-        if len(obj) < max_len:
-            items_schema = []
-            for item_num, item in enumerate(obj):
-                item_schema, definitions = describe_json_schema(
-                    item, definitions, path + f"/items/{item_num}"
-                )
-                items_schema.append(item_schema)
-
-        else:
-            items_schema, definitions = describe_json_schema(
-                obj[0], definitions, path + "/items"
-            )
-        schema = {
-            "x-type": "list",
-            "type": "array",
-            "minItems": len(obj),
-            "maxItems": len(obj),
-            "items": items_schema,
-        }
-    elif isinstance(obj, tuple):
-        if len(obj) < max_len:
-            items_schema = []
-            for item_num, item in enumerate(obj):
-                item_schema, definitions = describe_json_schema(
-                    item, definitions, path + f"/items/{item_num}"
-                )
-                items_schema.append(item_schema)
-
-        else:
-            items_schema, definitions = describe_json_schema(
-                obj[0], definitions, path + "/items"
-            )
-        schema = {
-            "x-type": "tuple",
-            "type": "array",
-            "minItems": len(obj),
-            "maxItems": len(obj),
-            "items": items_schema,
-        }
-    elif isinstance(obj, (frozenset, set)):
-        x_type = "frozenset" if isinstance(obj, frozenset) else "set"
-        if obj:
-            items_schema, definitions = describe_json_schema(
-                next(iter(obj)), definitions, path + "/items"
-            )
-            schema = {
-                "x-type": x_type,
-                "type": "array",
-                "minItems": len(obj),
-                "maxItems": len(obj),
-                "items": items_schema,
-                "uniqueItems": True,
-            }
-        else:
-            schema = {
-                "x-type": x_type,
-                "type": "array",
-                "minItems": len(obj),
-                "maxItems": len(obj),
-                "items": {},
-                "uniqueItems": True,
-            }
-
-    elif isinstance(obj, np.ndarray):
-        schema = {
-            "x-type": "np.ndarray",
-            "type": "object",
-            "properties": {"shape": list(obj.shape), "dtype": str(obj.dtype)},
-        }
-    elif isinstance(obj, np.generic):
-        schema = {
-            "x-type": "np.generic",
-            "type": "object",
-            "properties": {"dtype": str(obj.dtype)},
-        }
-    elif isinstance(obj, pd.DataFrame):
-        schema = {
-            "x-type": "pd.dataframe",
-            "type": "object",
-            "properties": {
-                "columns": {col: str(dtype) for col, dtype in obj.dtypes.items()},
-                "shape": list(obj.shape),
-            },
-        }
-
-    elif isinstance(obj, int):
-        schema = {"type": "integer"}
-    elif isinstance(obj, float):
-        schema = {"type": "number"}
-    elif isinstance(obj, str):
-        schema = {"type": "string"}
-    elif isinstance(obj, bytes):
-        schema = {"x-type": "bytes", "type": "string"}
-    elif obj is None:
-        schema = {"type": "null"}
-    else:
-        schema = {"type": "unknown"}
-
-    # Deduplication
-    key = hash_schema(schema)
-    if key not in definitions:
-        definitions[key] = schema
-    return {"$ref": f"#/definitions/{key}"}, definitions
-
-
-def describe_allowed(obj, definitions=None):
-    schema, definitions = describe_json_schema(obj, definitions=definitions)
+def describe_allowed(obj, defs=None):
+    schema_hash, defs = describe_json_schema(obj, defs=defs)
     return {
         "$schema": "http://json-schema.org/draft-07/schema#",
-        **schema,
-        "definitions": definitions,
+        "$ref": f"#/$defs/{schema_hash}",
+        "$defs": defs,
     }
 
 

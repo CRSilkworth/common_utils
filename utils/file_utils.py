@@ -6,7 +6,8 @@ from typing import List, Dict, Optional, Union
 from PIL import Image
 import PyPDF2
 import xml.etree.ElementTree as ET
-from utils.type_utils import Files, describe_json_schema
+from utils.type_utils import Files
+from utils.json_schema_utils import describe_json_schema
 
 
 def guess_file_extension(data: bytes) -> str:
@@ -151,6 +152,13 @@ def get_file_schema(
                 else:
                     count = "Unknown"
                     sample = str(json_obj)
+
+                schema_hash, defs = describe_json_schema(json_obj)
+                schema = {
+                    "$schema": "http://json-schema.org/draft-07/schema#",
+                    "$ref": f"#/$defs/{schema_hash}",
+                    "$defs": defs,
+                }
                 info["properties"]["summary"] = {
                     "type": "object",
                     "x-type": "file_summary",
@@ -158,7 +166,7 @@ def get_file_schema(
                         "file_type": "json",
                         "item_count": count,
                         "sample": sample,
-                        "schema": describe_json_schema(json_obj),
+                        "schema": schema,
                     },
                 }
             # Text files

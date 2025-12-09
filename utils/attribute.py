@@ -6,7 +6,8 @@ from utils.serialize_utils import (
     flatten_structure,
     unflatten_structure,
 )
-from utils.type_utils import TimeRange, describe_json_schema
+from utils.type_utils import TimeRange
+from utils.json_schema_utils import describe_json_schema
 from utils.function_utils import create_function
 from utils.preview_utils import value_to_preview
 from utils.type_utils import get_known_types
@@ -26,7 +27,6 @@ from itertools import groupby
 import logging
 from utils.datetime_utils import normalize_datetime
 from utils.doc_obj import DocObj
-
 
 TABDPT_URL = "http://tabdpt-service.default.svc.cluster.local:6789"
 
@@ -78,8 +78,7 @@ class Attribute:
             self.name,
         )
 
-    @property
-    def val(self) -> Any:
+    def val(self, *args, **kwargs) -> Any:
         return self._val
 
     @property
@@ -324,7 +323,6 @@ class RunnableAttribute(Attribute):
                     f"Overriden value not found: {self.run_key}, {self.old_version}"
                 )
         preview = value_to_preview(value_chunk)
-        _schema = json.dumps(describe_json_schema(value_chunk))
         _value_chunk, output = attempt_serialize(value_chunk, self.value_type)
         # _value_chunk = encode_obj(value_chunk)
 
@@ -332,7 +330,14 @@ class RunnableAttribute(Attribute):
         if output.get("failed", False):
             return
         preview = value_to_preview(value_chunk)
-        _schema = json.dumps(describe_json_schema(value_chunk))
+        schema_hash, defs = describe_json_schema(value_chunk)
+        _schema = json.dumps(
+            {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "$ref": f"#/$defs/{schema_hash}",
+                "$defs": defs,
+            }
+        )
         save_to_memory(run_key, chunk_num, _value_chunk)
 
         # Test size limit
@@ -367,10 +372,8 @@ class RunnableAttribute(Attribute):
             f"{doc_data['chunk_num']}_"
             f"{doc_data['version'].isoformat()}"
         )
-        logging.warning(f"writing {self.doc_full_name} {self.name} {version_key}")
         # Write directly to Firestore
         chunk_ref = self._get_collection().document(version_key)
-        logging.warning(doc_data["version"])
         chunk_ref.set(doc_data)
 
     def _get_output(self):
@@ -511,23 +514,24 @@ class RunnableAttribute(Attribute):
     def predict(
         self,
         sim_iter_num: Optional[int] = None,
-        time_ranges_key: Optional[Text] = None,
-        train_time_range: Optional[TimeRange] = None,
+        # time_ranges_key: Optional[Text] = None,
+        time_range: Optional[TimeRange] = None,
         regression: bool = True,
         window_size: int = 100,
     ):
 
         # 1. Build variable → list of time series values
-        all_time_series = {
+        train_time_series = {
             "self": [
                 v
                 for _, v in self.time_series(
-                    sim_iter_num=sim_iter_num, time_ranges_key=time_ranges_key
+                    sim_iter_num=sim_iter_num,
+                    # time_ranges_key=time_ranges_key,
+                    _time_range=time_range,
                 )
             ]
         }
-        logging.warning("-" * 10)
-        logging.warning(f"{all_time_series['self']}")
+        query_time_series = {"self": [v for _, v in self.time_series()]}
 
         for input_doc_id in self.var_name_to_id.values():
             full_name = self.doc_obj.doc_id_to_full_name[input_doc_id]
@@ -535,31 +539,46 @@ class RunnableAttribute(Attribute):
             if not hasattr(doc, "basic") or input_doc_id == self.doc_id:
                 continue
 
-            all_time_series[full_name] = [
+            train_time_series[full_name] = [
                 v
-                for _, v in self.time_series(
-                    sim_iter_num=sim_iter_num, time_ranges_key=time_ranges_key
+                for _, v in doc.basic.time_series(
+                    sim_iter_num=sim_iter_num,
+                    # time_ranges_key=time_ranges_key,
+                    _time_range=time_range,
                 )
             ]
-        if all([not v for v in all_time_series.values()]):
+
+            query_time_series[full_name] = [v for _, v in doc.basic.time_series()]
+        if all([not v for v in train_time_series.values()]):
             raise ValueError(
                 f"Cannot make prediction when {self.doc_obj.full_name}.{self.name} has no data:"
             )
         # 2. Build category maps
-        cat_map, inv_cat_map = build_category_maps(list(all_time_series.values()))
+        cat_map, inv_cat_map = build_category_maps(
+            list(train_time_series.values()) + list(query_time_series.values())
+        )
 
-        all_flats = {}
+        all_train_flats = {}
         all_specs = {}
-        for full_name, ts in all_time_series.items():
-            all_flats[full_name] = []
+        for full_name, ts in train_time_series.items():
+            all_train_flats[full_name] = []
             all_specs[full_name] = []
             for val in ts:
                 flat, spec = flatten_structure(val, cat_map)
-                all_flats[full_name].append(flat)
+                all_train_flats[full_name].append(flat)
                 all_specs[full_name].append(spec)
-        logging.warning(all_flats["self"])
+        all_query_flats = {}
+        for full_name, ts in query_time_series.items():
+            all_query_flats[full_name] = []
+            for val in ts:
+                flat, spec = flatten_structure(val, cat_map)
+                all_query_flats[full_name].append(flat)
 
-        payload = {"data": all_flats, "window_size": window_size}
+        payload = {
+            "train_data": all_train_flats,
+            "query_data": all_query_flats,
+            "window_size": window_size,
+        }
         resp = requests.post(
             f"{TABDPT_URL}/time_series/{'regressor' if regression else 'classifier'}",
             json=payload,
@@ -581,8 +600,7 @@ class RunnableAttribute(Attribute):
     def time_series(
         self,
         sim_iter_num: Optional[int] = None,
-        time_ranges_key: Optional[Text] = None,
-        time_range: Optional[TimeRange] = None,
+        _time_range: Optional[TimeRange] = None,
     ) -> Iterable[Tuple[TimeRange, Any]]:
         """
         Get an iterator of the full time series of values (or section of it) of the
@@ -590,55 +608,40 @@ class RunnableAttribute(Attribute):
         Args:
             sim_iter_num: Which simulation to pull the time series from
                 (defaults to the current simulation)
-            time_ranges_key: Which time range collection to pull the data from
-                (defaults to the current time range)
-            time_range: max and min time range of the data. Defaults to full time
-                series (up to this point).
+            _time_range: (NOTE: Do not use. internal use only). specify a slice
+            of the time_series. Defaults to full.
         Returns:
             iterator of 2-tuples:
                 time_range: The time range at which that value was computed.
                 value: The value at that time range.
         """
 
+        sim_iter_num = sim_iter_num if sim_iter_num is not None else self.sim_iter_num
         sim_iter_num = sim_iter_num or self.sim_iter_num
         if sim_iter_num not in self.sim_iter_nums:
             raise ValueError(
                 f"sim_iter_num {sim_iter_num} not in {self.doc_full_name}-{self.name}"
                 f" list of sim_iter_nums: {self.sim_iter_nums}"
             )
-        time_ranges_key = time_ranges_key or self.time_ranges_key
-        if time_ranges_key not in self.time_ranges_keys:
-            raise ValueError(
-                f"time_ranges_key {time_ranges_key} not in "
-                f"{self.doc_full_name}-{self.name} list of time_ranges_keys:"
-                f" {self.time_ranges_keys}"
-            )
 
-        time_range = time_range or (datetime.datetime.min, datetime.datetime.max)
+        time_range = _time_range or (datetime.datetime.min, datetime.datetime.max)
         # Only take data that has been 'completed' already
         if time_range[1] > self.time_range[0]:
             time_range = (time_range[0], self.time_range[0])
         iterator = self.get_iterator(
             sim_iter_nums=[sim_iter_num],
-            time_ranges_keys=[time_ranges_key],
             time_range=time_range,
         )
         for (_, time_range, _, _, _), data in iterator:
             yield (time_range, data)
 
-    def sims(
-        self,
-        time_ranges_key: Optional[Text] = None,
-        time_range: Optional[TimeRange] = None,
-    ) -> Iterable[Tuple[int, Any]]:
+    def sims(self, time_range: Optional[TimeRange] = None) -> Iterable[Tuple[int, Any]]:
         """
         Get an iterator of the data of all the simulations up until this one.
         Note that there is no restriction on selecting a time_range that includes
         several time ranges of data. May get multiple values corresponding to a single
         sim. Use time_range with caution or leave blank.
         Args:
-            time_ranges_key: Which time range collection to pull the data from
-                (defaults to the current time range)
             time_range: max and min time range of the data. Defaults to the current one.
         Returns:
             iterator of 2-tuples:
@@ -887,27 +890,30 @@ class RunnableAttribute(Attribute):
             else:
                 yield key_with_none
 
-    def get_first_val(
+    def val(
         self,
-        sim_iter_num: int,
-        time_ranges_key: Text,
-        time_range: Optional[TimeRange] = None,
+        sim_iter_num: Optional[int] = None,
+        _time_range: Optional[TimeRange] = None,
     ) -> Any:
         """
-        Get the first value of returned by that query (up to that point)
+        Get the most recently computed value (default) or get the first value
+        returned by that query corresponding to kwargs (up to that point)
         Args:
             Args:
             sim_iter_num: Which simulation to pull the value from
             time_ranges_key: Which time range collection to pull the data from
-            time_range: max and min time range of the data. Defaults to full time
+            time_range: (NOTE: Do not use. For internal use only)
+            max and min time range of the data. Defaults to full time
                 series (up to this point).
         Returns:
             value: The first value retrieved by the query
         """
+        if sim_iter_num is None and _time_range is None:
+            return self._val
+
         iterator = self.get_iterator(
-            sim_iter_nums=[sim_iter_num],
-            time_ranges_keys=[time_ranges_key],
-            time_range=time_range,
+            sim_iter_nums=[sim_iter_num] if sim_iter_num is not None else None,
+            time_range=_time_range,
         )
         try:
             _, value = next(iterator)
@@ -917,7 +923,7 @@ class RunnableAttribute(Attribute):
 
     @classmethod
     def get_method_documentation(cls) -> Text:
-        methods = [cls.time_series, cls.sims, cls.get_first_val, cls.get_iterator]
+        methods = [cls.time_series, cls.sims, cls.val, cls.get_iterator]
         r_str = []
         for method in methods:
             sig = inspect.signature(method)

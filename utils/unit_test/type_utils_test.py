@@ -74,7 +74,7 @@ def test_describe_allowed_returns_schema():
     obj = {"a": 1}
     schema = type_utils.describe_allowed(obj)
     assert "$schema" in schema
-    assert "definitions" in schema
+    assert "defs" in schema
 
 
 def test_is_allowed_type_basic():

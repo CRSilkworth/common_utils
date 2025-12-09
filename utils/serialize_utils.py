@@ -140,7 +140,7 @@ def encode_obj(obj: Any):
         }
 
 
-def decode_obj(obj: Any, known_types: Optional[Dict[Text, Any]] = None):
+def decode_obj(obj: Any, known_types: Optional[Dict[Text, Any]] = None) -> Any:
     if isinstance(obj, dict):
         kind = obj.get("__kind__")
         if kind == "PlotlyFigure":
@@ -463,7 +463,7 @@ def unflatten_structure(
     if type_ == "cat":
         if inv_map is None:
             raise ValueError("inv_map required to decode categorical values")
-        cat_id = int(flat[idx])
+        cat_id = int(round(flat[idx]))
         return inv_map.get(cat_id, None), idx + 1
 
     # ----- datetime -----

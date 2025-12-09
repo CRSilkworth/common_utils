@@ -125,9 +125,10 @@ def run_sims(
         upstream_failure = False
         # Set all the arguments to the function to run
         runner_kwargs = {}
-        runner_kwargs["sim_iter_num"] = sim_iter_num
-        runner_kwargs["time_ranges_key"] = time_ranges_key
-        runner_kwargs["time_range"] = time_range
+        if att not in ("sims", "all_time_ranges"):
+            runner_kwargs["sim_iter_num"] = sim_iter_num
+        if att == "basic":
+            runner_kwargs["time_range"] = time_range
         for var_name, input_doc_id in attribute.var_name_to_id.items():
             input_full_name = doc_id_to_full_name[input_doc_id]
             input_doc = doc_objs[input_full_name]
