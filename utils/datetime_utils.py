@@ -1,6 +1,8 @@
-from typing import Any, Union
+from typing import Any, Union, Tuple
+from utils.type_utils import TimeRanges
 import datetime
 from email.utils import parsedate_to_datetime
+import calendar
 
 EPOCH = datetime.datetime(1970, 1, 1)
 MIN_TS = -1e18
@@ -30,18 +32,66 @@ def _to_iso(dt: datetime.datetime) -> str:
     return dt.isoformat(timespec="microseconds")
 
 
-# def to_naive(dt: datetime.datetime) -> datetime.datetime:
-#     """
-#     Force a datetime to be naive (no tzinfo).
-#     - If it has tzinfo, strip it.
-#     - If not, leave it alone.
-#     """
-#     if not isinstance(dt, datetime.datetime):
-#         raise TypeError(f"Expected datetime, got {type(dt)}")
+def generate_time_ranges(
+    start: datetime.datetime, end: datetime.datetime, period: str
+) -> TimeRanges:
+    """
+    Generate consecutive time ranges between two datetime.datetimes.
 
-#     if dt.tzinfo is not None:
-#         return dt.replace(tzinfo=None)
-#     return dt
+    Args:
+        start: Start datetime.datetime (inclusive).
+        end: End datetime.datetime (inclusive).
+        period: One of: "daily", "weekly", "monthly", "yearly".
+
+    Returns:
+        List of (range_start, range_end) datetime.datetime tuples.
+    """
+
+    if start > end:
+        raise ValueError("start must be before end")
+
+    period = period.lower()
+    ranges = []
+
+    current = start
+
+    while current <= end:
+        if period == "daily":
+            next_dt = current + datetime.timedelta(days=1)
+
+        elif period == "weekly":
+            next_dt = current + datetime.timedelta(weeks=1)
+
+        elif period == "monthly":
+            year = current.year
+            month = current.month
+
+            # Move to first of next month
+            if month == 12:
+                next_year, next_month = year + 1, 1
+            else:
+                next_year, next_month = year, month + 1
+
+            # Try to preserve day-of-month if possible
+            day = min(current.day, calendar.monthrange(next_year, next_month)[1])
+            next_dt = current.replace(year=next_year, month=next_month, day=day)
+
+        elif period == "yearly":
+            try:
+                next_dt = current.replace(year=current.year + 1)
+            except ValueError:
+                # Handle Feb 29 -> Feb 28 for non-leap years
+                next_dt = current.replace(month=2, day=28, year=current.year + 1)
+
+        else:
+            raise ValueError("period must be one of: daily, weekly, monthly, yearly")
+
+        range_end = min(next_dt, end)
+        ranges.append((to_micro(current), to_micro(range_end)))
+
+        current = next_dt
+
+    return ranges
 
 
 def convert_timestamps(obj):

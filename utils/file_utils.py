@@ -239,7 +239,7 @@ def get_file_schema(
                     "x-type": "file_summary",
                     "properties": {
                         "file_type": extension,
-                        "note": "Unsupported file type. Basic metadata shown.",
+                        "note": "Unsupported file type. Data metadata shown.",
                     },
                 }
 

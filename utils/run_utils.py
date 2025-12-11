@@ -4,7 +4,7 @@ from utils.function_utils import run_with_expected_type, run_with_generator
 from utils.downloader import cached_stream_subgraph_by_key, prefetch
 from utils.doc_obj import DocObj
 from utils.datetime_utils import to_micro, convert_timestamps
-from utils.type_utils import TimeRange
+from utils.type_utils import TimeRanges
 import datetime
 import logging
 import requests
@@ -13,13 +13,13 @@ from google.oauth2 import service_account
 import json
 
 
-def run_sims(
+def run(
     doc_data: Dict[Text, Dict[Text, Any]],
     docs_to_run: List[Text],
     auth_data: Dict[Text, Text],
+    clone_nums: List[int],
+    time_ranges: TimeRanges,
     attributes_to_run: Optional[List[Text]] = None,
-    time_ranges_keys: Optional[List[Text]] = None,
-    sim_iter_nums: Optional[List[int]] = None,
     run_config: Optional[Dict[Text, Any]] = None,
     **kwargs,
 ):
@@ -41,8 +41,7 @@ def run_sims(
 
     run_config = run_config if run_config else {}
 
-    time_ranges_keys_to_run = set()
-    sim_iter_nums_to_run = set()
+    clone_nums_to_run = set()
     doc_objs = {}
     doc_id_to_full_name = {}
     doc_full_name_to_id = {}
@@ -66,18 +65,13 @@ def run_sims(
                 continue
             if not attribute.runnable or attribute.no_function_body:
                 continue
-            time_ranges_keys_to_run.update(attribute.time_ranges_keys)
-            sim_iter_nums_to_run.update(attribute.sim_iter_nums)
-
-    calc_graph_doc = doc_objs[doc_id_to_full_name[auth_data["calc_graph_id"]]]
+            clone_nums_to_run.update(attribute.clone_nums)
 
     ref_dict = get_ref_dict(
         docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run
     )
-    if time_ranges_keys is not None:
-        time_ranges_keys_to_run = time_ranges_keys_to_run & set(time_ranges_keys)
-    if sim_iter_nums is not None:
-        sim_iter_nums_to_run = sim_iter_nums_to_run & set(sim_iter_nums)
+
+    clone_nums_to_run = clone_nums_to_run & set(clone_nums)
 
     prefetch(
         fs_db=fs_db,
@@ -85,50 +79,42 @@ def run_sims(
         docs_to_run=docs_to_run,
         ref_dict=ref_dict,
         doc_id_to_full_name=doc_id_to_full_name,
-        sim_iter_nums=sim_iter_nums_to_run,
-        time_ranges_keys=time_ranges_keys_to_run,
+        clone_nums=clone_nums_to_run,
     )
-    full_space = get_full_space(calc_graph_doc, doc_objs, docs_to_run)
+    full_space = get_full_space(clone_nums=clone_nums, time_ranges=time_ranges)
     data_iterator = cached_stream_subgraph_by_key(
         fs_db=fs_db,
         auth_data=auth_data,
         full_space=full_space,
         docs_to_run=docs_to_run,
         ref_dict=ref_dict,
-        time_ranges_keys=time_ranges_keys_to_run,
-        sim_iter_nums=sim_iter_nums_to_run,
+        clone_nums=clone_nums_to_run,
         doc_id_to_full_name=doc_id_to_full_name,
         doc_full_name_to_id=doc_full_name_to_id,
     )
 
     for run_key, data_dict in data_iterator:
-        sim_iter_num, time_range, time_ranges_key, full_name, att = run_key
+        clone_num, time_range, full_name, att = run_key
         doc = doc_objs[full_name]
         doc.doc_objs = doc_objs
         doc.doc_id_to_full_name = doc_id_to_full_name
         attribute = doc.attributes[att]
         attribute._set_context(
-            sim_iter_num=sim_iter_num,
-            time_ranges_key=time_ranges_key,
+            clone_num=clone_num,
             time_range=time_range,
         )
-        if sim_iter_num not in attribute.sim_iter_nums:
-            continue
-        if time_ranges_key not in attribute.time_ranges_keys:
+        if clone_num not in attribute.clone_nums:
             continue
 
-        logging.warning(
-            f"Running {sim_iter_num}, {time_range}, {time_ranges_key},"
-            f" {doc.full_name}, {att}"
-        )
+        logging.warning(f"Running {clone_num}, {time_range}, {doc.full_name}, {att}")
 
         upstream_failure = False
         # Set all the arguments to the function to run
         runner_kwargs = {}
-        if att not in ("sims", "all_time_ranges"):
-            runner_kwargs["sim_iter_num"] = sim_iter_num
-        if att == "basic":
+        runner_kwargs["clone_num"] = clone_num
+        if att == "data":
             runner_kwargs["time_range"] = time_range
+
         for var_name, input_doc_id in attribute.var_name_to_id.items():
             input_full_name = doc_id_to_full_name[input_doc_id]
             input_doc = doc_objs[input_full_name]
@@ -148,15 +134,13 @@ def run_sims(
                 if not input_attribute.runnable:
                     continue
                 input_attribute._set_context(
-                    sim_iter_num=sim_iter_num,
-                    time_ranges_key=time_ranges_key,
+                    clone_num=clone_num,
                     time_range=time_range,
                 )
                 if input_attribute.chunked:
                     input_attribute._set_val(
                         input_attribute.get_iterator(
-                            sim_iter_nums=[sim_iter_num],
-                            time_ranges_keys=[time_ranges_key],
+                            clone_nums=[clone_num],
                             time_range=time_range,
                         )
                     )
@@ -166,9 +150,8 @@ def run_sims(
                     )
 
         block_key = [
-            sim_iter_num,
+            clone_num,
             convert_timestamps(time_range),
-            time_ranges_key,
             0,
         ]
         if block_key in attribute.overrides:
@@ -249,61 +232,13 @@ def run_sims(
                 attribute.cleanup()
 
 
-def get_all_time_ranges(
-    calc_graph_doc, is_calc_graph_run
-) -> Dict[Text, List[TimeRange]]:
-    all_time_ranges = {}
-
-    if not is_calc_graph_run:
-
-        try:
-            __, all_time_ranges = next(
-                calc_graph_doc.attributes["all_time_ranges"].get_iterator(
-                    sim_iter_nums=[0],
-                    time_ranges_keys=["__BEGIN_TIME__"],
-                    use_cache=False,
-                )
-            )
-        except StopIteration:
-            all_time_ranges = {
-                "__BEGIN_TIME__": [(datetime.datetime.min, datetime.datetime.min)]
-            }
-
-    all_time_ranges["__BEGIN_TIME__"] = [(datetime.datetime.min, datetime.datetime.min)]
-    return all_time_ranges
-
-
-def get_sims(calc_graph_doc, is_calc_graph_run) -> List[Dict[Text, Any]]:
-    sims = {"0": {}}
-    if not is_calc_graph_run:
-        try:
-            _, sims = next(
-                calc_graph_doc.attributes["sims"].get_iterator(
-                    sim_iter_nums=[0],
-                    time_ranges_keys=["__BEGIN_TIME__"],
-                    use_cache=False,
-                )
-            )
-        except StopIteration:
-            sims = [{}]
-
-    if not sims:
-        sims = [{}]
-    return sims
-
-
-def get_full_space(calc_graph_doc, doc_objs, docs_to_run):
-
-    is_calc_graph_run = calc_graph_doc.doc_id in docs_to_run
-    sims = get_sims(calc_graph_doc, is_calc_graph_run)
-    all_time_ranges = get_all_time_ranges(calc_graph_doc, is_calc_graph_run)
+def get_full_space(clone_nums, time_ranges, doc_objs):
 
     full_space = []
-    for sim_iter_num, _ in enumerate(sims):
-        for time_ranges_key, time_ranges in all_time_ranges.items():
-            for time_range in time_ranges:
-                time_range = to_micro(time_range[0]), to_micro(time_range[1])
-                full_space.append((sim_iter_num, time_range, time_ranges_key))
+    for clone_num in clone_nums:
+        for time_range in time_ranges:
+            time_range = to_micro(time_range[0]), to_micro(time_range[1])
+            full_space.append((clone_num, time_range))
     full_space.sort()
     for doc_obj in doc_objs.values():
         for _, attribute in doc_obj.attributes.items():

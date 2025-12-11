@@ -58,8 +58,7 @@ class DocObj(dict):
                     function_header=att_dict.get("function_header"),
                     function_string=att_dict.get("function_string"),
                     no_function_body=att_dict.get("empty", False),
-                    sim_iter_nums=att_dict["sim_iter_nums"],
-                    time_ranges_keys=att_dict["time_ranges_keys"],
+                    clone_nums=att_dict["clone_nums"],
                     overrides=att_dict["overrides"],
                     global_vars=global_vars,
                 )

@@ -6,8 +6,8 @@ import sqlite3
 import utils.serialize_utils as serialize_utils
 
 
-def test_encode_decode_basic_types():
-    # Test encoding and decoding of basic types
+def test_encode_decode_data_types():
+    # Test encoding and decoding of data types
     assert serialize_utils.encode_obj(123) == 123
     assert serialize_utils.encode_obj("test") == "test"
     assert serialize_utils.encode_obj(None) is None
