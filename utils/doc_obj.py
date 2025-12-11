@@ -59,7 +59,7 @@ class DocObj(dict):
                     function_string=att_dict.get("function_string"),
                     no_function_body=att_dict.get("empty", False),
                     clone_nums=att_dict["clone_nums"],
-                    overrides=att_dict["overrides"],
+                    locks=att_dict["locks"],
                     global_vars=global_vars,
                 )
             else:

@@ -154,9 +154,9 @@ def run(
             convert_timestamps(time_range),
             0,
         ]
-        if block_key in attribute.overrides:
-            logging.warning(f"override found {block_key}")
-            attribute._upload_chunk(run_key=run_key, value_chunk=None, overriden=True)
+        if block_key in attribute.locks:
+            logging.warning(f"lock found {block_key}")
+            attribute._upload_chunk(run_key=run_key, value_chunk=None, lock_value=True)
             continue
 
         if not attribute.func:

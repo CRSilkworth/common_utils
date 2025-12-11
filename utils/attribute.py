@@ -181,7 +181,7 @@ class RunnableAttribute(Attribute):
         old_version: Optional[Text] = None,
         chunked: bool = False,
         no_function_body: bool = False,
-        overrides: Optional[List[Tuple]] = None,
+        locks: Optional[List[Tuple]] = None,
         global_vars: Dict[Text, Any] = None,
         deleted: bool = False,
     ):
@@ -206,15 +206,15 @@ class RunnableAttribute(Attribute):
         self.outputs = {}
         self.runnable = True
 
-        self.overrides = overrides or []
-        overrides = []
-        for override in self.overrides:
-            override[1] = (
-                convert_timestamps(override[1][0]),
-                convert_timestamps(override[1][1]),
+        self.locks = locks or []
+        locks = []
+        for lock in self.locks:
+            lock[1] = (
+                convert_timestamps(lock[1][0]),
+                convert_timestamps(lock[1][1]),
             )
-            overrides.append(override)
-        self.overrides = overrides
+            locks.append(lock)
+        self.locks = locks
 
         self.no_function_body = no_function_body
         self.function_name = function_name
@@ -283,15 +283,15 @@ class RunnableAttribute(Attribute):
         run_key: Tuple[Text],
         value_chunk: Any,
         chunk_num: int = 0,
-        overriden: bool = False,
+        lock_value: bool = False,
     ):
-        if overriden:
+        if lock_value:
             try:
                 value_chunk = None
                 for _, value_chunk_iter in self.get_iterator(
                     clone_nums=[self.clone_num],
                     time_range=self.time_range,
-                    overriden=overriden,
+                    lock_value=lock_value,
                     # version=self.old_version,
                     use_cache=False,
                 ):
@@ -344,7 +344,7 @@ class RunnableAttribute(Attribute):
             "_value_chunk": _value_chunk,
             "preview": preview,
             "_schema": _schema,
-            "overriden": overriden,
+            "lock_value": lock_value,
         }
         version_key = (
             f"{doc_data['clone_num']}_"
@@ -640,7 +640,7 @@ class RunnableAttribute(Attribute):
         clone_nums: Optional[Text] = None,
         time_range: Optional[TimeRange] = None,
         use_cache: bool = True,
-        overriden: Optional[bool] = None,
+        lock_value: Optional[bool] = None,
         version: Optional[Text] = None,
     ) -> Iterable[Tuple[Tuple[int, Text, TimeRange], Any]]:
         """
@@ -666,14 +666,14 @@ class RunnableAttribute(Attribute):
             iterator = self.merged_iterator(
                 clone_nums=clone_nums,
                 time_range=time_range,
-                overriden=overriden,
+                lock_value=lock_value,
                 version=version,
             )
         else:
             iterator = self.firestore_iterator(
                 clone_nums=clone_nums,
                 time_range=time_range,
-                overriden=overriden,
+                lock_value=lock_value,
                 version=version,
             )
 
@@ -705,7 +705,7 @@ class RunnableAttribute(Attribute):
         self,
         clone_nums: Optional[Text] = None,
         time_range: Optional[TimeRange] = None,
-        overriden: Optional[bool] = None,
+        lock_value: Optional[bool] = None,
         version: Optional[Text] = None,
     ):
         """
@@ -726,8 +726,8 @@ class RunnableAttribute(Attribute):
             query = query.where("time_range_end", "<=", time_range_end)
         if version:
             query = query.where("version", "==", version)
-        if overriden is not None:
-            query = query.where("overriden", "==", overriden)
+        if lock_value is not None:
+            query = query.where("lock_value", "==", lock_value)
 
         query = (
             query.order_by("clone_num")
@@ -762,7 +762,7 @@ class RunnableAttribute(Attribute):
         self,
         clone_nums: Optional[Text] = None,
         time_range: Optional[TimeRange] = None,
-        overriden: Optional[bool] = None,
+        lock_value: Optional[bool] = None,
         version: Optional[Text] = None,
     ):
         """
@@ -812,7 +812,7 @@ class RunnableAttribute(Attribute):
                         fire_iter = self.firestore_iterator(
                             clone_nums=clone_nums,
                             time_range=time_range,
-                            overriden=overriden,
+                            lock_value=lock_value,
                             version=version,
                         )
                     next_flat = next(fire_iter)
