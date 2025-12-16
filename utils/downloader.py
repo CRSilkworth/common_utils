@@ -5,7 +5,7 @@ from utils.serialize_utils import serialize_value
 from itertools import islice
 from google.cloud.firestore_v1 import FieldFilter, And
 import logging
-from utils.datetime_utils import normalize_datetime
+from utils.datetime_utils import to_datetimes
 
 _cache = {}
 _cache_order = []  # list for FIFO eviction
@@ -52,9 +52,9 @@ def pull_inputs_from_firestore(
         for doc_snap in query.stream():
             data = doc_snap.to_dict()
             for k in ["time_range_start", "time_range_end", "version"]:
-                data[k] = normalize_datetime(data[k])
+                data[k] = to_datetimes(data[k])
             full_name = data.get("full_name")
-            version = normalize_datetime(data.get("version"))
+            version = to_datetimes(data.get("version"))
             att = data.get("attribute_name")
             run_key = (
                 data.get("clone_num"),
@@ -151,7 +151,7 @@ def prefetch(
             for doc_snap in query.stream():
                 data = doc_snap.to_dict()
                 for k in ["time_range_start", "time_range_end", "version"]:
-                    data[k] = normalize_datetime(data[k])
+                    data[k] = to_datetimes(data[k])
                 input_full_name = data.get("full_name")
                 input_att = data.get("attribute_name")
 
@@ -198,7 +198,7 @@ def cached_stream_subgraph_by_key(
     )
 
     for run_key in run_key_iterator:
-        sim_iter, (tr_start, tr_end), tr_key, full_name, att = run_key
+        sim_iter, (tr_start, tr_end), full_name, att = run_key
         data_dict = {}
         not_in_cache = set()
         for input_dict in ref_dict[full_name][att]["inputs"]:
@@ -207,7 +207,6 @@ def cached_stream_subgraph_by_key(
             _input_key = (
                 sim_iter,
                 (tr_start, tr_end),
-                tr_key,
                 input_full_name,
                 input_att,
             )
@@ -218,7 +217,7 @@ def cached_stream_subgraph_by_key(
                 not_in_cache.add((_input_key, 0))
 
         if not_in_cache:
-            not_found_ids = set([doc_full_name_to_id[k[0][3]] for k in not_in_cache])
+            not_found_ids = set([doc_full_name_to_id[k[0][2]] for k in not_in_cache])
             data_dict.update(
                 pull_inputs_from_firestore(
                     fs_db=fs_db,
@@ -228,7 +227,7 @@ def cached_stream_subgraph_by_key(
                 )
             )
             for _input_key, chunk_num in not_in_cache:
-                _, _, _, input_full_name, input_att = _input_key
+                _, _, input_full_name, input_att = _input_key
                 if (input_full_name, input_att) in data_dict:
                     continue
                 save_to_memory(_input_key, chunk_num, serialize_value(None))

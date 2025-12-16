@@ -6,12 +6,12 @@ from utils.serialize_utils import (
     flatten_structure,
     unflatten_structure,
 )
-from utils.type_utils import TimeRange
+from utils.type_utils import TimeRange, TimeRanges
 from utils.json_schema_utils import describe_json_schema
 from utils.function_utils import create_function
 from utils.preview_utils import value_to_preview
 from utils.type_utils import get_known_types
-from utils.datetime_utils import convert_timestamps
+from utils.datetime_utils import to_isos, to_datetimes, datetime_min, datetime_max
 import json
 import requests
 import os
@@ -25,7 +25,6 @@ from utils.downloader import (
 from operator import itemgetter
 from itertools import groupby
 import logging
-from utils.datetime_utils import normalize_datetime
 from utils.doc_obj import DocObj
 
 TABDPT_URL = "http://tabdpt-service.default.svc.cluster.local:6789"
@@ -47,8 +46,8 @@ class Attribute:
         self._pred_val = None
         self.doc_full_name = self.doc_obj.full_name
         self.value_type = value_type
-        self.clone_num = None
-        self.time_range = None
+        self.cur_clone_num = None
+        self.cur_time_range = None
         self.context_key = (None, None, None)
         self.outputs = {}
         self.cleanup = None
@@ -57,20 +56,20 @@ class Attribute:
         self.run_key = None
 
     def _set_context(self, **kwargs):
-        self.clone_num = kwargs.get("clone_num", None)
-        self.time_range = kwargs.get("time_range", None)
-        self.context_key = (self.clone_num, self.time_range)
+        self.cur_clone_num = kwargs.get("clone_num", None)
+        self.cur_time_range = kwargs.get("time_range", None)
+        self.context_key = (self.cur_clone_num, self.cur_time_range)
 
         self._val = None
         self._pred_val = None
 
-        if not self.clone_num or not self.time_range:
+        if not self.cur_clone_num or not self.cur_time_range:
             self.run_key = None
             return
 
         self.run_key = (
-            self.clone_num,
-            self.time_range,
+            self.cur_clone_num,
+            self.cur_time_range,
             self.doc_full_name,
             self.name,
         )
@@ -92,8 +91,12 @@ class Attribute:
 
         self._val = val
 
-    def _set_full_space(self, full_space: List[Tuple]):
+    def _set_full_space(
+        self, full_space: List[Tuple], clone_nums: List[int], time_ranges: TimeRanges
+    ):
         self.full_space = full_space
+        self.full_clone_nums = clone_nums
+        self.full_time_ranges = time_ranges
 
     def _add_output(self, output: Dict[Text, Any]):
         if not output:
@@ -173,10 +176,14 @@ class RunnableAttribute(Attribute):
         doc_obj: DocObj,
         value_type: Any,
         var_name_to_id: Dict[Text, Text],
-        clone_nums: List[Text],
+        valid_clone_nums: List[int],
+        valid_time_range: TimeRange,
         function_name: Text,
         function_header: Text,
         function_string: Text,
+        predict_function_string: Text = "",
+        predict_from: Optional[Text] = None,
+        predict_type: Optional[Text] = None,
         new_version: Optional[Text] = None,
         old_version: Optional[Text] = None,
         chunked: bool = False,
@@ -193,16 +200,12 @@ class RunnableAttribute(Attribute):
             value_type=value_type,
         )
         self.auth_data = auth_data
-        self.new_version = (
-            datetime.datetime.fromisoformat(new_version) if new_version else None
-        )
-        self.old_version = (
-            datetime.datetime.fromisoformat(old_version) if old_version else None
-        )
+        self.new_version = to_datetimes(new_version) if new_version else None
+        self.old_version = to_datetimes(old_version) if old_version else None
         self._val = None
         self.chunked = chunked
-        self.clone_num = None
-        self.time_range = None
+        self.cur_clone_num = None
+        self.cur_time_range = None
         self.outputs = {}
         self.runnable = True
 
@@ -210,8 +213,8 @@ class RunnableAttribute(Attribute):
         locks = []
         for lock in self.locks:
             lock[1] = (
-                convert_timestamps(lock[1][0]),
-                convert_timestamps(lock[1][1]),
+                to_isos(lock[1][0]),
+                to_isos(lock[1][1]),
             )
             locks.append(lock)
         self.locks = locks
@@ -220,8 +223,15 @@ class RunnableAttribute(Attribute):
         self.function_name = function_name
         self.function_header = function_header
         self.function_string = function_string
-        self.clone_nums = clone_nums
+        self.predict_type = predict_type
+        self.predict_function_string = predict_function_string
+        self.predict_from = to_datetimes(predict_from) if predict_from else None
+        self.valid_clone_nums = valid_clone_nums
+        self.valid_time_range = valid_time_range
         self.var_name_to_id = var_name_to_id
+
+        self.full_clone_nums = None
+        self.full_time_ranges = None
 
         self.deleted = deleted
         self.fs_db = fs_db
@@ -229,6 +239,14 @@ class RunnableAttribute(Attribute):
             function_name=self.function_name,
             function_header=self.function_header,
             function_string=self.function_string,
+            allowed_modules=get_known_types(),
+            global_vars=global_vars if global_vars is not None else {},
+        )
+        self._add_output(output)
+        self.pred_func, output = create_function(
+            function_name=self.function_name,
+            function_header=self.function_header,
+            function_string=self.predict_function_string,
             allowed_modules=get_known_types(),
             global_vars=global_vars if global_vars is not None else {},
         )
@@ -289,8 +307,8 @@ class RunnableAttribute(Attribute):
             try:
                 value_chunk = None
                 for _, value_chunk_iter in self.get_iterator(
-                    clone_nums=[self.clone_num],
-                    time_range=self.time_range,
+                    clone_nums=[self.cur_clone_num],
+                    time_range=self.cur_time_range,
                     lock_value=lock_value,
                     # version=self.old_version,
                     use_cache=False,
@@ -348,10 +366,10 @@ class RunnableAttribute(Attribute):
         }
         version_key = (
             f"{doc_data['clone_num']}_"
-            f"{doc_data['time_range_start'].isoformat()}_"
-            f"{doc_data['time_range_end'].isoformat()}_"
+            f"{to_isos(doc_data['time_range_start'])}_"
+            f"{to_isos(doc_data['time_range_end'])}_"
             f"{doc_data['chunk_num']}_"
-            f"{doc_data['version'].isoformat()}"
+            f"{to_isos(doc_data['version'])}"
         )
         # Write directly to Firestore
         chunk_ref = self._get_collection().document(version_key)
@@ -359,7 +377,7 @@ class RunnableAttribute(Attribute):
 
     def _get_output(self):
         output = super()._get_output()
-        output["version"] = self.new_version.isoformat() if self.new_version else None
+        output["version"] = to_isos(self.new_version) if self.new_version else None
         return output
 
     def _finalize(self):
@@ -383,15 +401,29 @@ class RunnableAttribute(Attribute):
         for snap in self._get_collection().stream():
             data = snap.to_dict()
             for k in ["time_range_start", "time_range_end", "version"]:
-                data[k] = normalize_datetime(data[k])
+                data[k] = to_datetimes(data[k])
             block_key = (
                 f"{data['clone_num']}_"
-                f"{data['time_range_start'].isoformat()}_"
-                f"{data['time_range_end'].isoformat()}_"
+                f"{to_isos(data['time_range_start'])}_"
+                f"{to_isos(data['time_range_end'])}_"
             )
 
             # Skip docs not in allowed clone_nums
-            if self.clone_nums and data.get("clone_num") not in self.clone_nums:
+            if (
+                self.valid_clone_nums
+                and data.get("clone_num") not in self.valid_clone_nums
+            ):
+
+                batch.delete(snap.reference)
+                total_deleted += 1
+                batch_count += 1
+                continue
+
+            # Skip docs not in allowed time_range
+            if self.valid_time_range and (
+                data.get("time_range_start") < self.valid_time_range[0]
+                or data.get("time_range_end") > self.valid_time_range[1]
+            ):
 
                 batch.delete(snap.reference)
                 total_deleted += 1
@@ -399,11 +431,11 @@ class RunnableAttribute(Attribute):
                 continue
 
             # Track highest version per block key
-            current_version = normalize_datetime(data.get("version"))
+            current_version = to_datetimes(data.get("version"))
 
             if block_key in blocks_by_key:
                 existing = blocks_by_key[block_key]
-                existing["version"] = normalize_datetime(existing["version"])
+                existing["version"] = to_datetimes(existing["version"])
 
                 if current_version > existing["version"]:
                     to_delete.append(existing["ref"])
@@ -452,7 +484,7 @@ class RunnableAttribute(Attribute):
         for block in blocks_by_key.values():
             ref = block["ref"]
             data = ref.get().to_dict()
-            old_version = normalize_datetime(data.get("version"))
+            old_version = to_datetimes(data.get("version"))
             if old_version != self.new_version:
                 batch.update(ref, {"version": self.new_version})
                 total_updated += 1
@@ -485,21 +517,29 @@ class RunnableAttribute(Attribute):
             if batch_count:
                 batch.commit()
 
+    def get_func(self):
+        if not self.predict_from:
+            return self.func
+        if self.cur_time_range[0] >= self.predict_from:
+            return self.pred_func
+        return self.func
+
     def predict(
         self,
-        clone_num: Optional[int] = None,
-        time_range: Optional[TimeRange] = None,
-        regression: bool = True,
+        train_data_domain: Dict[Text, Any],
+        predict_type: Text = "regressor",
         window_size: int = 100,
     ):
+
+        clone_num = train_data_domain.get("clone_num", None)
+        time_range = train_data_domain.get("time_range", None)
 
         # 1. Build variable → list of time series values
         train_time_series = {
             "self": [
                 v
                 for _, v in self.time_series(
-                    clone_num=clone_num,
-                    _time_range=time_range,
+                    clone_num=clone_num, _time_range=time_range
                 )
             ]
         }
@@ -514,8 +554,7 @@ class RunnableAttribute(Attribute):
             train_time_series[full_name] = [
                 v
                 for _, v in doc.data.time_series(
-                    clone_num=clone_num,
-                    _time_range=time_range,
+                    clone_num=clone_num, _time_range=time_range
                 )
             ]
 
@@ -551,7 +590,7 @@ class RunnableAttribute(Attribute):
             "window_size": window_size,
         }
         resp = requests.post(
-            f"{TABDPT_URL}/time_series/{'regressor' if regression else 'classifier'}",
+            f"{TABDPT_URL}/time_series/{predict_type}",
             json=payload,
         )
         resp.raise_for_status()
@@ -571,6 +610,7 @@ class RunnableAttribute(Attribute):
     def time_series(
         self,
         clone_num: Optional[int] = None,
+        mode: Text = "full",
         _time_range: Optional[TimeRange] = None,
     ) -> Iterable[Tuple[TimeRange, Any]]:
         """
@@ -579,32 +619,73 @@ class RunnableAttribute(Attribute):
         Args:
             clone_num: Which simulation to pull the time series from
                 (defaults to the current simulation)
-            _time_range: (NOTE: Do not use. internal use only). specify a slice
-            of the time_series. Defaults to full.
+
+            mode: What selection of time ranges use to build the time series.
+                "full" will use all of the time ranges, even when there is
+                no corresponding value. "valid" only uses the time ranges
+                that this attribute has set as valid.
+            _time_range: (NOTE: Do not use. For internal use only)
+                max and min time range of the data. Defaults to full time
+                series (up to this point).
         Returns:
             iterator of 2-tuples:
                 time_range: The time range at which that value was computed.
                 value: The value at that time range.
         """
 
-        clone_num = clone_num if clone_num is not None else self.clone_num
-        clone_num = clone_num or self.clone_num
-        if clone_num not in self.clone_nums:
+        if mode == "full":
+            # remove before/after time ranges
+            time_ranges = self.full_time_ranges[1:-1]
+        elif mode == "valid":
+            time_ranges = []
+            # remove before/after time ranges
+            for time_range in self.full_time_ranges[1:-1]:
+                if (
+                    time_range[0] >= self.valid_time_range[0]
+                    and time_range[1] <= self.valid_time_range[1]
+                ):
+                    time_ranges.append(time_range)
+        else:
+            raise ValueError(f"Invalid mode: {mode}")
+
+        clone_num = clone_num if clone_num is not None else self.cur_clone_num
+        if clone_num not in self.valid_clone_nums:
             raise ValueError(
                 f"clone_num {clone_num} not in {self.doc_full_name}-{self.name}"
-                f" list of clone_nums: {self.clone_nums}"
+                f" list of clone_nums: {self.valid_clone_nums}"
             )
 
-        time_range = _time_range or (datetime.datetime.min, datetime.datetime.max)
+        iterator_tr = _time_range if _time_range else (datetime_min, datetime_max)
+
         # Only take data that has been 'completed' already
-        if time_range[1] > self.time_range[0]:
-            time_range = (time_range[0], self.time_range[0])
+        if iterator_tr[1] > self.cur_time_range[0]:
+            iterator_tr = (iterator_tr[0], self.cur_time_range[0])
+
         iterator = self.get_iterator(
             clone_nums=[clone_num],
-            time_range=time_range,
+            time_range=iterator_tr,
         )
-        for (_, time_range, _, _, _), data in iterator:
-            yield (time_range, data)
+
+        if time_ranges:
+            exhausted = False
+            att_time_range = None
+            for time_range in time_ranges:
+                while att_time_range is None or att_time_range[0] < time_range[0]:
+                    try:
+                        (_, att_time_range, _, _), data = next(iterator)
+                    except StopIteration:
+                        exhausted = True
+                        break
+
+                if att_time_range == time_range:
+                    yield (time_range, data)
+
+                if exhausted:
+                    break
+
+        else:
+            for (_, time_range, _, _), data in iterator:
+                yield (time_range, data)
 
     def clones(
         self, time_range: Optional[TimeRange] = None
@@ -623,16 +704,16 @@ class RunnableAttribute(Attribute):
         """
 
         # NOTE: No restriction on taking multiple time ranges
-        time_range = time_range or self.time_range
+        time_range = time_range or self.cur_time_range
 
         # Get all previous clones
-        clone_nums = list(range(self.clone_num))
+        clone_nums = list(range(self.cur_clone_num))
 
         iterator = self.get_iterator(
             clone_nums=clone_nums,
             time_range=time_range,
         )
-        for (clone_num, _, _, _, _), data in iterator:
+        for (clone_num, _, _, _), data in iterator:
             yield (clone_num, data)
 
     def get_iterator(
@@ -655,12 +736,13 @@ class RunnableAttribute(Attribute):
                     data was computed under.
                 value: The value at that context key.
         """
-        time_range = time_range if time_range else (None, None)
-
+        time_range = time_range if time_range else self.valid_time_range
+        time_range = to_datetimes(time_range)
         if clone_nums is None:
-            clone_nums = self.clone_nums
+            clone_nums = self.valid_clone_nums
+
         else:
-            clone_nums = sorted(set(self.clone_nums) & set(clone_nums))
+            clone_nums = sorted(set(self.valid_clone_nums) & set(clone_nums))
 
         if use_cache:
             iterator = self.merged_iterator(
@@ -677,11 +759,11 @@ class RunnableAttribute(Attribute):
                 version=version,
             )
 
-        for key, group in groupby(iterator, key=itemgetter(0, 1, 2, 3, 4)):
+        for key, group in groupby(iterator, key=itemgetter(0, 1, 2, 3)):
             if self.chunked:
 
                 def value_chunk_gen(g=group):
-                    for _, _, _, _, _, chunk_num, _value_chunk in g:
+                    for _, _, _, _, chunk_num, _value_chunk in g:
                         _value_chunk = _cache.get((key, chunk_num), _value_chunk)
                         value_chunk, _, _ = attempt_deserialize(
                             _value_chunk, self.value_type
@@ -692,7 +774,7 @@ class RunnableAttribute(Attribute):
                 yield key, value_chunk_gen()
             else:
                 # If not chunked there is only one element in the group
-                _, _, _, _, _, _, _value = next(group)
+                _, _, _, _, _, _value = next(group)
                 _value = _cache.get((key, 0), _value)
                 value, output, _ = attempt_deserialize(_value, self.value_type)
                 if output.get("failed", False):
@@ -738,7 +820,7 @@ class RunnableAttribute(Attribute):
         for doc in query.stream():
             data = doc.to_dict()
             for k in ["time_range_start", "time_range_end", "version"]:
-                data[k] = normalize_datetime(data[k])
+                data[k] = to_datetimes(data[k])
             full_name = self.doc_full_name
             att = self.name
             chunk_num = data.get("chunk_num", 0)
@@ -776,7 +858,7 @@ class RunnableAttribute(Attribute):
         time_range_start = time_range[0] if time_range else None
         time_range_end = time_range[1] if time_range else None
         for key in self.full_space:
-            (s_num, tr, tr_key) = key
+            (s_num, tr) = key
             if clone_nums is not None and s_num not in clone_nums:
                 continue
             if time_range_start is not None and time_range_start > tr[0]:
@@ -787,7 +869,6 @@ class RunnableAttribute(Attribute):
             run_key = (
                 s_num,
                 tr,
-                tr_key,
                 self.doc_full_name,
                 self.name,
             )
@@ -851,7 +932,7 @@ class RunnableAttribute(Attribute):
         Returns:
             value: The first value retrieved by the query
         """
-        if clone_num is None and _time_range is None:
+        if clone_num is None and _time_range is None and self._val is not None:
             return self._val
 
         iterator = self.get_iterator(

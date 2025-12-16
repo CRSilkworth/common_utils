@@ -3,7 +3,7 @@ from utils.misc_utils import failed_output
 from utils.function_utils import run_with_expected_type, run_with_generator
 from utils.downloader import cached_stream_subgraph_by_key, prefetch
 from utils.doc_obj import DocObj
-from utils.datetime_utils import to_micro, convert_timestamps
+from utils.datetime_utils import to_isos, to_datetimes
 from utils.type_utils import TimeRanges
 import datetime
 import logging
@@ -18,11 +18,14 @@ def run(
     docs_to_run: List[Text],
     auth_data: Dict[Text, Text],
     clone_nums: List[int],
-    time_ranges: TimeRanges,
+    time_ranges: List[List[Text]],
     attributes_to_run: Optional[List[Text]] = None,
     run_config: Optional[Dict[Text, Any]] = None,
     **kwargs,
 ):
+
+    time_ranges = [(to_datetimes(tr[0]), to_datetimes(tr[1])) for tr in time_ranges]
+    logging.warning(("time_ranges", time_ranges))
 
     key_dict = json.loads(auth_data["sa_key"])
 
@@ -41,7 +44,6 @@ def run(
 
     run_config = run_config if run_config else {}
 
-    clone_nums_to_run = set()
     doc_objs = {}
     doc_id_to_full_name = {}
     doc_full_name_to_id = {}
@@ -65,13 +67,10 @@ def run(
                 continue
             if not attribute.runnable or attribute.no_function_body:
                 continue
-            clone_nums_to_run.update(attribute.clone_nums)
 
     ref_dict = get_ref_dict(
         docs_to_run, doc_id_to_full_name, doc_objs, attributes_to_run
     )
-
-    clone_nums_to_run = clone_nums_to_run & set(clone_nums)
 
     prefetch(
         fs_db=fs_db,
@@ -79,16 +78,18 @@ def run(
         docs_to_run=docs_to_run,
         ref_dict=ref_dict,
         doc_id_to_full_name=doc_id_to_full_name,
-        clone_nums=clone_nums_to_run,
+        clone_nums=clone_nums,
     )
-    full_space = get_full_space(clone_nums=clone_nums, time_ranges=time_ranges)
+    full_space = get_full_space(
+        clone_nums=clone_nums, time_ranges=time_ranges, doc_objs=doc_objs
+    )
     data_iterator = cached_stream_subgraph_by_key(
         fs_db=fs_db,
         auth_data=auth_data,
         full_space=full_space,
         docs_to_run=docs_to_run,
         ref_dict=ref_dict,
-        clone_nums=clone_nums_to_run,
+        clone_nums=clone_nums,
         doc_id_to_full_name=doc_id_to_full_name,
         doc_full_name_to_id=doc_full_name_to_id,
     )
@@ -103,7 +104,14 @@ def run(
             clone_num=clone_num,
             time_range=time_range,
         )
-        if clone_num not in attribute.clone_nums:
+        logging.warning((time_range, attribute.valid_time_range))
+        if (
+            time_range[0] < attribute.valid_time_range[0]
+            or time_range[1] > attribute.valid_time_range[1]
+        ):
+            continue
+        logging.warning((clone_num, attribute.valid_clone_nums))
+        if clone_num not in attribute.valid_clone_nums:
             continue
 
         logging.warning(f"Running {clone_num}, {time_range}, {doc.full_name}, {att}")
@@ -151,7 +159,7 @@ def run(
 
         block_key = [
             clone_num,
-            convert_timestamps(time_range),
+            to_isos(time_range),
             0,
         ]
         if block_key in attribute.locks:
@@ -159,15 +167,18 @@ def run(
             attribute._upload_chunk(run_key=run_key, value_chunk=None, lock_value=True)
             continue
 
-        if not attribute.func:
+        func = attribute.get_func()
+
+        if not func:
             continue
+
         if upstream_failure:
             attribute._delete_value_file_blocks(version=attribute.new_version)
             continue
 
         if attribute.chunked:
             run_generator = run_with_generator(
-                attribute.func, runner_kwargs, attribute.value_type
+                func, runner_kwargs, attribute.value_type
             )
             for chunk_num, run_output_chunk in enumerate(run_generator):
                 attribute._add_output(run_output_chunk)
@@ -175,14 +186,6 @@ def run(
                     attribute._delete_value_file_blocks(version=attribute.new_version)
                     break
 
-                logging.warning("about to upload chunk")
-                logging.warning(
-                    dict(
-                        run_key=run_key,
-                        chunk_num=chunk_num,
-                        value_chunk=run_output_chunk["value"],
-                    )
-                )
                 attribute._upload_chunk(
                     run_key=run_key,
                     chunk_num=chunk_num,
@@ -190,13 +193,9 @@ def run(
                 )
 
         else:
-            output = run_with_expected_type(
-                attribute.func, runner_kwargs, attribute.value_type
-            )
+            output = run_with_expected_type(func, runner_kwargs, attribute.value_type)
             attribute._add_output(output)
             if not output["failed"]:
-                # logging.warning("about to upload")
-                # logging.warning(dict(run_key=run_key, value_chunk=output["value"]))
                 attribute._upload_chunk(run_key=run_key, value_chunk=output["value"])
             else:
                 attribute._delete_value_file_blocks(version=attribute.new_version)
@@ -237,12 +236,11 @@ def get_full_space(clone_nums, time_ranges, doc_objs):
     full_space = []
     for clone_num in clone_nums:
         for time_range in time_ranges:
-            time_range = to_micro(time_range[0]), to_micro(time_range[1])
             full_space.append((clone_num, time_range))
     full_space.sort()
     for doc_obj in doc_objs.values():
         for _, attribute in doc_obj.attributes.items():
-            attribute._set_full_space(full_space)
+            attribute._set_full_space(full_space, clone_nums, time_ranges)
     return full_space
 
 
