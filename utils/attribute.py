@@ -77,12 +77,6 @@ class Attribute:
     def val(self, *args, **kwargs) -> Any:
         return self._val
 
-    @property
-    def pred_val(self) -> Any:
-        if self._pred_val is None:
-            self._pred_val = self._get_predicted_value()
-        return self._pred_val
-
     def _set_val(self, val: Any, serialized: bool = False):
         if serialized:
             val, output, cleanups = attempt_deserialize(val, self.value_type)
@@ -661,11 +655,13 @@ class RunnableAttribute(Attribute):
         if iterator_tr[1] > self.cur_time_range[0]:
             iterator_tr = (iterator_tr[0], self.cur_time_range[0])
 
+        print(clone_num, iterator_tr)
         iterator = self.get_iterator(
             clone_nums=[clone_num],
             time_range=iterator_tr,
         )
 
+        print(time_ranges)
         if time_ranges:
             exhausted = False
             att_time_range = None

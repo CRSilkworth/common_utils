@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "common-utils"
-version = "0.10.854"
+version = "0.10.898"
 description = "Shared utilities for app and runner"
 authors = ["Christopher Silkworth"]
 packages = [

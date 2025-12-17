@@ -96,7 +96,7 @@ Exportable = Union[
 ]
 DBConnection = Union[PyMongoClient, Psycopg2Connection, BigQueryClient]
 ModelDict = Dict[Text, Union[torch.nn.Module, Text, Dict[Text, Any]]]
-TimeRange = Tuple[datetime.datetime, datetime.datetime]
+TimeRange = Union[Tuple[datetime.datetime, datetime.datetime]]
 TimeRanges = typing.Iterable[TimeRange]
 AllTimeRanges = typing.Dict[Text, TimeRanges]
 SimParams = typing.Dict[Text, typing.Hashable]
