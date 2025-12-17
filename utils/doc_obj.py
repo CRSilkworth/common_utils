@@ -1,6 +1,8 @@
-from typing import Dict, Text, Any, Set, Optional
+from typing import Dict, Text, Any, Set, Optional, Tuple, Iterable
+
+from utils.datetime_utils import to_datetimes
 from utils.serialize_utils import serialize_value
-from utils.type_utils import deserialize_typehint
+from utils.type_utils import deserialize_typehint, TimeRange
 import copy
 
 
@@ -44,6 +46,11 @@ class DocObj(dict):
 
             if runnable:
 
+                valid_time_range = (
+                    to_datetimes(att_dict["time_range"][0]),
+                    to_datetimes(att_dict["time_range"][1]),
+                )
+
                 self.attributes[att] = RunnableAttribute(
                     name=att,
                     auth_data=auth_data,
@@ -58,9 +65,12 @@ class DocObj(dict):
                     function_header=att_dict.get("function_header"),
                     function_string=att_dict.get("function_string"),
                     no_function_body=att_dict.get("empty", False),
-                    sim_iter_nums=att_dict["sim_iter_nums"],
-                    time_ranges_keys=att_dict["time_ranges_keys"],
-                    overrides=att_dict["overrides"],
+                    valid_clone_nums=att_dict["clone_nums"],
+                    valid_time_range=valid_time_range,
+                    predict_from=att_dict.get("predict_from"),
+                    predict_function_string=att_dict.get("predict_function_string", ""),
+                    predict_type=att_dict.get("predict_type"),
+                    locks=att_dict["locks"],
                     global_vars=global_vars,
                 )
             else:
@@ -91,3 +101,65 @@ class DocObj(dict):
         raise AttributeError(
             f"{self.__class__.__name__!r} object has no attribute {att!r}"
         )
+
+    def val(
+        self,
+        clone_num: Optional[int] = None,
+        _time_range: Optional[TimeRange] = None,
+    ) -> Any:
+        """
+        Short cut to the data attribute's val method
+
+        Get the most recently computed value (default) or get the first value
+        returned by that query corresponding to kwargs (up to that point)
+        Args:
+            Args:
+            clone_num: Which simulation to pull the value from
+            time_range: (NOTE: Do not use. For internal use only)
+            max and min time range of the data. Defaults to full time
+                series (up to this point).
+        Returns:
+            value: The first value retrieved by the query
+        """
+        return self.data.val(clone_num=clone_num, _time_range=_time_range)
+
+    def time_series(
+        self,
+        clone_num: Optional[int] = None,
+        _time_range: Optional[TimeRange] = None,
+    ) -> Iterable[Tuple[TimeRange, Any]]:
+        """
+        Short cut to the data attribute's time_series method
+
+        Get an iterator of the full time series of values (or section of it) of the
+        attribute (up to this point in time)
+        Args:
+            clone_num: Which simulation to pull the time series from
+                (defaults to the current simulation)
+            _time_range: (NOTE: Do not use. internal use only). specify a slice
+            of the time_series. Defaults to full.
+        Returns:
+            iterator of 2-tuples:
+                time_range: The time range at which that value was computed.
+                value: The value at that time range.
+        """
+        return self.data.time_series(clone_num=clone_num, _time_range=_time_range)
+
+    def clones(
+        self, time_range: Optional[TimeRange] = None
+    ) -> Iterable[Tuple[int, Any]]:
+        """
+        Short cut to the data attribute's clones method
+
+        Get an iterator of the data of all the simulations up until this one.
+        Note that there is no restriction on selecting a time_range that includes
+        several time ranges of data. May get multiple values corresponding to a single
+        sim. Use time_range with caution or leave blank.
+        Args:
+            time_range: max and min time range of the data. Defaults to the current one.
+        Returns:
+            iterator of 2-tuples:
+                clone_num: The simulation number that value was computed at
+                value: The value for that simulation number.
+        """
+        return self.data.clones(time_range=time_range)

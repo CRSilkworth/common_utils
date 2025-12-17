@@ -1,12 +1,9 @@
 [tool.poetry]
 name = "common-utils"
-version = "0.10.552"
+version = "1.0.0"
 description = "Shared utilities for app and runner"
 authors = ["Christopher Silkworth"]
-packages = [
-    { include = "utils" },
-    { include = "exceptions" }
-]
+packages = [{ include = "utils" }, { include = "exceptions" }]
 
 [tool.poetry.dependencies]
 python = ">=3.13,<3.15"

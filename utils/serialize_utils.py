@@ -1,4 +1,4 @@
-from typing import Any, Optional, Dict, Text, List
+from typing import Any, Optional, Dict, Text, List, Tuple
 import pandas as pd
 import numpy as np
 import json
@@ -10,6 +10,7 @@ from dataclasses import is_dataclass, asdict
 from utils.function_utils import run_with_expected_type, create_function
 from utils.type_utils import GCSPath, DBConnection
 from utils.db_utils import connect_to_biquery, connect_to_mongo, connect_to_sql
+from utils.datetime_utils import to_timestamps, to_datetimes, to_isos
 from quickbooks import QuickBooks
 import datetime
 import traceback
@@ -17,6 +18,7 @@ import base64
 import torch
 from bson import ObjectId
 from utils.quickbooks_utils import QuickBooksProxy
+import math
 
 
 def encode_obj(obj: Any):
@@ -81,16 +83,16 @@ def encode_obj(obj: Any):
         }
 
     elif isinstance(obj, pd.Timestamp):
-        return {"__kind__": "Timestamp", "data": obj.isoformat()}
+        return {"__kind__": "Timestamp", "data": to_isos(obj)}
 
     elif isinstance(obj, datetime.datetime):
-        return {"__kind__": "datetime", "data": obj.isoformat()}
+        return {"__kind__": "datetime", "data": to_isos(obj)}
 
     elif isinstance(obj, datetime.date):
-        return {"__kind__": "date", "data": obj.isoformat()}
+        return {"__kind__": "date", "data": to_isos(obj)}
 
     elif isinstance(obj, datetime.time):
-        return {"__kind__": "time", "data": obj.isoformat()}
+        return {"__kind__": "time", "data": to_isos(obj)}
 
     elif isinstance(obj, pd.Index):
         return {"__kind__": "Index", "data": obj.tolist()}
@@ -191,7 +193,7 @@ def decode_obj(obj: Any, known_types: Optional[Dict[Text, Any]] = None) -> Any:
         elif kind == "Timestamp":
             return pd.Timestamp(obj["data"])
         elif kind == "datetime":
-            return datetime.datetime.fromisoformat(obj["data"])
+            return to_datetimes(obj["data"])
         elif kind == "date":
             return datetime.date.fromisoformat(obj["data"])
         elif kind == "time":
@@ -380,16 +382,16 @@ def _encode_datetime(x):
     """Convert datetime, pandas.Timestamp, or date to a UNIX timestamp float."""
     if isinstance(x, pd.Timestamp):
         return float(x.timestamp())
-    if isinstance(x, datetime):
-        return float(x.timestamp())
-    if isinstance(x, date):
-        return datetime(x.year, x.month, x.day).timestamp()
+    if isinstance(x, datetime.datetime):
+        return to_timestamps(x)
+    if isinstance(x, datetime.date):
+        return to_timestamps(datetime.datetime(x.year, x.month, x.day))
     raise TypeError("not a datetime-like object")
 
 
 def _datetime_from_ts(ts):
     """Reverse: convert timestamp float back to datetime."""
-    return datetime.fromtimestamp(ts)
+    return datetime.datetime.fromtimestamp(ts)
 
 
 def flatten_structure(x: Any, cat_map: Dict[Any, int]) -> Tuple[List[float], Any]:
@@ -469,6 +471,8 @@ def unflatten_structure(
     # ----- datetime -----
     if type_ == "datetime":
         ts = flat[idx]
+        if math.isnan(ts):
+            return None, idx + 1
         return _datetime_from_ts(ts), idx + 1
 
     # ----- numpy array -----

@@ -1,5 +1,5 @@
 from typing import Optional, Dict, Text, Any
-from utils.run_utils import run_sims
+from utils.run_utils import run
 import json
 import os
 import requests
@@ -22,7 +22,7 @@ def main():
             input_data = json.load(f)
         logging.info("running run_docs")
         # run_docs(**input_data)
-        run_sims(**input_data)
+        run(**input_data)
 
     except Exception as e:
         logging.info(e.args[0])

@@ -16,7 +16,7 @@ def test_hash_schema_consistency():
     assert h1 == h2
 
 
-def test_describe_json_schema_basic_types():
+def test_describe_json_schema_data_types():
     # Test int
     schema, defs = type_utils.describe_json_schema(42)
     assert "$ref" in schema
@@ -77,7 +77,7 @@ def test_describe_allowed_returns_schema():
     assert "defs" in schema
 
 
-def test_is_allowed_type_basic():
+def test_is_allowed_type_data():
     assert type_utils.is_allowed_type(123)
     assert type_utils.is_allowed_type(12.3)
     assert type_utils.is_allowed_type(b"abc")
@@ -127,7 +127,7 @@ def test_get_known_types_contains_expected_keys():
     assert "torch" in known
 
 
-def test__resolve_forwardrefs_basic():
+def test__resolve_forwardrefs_data():
     T = typing.ForwardRef("int")
     result = type_utils._resolve_forwardrefs(T, {"int": int})
     assert result == int

@@ -1,60 +1,104 @@
-from typing import Any, Union
+from typing import Any, Union, Tuple
+from utils.type_utils import TimeRanges
 import datetime
+import calendar
 from email.utils import parsedate_to_datetime
 
-EPOCH = datetime.datetime(1970, 1, 1)
+
+UTC = datetime.timezone.utc
+EPOCH = datetime.datetime(1970, 1, 1, tzinfo=UTC)
+
 MIN_TS = -1e18
 MAX_TS = 1e18
-datetime_min = datetime.datetime.min
-datetime_max = datetime.datetime.max
 
 
-def datetime_to_float(d: datetime.datetime) -> float:
-    """Convert datetime to float seconds since epoch, works for min/max."""
-    delta = d - EPOCH
-    return delta.total_seconds()
+def ensure_utc(dt: datetime.datetime) -> datetime.datetime:
+    """
+    Ensure a datetime is timezone-aware UTC.
+    - Naive datetimes are assumed to be UTC
+    - Aware datetimes are converted to UTC
+    """
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
-def float_to_datetime(value: float) -> datetime.datetime:
-    """Convert float seconds since epoch back to datetime."""
-    return EPOCH + datetime.timedelta(seconds=value)
-
-
-def to_micro(dt):
+def to_milli(dt: datetime.datetime) -> datetime.datetime:
+    dt = ensure_utc(dt)
     return dt.replace(microsecond=(dt.microsecond // 1000) * 1000)
 
 
+datetime_min = to_milli(datetime.datetime.min.replace(tzinfo=UTC))
+datetime_max = to_milli(datetime.datetime.max.replace(tzinfo=UTC))
+
+
 def _to_iso(dt: datetime.datetime) -> str:
-    if dt.tzinfo is not None:
-        dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-    return dt.isoformat(timespec="microseconds")
+    dt = ensure_utc(dt)
+    return dt.isoformat(timespec="microseconds").replace("+00:00", "Z")
 
 
-# def to_naive(dt: datetime.datetime) -> datetime.datetime:
-#     """
-#     Force a datetime to be naive (no tzinfo).
-#     - If it has tzinfo, strip it.
-#     - If not, leave it alone.
-#     """
-#     if not isinstance(dt, datetime.datetime):
-#         raise TypeError(f"Expected datetime, got {type(dt)}")
+def generate_time_ranges(
+    start: datetime.datetime, end: datetime.datetime, period: str
+) -> TimeRanges:
 
-#     if dt.tzinfo is not None:
-#         return dt.replace(tzinfo=None)
-#     return dt
+    start = ensure_utc(start)
+    end = ensure_utc(end)
+
+    if start > end:
+        raise ValueError("start must be before end")
+
+    period = period.lower()
+    ranges = []
+
+    current = start
+
+    while current < end:
+        if period == "daily":
+            next_dt = current + datetime.timedelta(days=1)
+
+        elif period == "weekly":
+            next_dt = current + datetime.timedelta(weeks=1)
+
+        elif period == "monthly":
+            year = current.year
+            month = current.month
+
+            if month == 12:
+                next_year, next_month = year + 1, 1
+            else:
+                next_year, next_month = year, month + 1
+
+            day = min(current.day, calendar.monthrange(next_year, next_month)[1])
+            next_dt = current.replace(year=next_year, month=next_month, day=day)
+
+        elif period == "yearly":
+            try:
+                next_dt = current.replace(year=current.year + 1)
+            except ValueError:
+                next_dt = current.replace(month=2, day=28, year=current.year + 1)
+
+        else:
+            raise ValueError("period must be one of: daily, weekly, monthly, yearly")
+
+        range_end = min(next_dt, end)
+        ranges.append((to_milli(current), to_milli(range_end)))
+
+        current = next_dt
+
+    return ranges
 
 
-def convert_timestamps(obj):
+def to_isos(obj):
     """
     Recursively convert timestamps/datetimes and datetime-like strings to ISO8601.
     """
 
     if isinstance(obj, dict):
-        return {k: convert_timestamps(v) for k, v in obj.items()}
+        return {k: to_isos(v) for k, v in obj.items()}
     if isinstance(obj, list):
-        return [convert_timestamps(v) for v in obj]
+        return [to_isos(v) for v in obj]
     if isinstance(obj, tuple):
-        return tuple(convert_timestamps(v) for v in obj)
+        return tuple(to_isos(v) for v in obj)
 
     # Already a datetime
     if isinstance(obj, datetime.datetime):
@@ -98,46 +142,146 @@ def convert_timestamps(obj):
 
 
 def _maybe_parse_datetime(s: str):
-    """Try ISO first, then RFC1123. Return datetime if parseable, else None."""
     if not isinstance(s, str):
         return None
 
-    # Try ISO 8601
     try:
-        return datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
+        dt = datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
+        return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
     except Exception:
         pass
 
-    # Try RFC1123 / email dates (e.g., "Mon, 01 Jan 0001 00:00:00 GMT")
     try:
-        return parsedate_to_datetime(s)
+        dt = parsedate_to_datetime(s)
+        return dt.astimezone(UTC)
     except Exception:
         pass
 
     return None
 
 
-def normalize_datetime(obj: Any) -> datetime.datetime:
-    return datetime.datetime.fromisoformat(convert_timestamps(obj))
-
-
-def _ensure_aware_utc(dt: datetime.datetime, assume_naive_as_utc: bool = True):
-    """Return a timezone-aware UTC datetime. If naive and assume_naive_as_utc is True,
-    treat it as UTC (replace tzinfo). If naive and assume_naive_as_utc is False,
-    interpret it as local time and convert to UTC.
-    """
-    if dt.tzinfo is None:
-        if assume_naive_as_utc:
-            return dt.replace(tzinfo=datetime.timezone.utc)
-        else:
-            # interpret naive as local, convert to UTC
-            return dt.astimezone(datetime.timezone.utc)
-    # already aware -> convert to UTC
-    return dt.astimezone(datetime.timezone.utc)
-
-
 def datetimes_close(a: datetime.datetime, b: datetime.datetime) -> bool:
     return abs(a - b) <= datetime.timedelta(milliseconds=1)
+
+
+def to_datetimes(obj: Any):
+    """
+    Recursively convert timestamps/datetimes and datetime-like strings
+    into datetime.datetime objects (millisecond precision).
+    """
+
+    if isinstance(obj, dict):
+        return {k: to_datetimes(v) for k, v in obj.items()}
+
+    if isinstance(obj, list):
+        return [to_datetimes(v) for v in obj]
+
+    if isinstance(obj, tuple):
+        return tuple(to_datetimes(v) for v in obj)
+
+    if isinstance(obj, datetime.datetime):
+        return to_milli(obj)
+
+    # Datetime-like strings
+    if isinstance(obj, str):
+        dt = _maybe_parse_datetime(obj)
+        if dt:
+            return to_milli(dt)
+        return obj
+
+    # Firestore / protobuf timestamps
+    try:
+        from google.protobuf.timestamp_pb2 import Timestamp as ProtoTimestamp
+
+        if isinstance(obj, ProtoTimestamp):
+            return to_milli(obj.ToDatetime())
+    except Exception:
+        pass
+
+    try:
+        from google.cloud.firestore_v1._helpers import Timestamp as FSHelperTimestamp
+
+        if isinstance(obj, FSHelperTimestamp):
+            return to_milli(obj.to_datetime())
+    except Exception:
+        pass
+
+    # Any object with a .to_datetime() / .ToDatetime() method
+    for fn in ("to_datetime", "ToDatetime"):
+        if hasattr(obj, fn) and callable(getattr(obj, fn)):
+            try:
+                dt = getattr(obj, fn)()
+                if isinstance(dt, datetime.datetime):
+                    return to_milli(dt)
+            except Exception:
+                pass
+
+    return obj
+
+
+def to_timestamps(
+    obj: Any,
+    *,
+    min_ts: float = MIN_TS,
+    max_ts: float = MAX_TS,
+):
+    """
+    Recursively convert datetime-like objects into float timestamps
+    (seconds since epoch), preserving container structure.
+    """
+
+    if isinstance(obj, dict):
+        return {
+            k: to_timestamps(v, min_ts=min_ts, max_ts=max_ts) for k, v in obj.items()
+        }
+
+    if isinstance(obj, list):
+        return [to_timestamps(v, min_ts=min_ts, max_ts=max_ts) for v in obj]
+
+    if isinstance(obj, tuple):
+        return tuple(to_timestamps(v, min_ts=min_ts, max_ts=max_ts) for v in obj)
+
+    # Already a datetime
+    if isinstance(obj, datetime.datetime):
+        return datetime_to_timestamp(obj, min_ts=min_ts, max_ts=max_ts)
+
+    # Datetime-like strings
+    if isinstance(obj, str):
+        dt = _maybe_parse_datetime(obj)
+        if dt:
+            return datetime_to_timestamp(dt, min_ts=min_ts, max_ts=max_ts)
+        return obj
+
+    # Firestore / protobuf timestamps
+    try:
+        from google.protobuf.timestamp_pb2 import Timestamp as ProtoTimestamp
+
+        if isinstance(obj, ProtoTimestamp):
+            return datetime_to_timestamp(obj.ToDatetime(), min_ts=min_ts, max_ts=max_ts)
+    except Exception:
+        pass
+
+    try:
+        from google.cloud.firestore_v1._helpers import Timestamp as FSHelperTimestamp
+
+        if isinstance(obj, FSHelperTimestamp):
+            return datetime_to_timestamp(
+                obj.to_datetime(), min_ts=min_ts, max_ts=max_ts
+            )
+    except Exception:
+        pass
+
+    # Any object with a .to_datetime() / .ToDatetime() method
+    for fn in ("to_datetime", "ToDatetime"):
+        if hasattr(obj, fn) and callable(getattr(obj, fn)):
+            try:
+                dt = getattr(obj, fn)()
+                if isinstance(dt, datetime.datetime):
+                    return datetime_to_timestamp(dt, min_ts=min_ts, max_ts=max_ts)
+            except Exception:
+                pass
+
+    return obj
 
 
 def datetime_to_timestamp(
@@ -145,30 +289,19 @@ def datetime_to_timestamp(
     min_ts: float = MIN_TS,
     max_ts: float = MAX_TS,
 ) -> float:
-    """
-    Convert a datetime -> timestamp (seconds since epoch, float), safely handling
-    datetime.min/max by mapping to numeric sentinels.
+    dt = ensure_utc(dt)
 
-    - naive datetimes are treated as UTC if assume_naive_as_utc is True.
-    - returns a finite float (clamped to min_ts/max_ts on overflow).
-    """
-    if dt == datetime.datetime.min:
+    if datetimes_close(dt, datetime_min):
         return float(min_ts)
-    if dt == datetime.datetime.max:
+    if datetimes_close(dt, datetime_max):
         return float(max_ts)
 
     try:
         ts = float(dt.timestamp())
-    except (OverflowError, OSError, ValueError):
-        # fallback: map very-small/very-large datetimes to sentinels
+    except Exception:
         return float(min_ts) if dt < EPOCH else float(max_ts)
 
-    # clamp to safe numeric bounds if necessary
-    if ts <= min_ts:
-        return float(min_ts)
-    if ts >= max_ts:
-        return float(max_ts)
-    return ts
+    return max(min(ts, max_ts), min_ts)
 
 
 def _normalize_input_ts_to_seconds(ts: float) -> float:
@@ -195,26 +328,26 @@ def timestamp_to_datetime(
     """
     Convert numeric timestamp -> timezone-aware UTC datetime.
     Handles sentinel bounds (min_ts/max_ts) and heuristically detects
-    milliseconds/microseconds and converts them to seconds.
+    milliseconds/milliseconds and converts them to seconds.
     """
     ts = float(ts)
 
     if ts <= min_ts:
-        return datetime.datetime.min
+        return to_milli(datetime_min)
     if ts >= max_ts:
-        return datetime.datetime.max
+        return to_milli(datetime_max)
 
     seconds = _normalize_input_ts_to_seconds(ts)
 
     # final guard: if the seconds value is still outside reasonable float range, clamp
     if seconds <= -1e18:
-        return datetime.datetime.min
+        return to_milli(datetime_min)
     if seconds >= 1e18:
-        return datetime.datetime.max
+        return to_milli(datetime_max)
 
     # fromtimestamp raises OSError on some platforms for out-of-range seconds
     try:
-        return datetime.datetime.utcfromtimestamp(seconds)
+        return to_milli(datetime.datetime.fromtimestamp(seconds, tz=UTC))
     except (OverflowError, OSError, ValueError):
         # fallback to sentinels
-        return datetime.datetime.min if seconds < 0 else datetime.datetime.max
+        return to_milli(datetime_min) if seconds < 0 else to_milli(datetime_max)

@@ -12,7 +12,7 @@ def value_to_preview(value, max_len: int = 500):
             preview[: max_len // 2]
             + "\n...\n"
             + preview[-max_len // 2 :]  # noqa: E203
-            + "\n\nValue too large to show. This is it's basic"
+            + "\n\nValue too large to show. This is it's data"
             f" format:\n\n"
             f"{json.dumps(schema, indent=2)}"
         )

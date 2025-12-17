@@ -6,12 +6,12 @@ from utils.serialize_utils import (
     flatten_structure,
     unflatten_structure,
 )
-from utils.type_utils import TimeRange
+from utils.type_utils import TimeRange, TimeRanges
 from utils.json_schema_utils import describe_json_schema
 from utils.function_utils import create_function
 from utils.preview_utils import value_to_preview
 from utils.type_utils import get_known_types
-from utils.datetime_utils import convert_timestamps
+from utils.datetime_utils import to_isos, to_datetimes, datetime_min, datetime_max
 import json
 import requests
 import os
@@ -25,7 +25,6 @@ from utils.downloader import (
 from operator import itemgetter
 from itertools import groupby
 import logging
-from utils.datetime_utils import normalize_datetime
 from utils.doc_obj import DocObj
 
 TABDPT_URL = "http://tabdpt-service.default.svc.cluster.local:6789"
@@ -47,9 +46,8 @@ class Attribute:
         self._pred_val = None
         self.doc_full_name = self.doc_obj.full_name
         self.value_type = value_type
-        self.sim_iter_num = None
-        self.time_ranges_key = None
-        self.time_range = None
+        self.cur_clone_num = None
+        self.cur_time_range = None
         self.context_key = (None, None, None)
         self.outputs = {}
         self.cleanup = None
@@ -58,34 +56,26 @@ class Attribute:
         self.run_key = None
 
     def _set_context(self, **kwargs):
-        self.sim_iter_num = kwargs.get("sim_iter_num", None)
-        self.time_ranges_key = kwargs.get("time_ranges_key", None)
-        self.time_range = kwargs.get("time_range", None)
-        self.context_key = (self.sim_iter_num, self.time_ranges_key, self.time_range)
+        self.cur_clone_num = kwargs.get("clone_num", None)
+        self.cur_time_range = kwargs.get("time_range", None)
+        self.context_key = (self.cur_clone_num, self.cur_time_range)
 
         self._val = None
         self._pred_val = None
 
-        if not self.sim_iter_num or not self.time_ranges_key or not self.time_range:
+        if not self.cur_clone_num or not self.cur_time_range:
             self.run_key = None
             return
 
         self.run_key = (
-            self.sim_iter_num,
-            self.time_range,
-            self.time_ranges_key,
+            self.cur_clone_num,
+            self.cur_time_range,
             self.doc_full_name,
             self.name,
         )
 
     def val(self, *args, **kwargs) -> Any:
         return self._val
-
-    @property
-    def pred_val(self) -> Any:
-        if self._pred_val is None:
-            self._pred_val = self._get_predicted_value()
-        return self._pred_val
 
     def _set_val(self, val: Any, serialized: bool = False):
         if serialized:
@@ -95,8 +85,12 @@ class Attribute:
 
         self._val = val
 
-    def _set_full_space(self, full_space: List[Tuple]):
+    def _set_full_space(
+        self, full_space: List[Tuple], clone_nums: List[int], time_ranges: TimeRanges
+    ):
         self.full_space = full_space
+        self.full_clone_nums = clone_nums
+        self.full_time_ranges = time_ranges
 
     def _add_output(self, output: Dict[Text, Any]):
         if not output:
@@ -176,16 +170,19 @@ class RunnableAttribute(Attribute):
         doc_obj: DocObj,
         value_type: Any,
         var_name_to_id: Dict[Text, Text],
-        sim_iter_nums: List[Text],
-        time_ranges_keys: List[Text],
+        valid_clone_nums: List[int],
+        valid_time_range: TimeRange,
         function_name: Text,
         function_header: Text,
         function_string: Text,
+        predict_function_string: Text = "",
+        predict_from: Optional[Text] = None,
+        predict_type: Optional[Text] = None,
         new_version: Optional[Text] = None,
         old_version: Optional[Text] = None,
         chunked: bool = False,
         no_function_body: bool = False,
-        overrides: Optional[List[Tuple]] = None,
+        locks: Optional[List[Tuple]] = None,
         global_vars: Dict[Text, Any] = None,
         deleted: bool = False,
     ):
@@ -197,37 +194,38 @@ class RunnableAttribute(Attribute):
             value_type=value_type,
         )
         self.auth_data = auth_data
-        self.new_version = (
-            datetime.datetime.fromisoformat(new_version) if new_version else None
-        )
-        self.old_version = (
-            datetime.datetime.fromisoformat(old_version) if old_version else None
-        )
+        self.new_version = to_datetimes(new_version) if new_version else None
+        self.old_version = to_datetimes(old_version) if old_version else None
         self._val = None
         self.chunked = chunked
-        self.sim_iter_num = None
-        self.time_ranges_key = None
-        self.time_range = None
+        self.cur_clone_num = None
+        self.cur_time_range = None
         self.outputs = {}
         self.runnable = True
 
-        self.overrides = overrides or []
-        overrides = []
-        for override in self.overrides:
-            override[1] = (
-                convert_timestamps(override[1][0]),
-                convert_timestamps(override[1][1]),
+        self.locks = locks or []
+        locks = []
+        for lock in self.locks:
+            lock[1] = (
+                to_isos(lock[1][0]),
+                to_isos(lock[1][1]),
             )
-            overrides.append(override)
-        self.overrides = overrides
+            locks.append(lock)
+        self.locks = locks
 
         self.no_function_body = no_function_body
         self.function_name = function_name
         self.function_header = function_header
         self.function_string = function_string
-        self.sim_iter_nums = sim_iter_nums
-        self.time_ranges_keys = time_ranges_keys
+        self.predict_type = predict_type
+        self.predict_function_string = predict_function_string
+        self.predict_from = to_datetimes(predict_from) if predict_from else None
+        self.valid_clone_nums = valid_clone_nums
+        self.valid_time_range = valid_time_range
         self.var_name_to_id = var_name_to_id
+
+        self.full_clone_nums = None
+        self.full_time_ranges = None
 
         self.deleted = deleted
         self.fs_db = fs_db
@@ -235,6 +233,14 @@ class RunnableAttribute(Attribute):
             function_name=self.function_name,
             function_header=self.function_header,
             function_string=self.function_string,
+            allowed_modules=get_known_types(),
+            global_vars=global_vars if global_vars is not None else {},
+        )
+        self._add_output(output)
+        self.pred_func, output = create_function(
+            function_name=self.function_name,
+            function_header=self.function_header,
+            function_string=self.predict_function_string,
             allowed_modules=get_known_types(),
             global_vars=global_vars if global_vars is not None else {},
         )
@@ -289,16 +295,15 @@ class RunnableAttribute(Attribute):
         run_key: Tuple[Text],
         value_chunk: Any,
         chunk_num: int = 0,
-        overriden: bool = False,
+        lock_value: bool = False,
     ):
-        if overriden:
+        if lock_value:
             try:
                 value_chunk = None
                 for _, value_chunk_iter in self.get_iterator(
-                    sim_iter_nums=[self.sim_iter_num],
-                    time_ranges_keys=[self.time_ranges_key],
-                    time_range=self.time_range,
-                    overriden=overriden,
+                    clone_nums=[self.cur_clone_num],
+                    time_range=self.cur_time_range,
+                    lock_value=lock_value,
                     # version=self.old_version,
                     use_cache=False,
                 ):
@@ -307,16 +312,6 @@ class RunnableAttribute(Attribute):
                         continue
                     logging.warning(f"FOUND {value_chunk}")
 
-                # _, value_chunk = next(
-                #     self.get_iterator(
-                #         sim_iter_nums=[self.sim_iter_num],
-                #         time_ranges_keys=[self.time_ranges_key],
-                #         time_range=self.time_range,
-                #         overriden=overriden,
-                #         # version=self.old_version,
-                #         use_cache=False,
-                #     )
-                # )
                 logging.warning(f"OVERRIDE {value_chunk}")
             except StopIteration:
                 logging.warning(
@@ -353,24 +348,22 @@ class RunnableAttribute(Attribute):
             "doc_id": self.doc_id,
             "attribute_name": self.name,
             "full_name": self.doc_full_name,
-            "sim_iter_num": run_key[0],
+            "clone_num": run_key[0],
             "time_range_start": run_key[1][0],
             "time_range_end": run_key[1][1],
-            "time_ranges_key": run_key[2],
             "chunk_num": chunk_num,
             "version": self.new_version,
             "_value_chunk": _value_chunk,
             "preview": preview,
             "_schema": _schema,
-            "overriden": overriden,
+            "lock_value": lock_value,
         }
         version_key = (
-            f"{doc_data['sim_iter_num']}_"
-            f"{doc_data['time_range_start'].isoformat()}_"
-            f"{doc_data['time_range_end'].isoformat()}_"
-            f"{doc_data['time_ranges_key']}_"
+            f"{doc_data['clone_num']}_"
+            f"{to_isos(doc_data['time_range_start'])}_"
+            f"{to_isos(doc_data['time_range_end'])}_"
             f"{doc_data['chunk_num']}_"
-            f"{doc_data['version'].isoformat()}"
+            f"{to_isos(doc_data['version'])}"
         )
         # Write directly to Firestore
         chunk_ref = self._get_collection().document(version_key)
@@ -378,15 +371,15 @@ class RunnableAttribute(Attribute):
 
     def _get_output(self):
         output = super()._get_output()
-        output["version"] = self.new_version.isoformat() if self.new_version else None
+        output["version"] = to_isos(self.new_version) if self.new_version else None
         return output
 
     def _finalize(self):
         """
         Deduplicate and update value_file_blocks in Firestore:
         - Deletes duplicates, keeping only the highest version per
-        (sim_iter_num, time_range_start, time_range_end, time_ranges_key)
-        - Deletes any docs not in current sim_iter_nums or time_ranges_keys
+        (clone_num, time_range_start, time_range_end)
+        - Deletes any docs not in current clone_nums
         - Updates remaining docs to `new_version` if they’re not already at that version.
         """
 
@@ -402,21 +395,28 @@ class RunnableAttribute(Attribute):
         for snap in self._get_collection().stream():
             data = snap.to_dict()
             for k in ["time_range_start", "time_range_end", "version"]:
-                data[k] = normalize_datetime(data[k])
+                data[k] = to_datetimes(data[k])
             block_key = (
-                f"{data['sim_iter_num']}_"
-                f"{data['time_range_start'].isoformat()}_"
-                f"{data['time_range_end'].isoformat()}_"
-                f"{data['time_ranges_key']}"
+                f"{data['clone_num']}_"
+                f"{to_isos(data['time_range_start'])}_"
+                f"{to_isos(data['time_range_end'])}_"
             )
 
-            # Skip docs not in allowed sim_iter_nums / time_ranges_keys
+            # Skip docs not in allowed clone_nums
             if (
-                self.sim_iter_nums
-                and data.get("sim_iter_num") not in self.sim_iter_nums
-            ) or (
-                self.time_ranges_keys
-                and data.get("time_ranges_key") not in self.time_ranges_keys
+                self.valid_clone_nums
+                and data.get("clone_num") not in self.valid_clone_nums
+            ):
+
+                batch.delete(snap.reference)
+                total_deleted += 1
+                batch_count += 1
+                continue
+
+            # Skip docs not in allowed time_range
+            if self.valid_time_range and (
+                data.get("time_range_start") < self.valid_time_range[0]
+                or data.get("time_range_end") > self.valid_time_range[1]
             ):
 
                 batch.delete(snap.reference)
@@ -425,11 +425,11 @@ class RunnableAttribute(Attribute):
                 continue
 
             # Track highest version per block key
-            current_version = normalize_datetime(data.get("version"))
+            current_version = to_datetimes(data.get("version"))
 
             if block_key in blocks_by_key:
                 existing = blocks_by_key[block_key]
-                existing["version"] = normalize_datetime(existing["version"])
+                existing["version"] = to_datetimes(existing["version"])
 
                 if current_version > existing["version"]:
                     to_delete.append(existing["ref"])
@@ -478,7 +478,7 @@ class RunnableAttribute(Attribute):
         for block in blocks_by_key.values():
             ref = block["ref"]
             data = ref.get().to_dict()
-            old_version = normalize_datetime(data.get("version"))
+            old_version = to_datetimes(data.get("version"))
             if old_version != self.new_version:
                 batch.update(ref, {"version": self.new_version})
                 total_updated += 1
@@ -511,23 +511,29 @@ class RunnableAttribute(Attribute):
             if batch_count:
                 batch.commit()
 
+    def get_func(self):
+        if not self.predict_from:
+            return self.func
+        if self.cur_time_range[0] >= self.predict_from:
+            return self.pred_func
+        return self.func
+
     def predict(
         self,
-        sim_iter_num: Optional[int] = None,
-        # time_ranges_key: Optional[Text] = None,
-        time_range: Optional[TimeRange] = None,
-        regression: bool = True,
+        train_data_domain: Dict[Text, Any],
+        predict_type: Text = "regressor",
         window_size: int = 100,
     ):
+
+        clone_num = train_data_domain.get("clone_num", None)
+        time_range = train_data_domain.get("time_range", None)
 
         # 1. Build variable → list of time series values
         train_time_series = {
             "self": [
                 v
                 for _, v in self.time_series(
-                    sim_iter_num=sim_iter_num,
-                    # time_ranges_key=time_ranges_key,
-                    _time_range=time_range,
+                    clone_num=clone_num, _time_range=time_range
                 )
             ]
         }
@@ -536,19 +542,17 @@ class RunnableAttribute(Attribute):
         for input_doc_id in self.var_name_to_id.values():
             full_name = self.doc_obj.doc_id_to_full_name[input_doc_id]
             doc = self.doc_obj.doc_objs[full_name]
-            if not hasattr(doc, "basic") or input_doc_id == self.doc_id:
+            if not hasattr(doc, "data") or input_doc_id == self.doc_id:
                 continue
 
             train_time_series[full_name] = [
                 v
-                for _, v in doc.basic.time_series(
-                    sim_iter_num=sim_iter_num,
-                    # time_ranges_key=time_ranges_key,
-                    _time_range=time_range,
+                for _, v in doc.data.time_series(
+                    clone_num=clone_num, _time_range=time_range
                 )
             ]
 
-            query_time_series[full_name] = [v for _, v in doc.basic.time_series()]
+            query_time_series[full_name] = [v for _, v in doc.data.time_series()]
         if all([not v for v in train_time_series.values()]):
             raise ValueError(
                 f"Cannot make prediction when {self.doc_obj.full_name}.{self.name} has no data:"
@@ -580,7 +584,7 @@ class RunnableAttribute(Attribute):
             "window_size": window_size,
         }
         resp = requests.post(
-            f"{TABDPT_URL}/time_series/{'regressor' if regression else 'classifier'}",
+            f"{TABDPT_URL}/time_series/{predict_type}",
             json=payload,
         )
         resp.raise_for_status()
@@ -599,43 +603,89 @@ class RunnableAttribute(Attribute):
 
     def time_series(
         self,
-        sim_iter_num: Optional[int] = None,
+        clone_num: Optional[int] = None,
+        mode: Text = "full",
         _time_range: Optional[TimeRange] = None,
     ) -> Iterable[Tuple[TimeRange, Any]]:
         """
         Get an iterator of the full time series of values (or section of it) of the
         attribute (up to this point in time)
         Args:
-            sim_iter_num: Which simulation to pull the time series from
+            clone_num: Which simulation to pull the time series from
                 (defaults to the current simulation)
-            _time_range: (NOTE: Do not use. internal use only). specify a slice
-            of the time_series. Defaults to full.
+
+            mode: What selection of time ranges use to build the time series.
+                "full" will use all of the time ranges, even when there is
+                no corresponding value. "valid" only uses the time ranges
+                that this attribute has set as valid.
+            _time_range: (NOTE: Do not use. For internal use only)
+                max and min time range of the data. Defaults to full time
+                series (up to this point).
         Returns:
             iterator of 2-tuples:
                 time_range: The time range at which that value was computed.
                 value: The value at that time range.
         """
 
-        sim_iter_num = sim_iter_num if sim_iter_num is not None else self.sim_iter_num
-        sim_iter_num = sim_iter_num or self.sim_iter_num
-        if sim_iter_num not in self.sim_iter_nums:
+        if mode == "full":
+            # remove before/after time ranges
+            time_ranges = self.full_time_ranges[1:-1]
+        elif mode == "valid":
+            time_ranges = []
+            # remove before/after time ranges
+            for time_range in self.full_time_ranges[1:-1]:
+                if (
+                    time_range[0] >= self.valid_time_range[0]
+                    and time_range[1] <= self.valid_time_range[1]
+                ):
+                    time_ranges.append(time_range)
+        else:
+            raise ValueError(f"Invalid mode: {mode}")
+
+        clone_num = clone_num if clone_num is not None else self.cur_clone_num
+        if clone_num not in self.valid_clone_nums:
             raise ValueError(
-                f"sim_iter_num {sim_iter_num} not in {self.doc_full_name}-{self.name}"
-                f" list of sim_iter_nums: {self.sim_iter_nums}"
+                f"clone_num {clone_num} not in {self.doc_full_name}-{self.name}"
+                f" list of clone_nums: {self.valid_clone_nums}"
             )
 
-        time_range = _time_range or (datetime.datetime.min, datetime.datetime.max)
-        # Only take data that has been 'completed' already
-        if time_range[1] > self.time_range[0]:
-            time_range = (time_range[0], self.time_range[0])
-        iterator = self.get_iterator(
-            sim_iter_nums=[sim_iter_num],
-            time_range=time_range,
-        )
-        for (_, time_range, _, _, _), data in iterator:
-            yield (time_range, data)
+        iterator_tr = _time_range if _time_range else (datetime_min, datetime_max)
 
-    def sims(self, time_range: Optional[TimeRange] = None) -> Iterable[Tuple[int, Any]]:
+        # Only take data that has been 'completed' already
+        if iterator_tr[1] > self.cur_time_range[0]:
+            iterator_tr = (iterator_tr[0], self.cur_time_range[0])
+
+        print(clone_num, iterator_tr)
+        iterator = self.get_iterator(
+            clone_nums=[clone_num],
+            time_range=iterator_tr,
+        )
+
+        print(time_ranges)
+        if time_ranges:
+            exhausted = False
+            att_time_range = None
+            for time_range in time_ranges:
+                while att_time_range is None or att_time_range[0] < time_range[0]:
+                    try:
+                        (_, att_time_range, _, _), data = next(iterator)
+                    except StopIteration:
+                        exhausted = True
+                        break
+
+                if att_time_range == time_range:
+                    yield (time_range, data)
+
+                if exhausted:
+                    break
+
+        else:
+            for (_, time_range, _, _), data in iterator:
+                yield (time_range, data)
+
+    def clones(
+        self, time_range: Optional[TimeRange] = None
+    ) -> Iterable[Tuple[int, Any]]:
         """
         Get an iterator of the data of all the simulations up until this one.
         Note that there is no restriction on selecting a time_range that includes
@@ -645,90 +695,71 @@ class RunnableAttribute(Attribute):
             time_range: max and min time range of the data. Defaults to the current one.
         Returns:
             iterator of 2-tuples:
-                sim_iter_num: The simulation number that value was computed at
+                clone_num: The simulation number that value was computed at
                 value: The value for that simulation number.
         """
-        time_ranges_key = time_ranges_key or self.time_ranges_key
-        if time_ranges_key not in self.time_ranges_keys:
-            raise ValueError(
-                f"time_ranges_key {time_ranges_key} not in "
-                f"{self.doc_full_name}-{self.name} list of time_ranges_keys:"
-                f" {self.time_ranges_keys}"
-            )
 
         # NOTE: No restriction on taking multiple time ranges
-        time_range = time_range or self.time_range
+        time_range = time_range or self.cur_time_range
 
-        # Get all previous sims
-        sim_iter_nums = list(range(self.sim_iter_num))
+        # Get all previous clones
+        clone_nums = list(range(self.cur_clone_num))
 
         iterator = self.get_iterator(
-            sim_iter_nums=sim_iter_nums,
-            time_ranges_keys=[time_ranges_key],
+            clone_nums=clone_nums,
             time_range=time_range,
         )
-        for (sim_iter_num, _, _, _, _), data in iterator:
-            yield (sim_iter_num, data)
+        for (clone_num, _, _, _), data in iterator:
+            yield (clone_num, data)
 
     def get_iterator(
         self,
-        sim_iter_nums: Optional[Text] = None,
-        time_ranges_keys: Optional[Text] = None,
+        clone_nums: Optional[Text] = None,
         time_range: Optional[TimeRange] = None,
         use_cache: bool = True,
-        overriden: Optional[bool] = None,
+        lock_value: Optional[bool] = None,
         version: Optional[Text] = None,
     ) -> Iterable[Tuple[Tuple[int, Text, TimeRange], Any]]:
         """
         Get an iterator of some slice of the data computed up until this point.
         Args:
-            sim_iter_nums: Which simulations to pull the data from
+            clone_nums: Which simulations to pull the data from
                 (defaults to all simulations)
-            time_ranges_key: Which time range collections to pull the data from
-                (defaults to all time ranges collections)
             time_range: max and min time range of the data. Defaults to full time range.
         Returns:
             iterator of 2-tuples:
-                context_key: The (sim_iter_num, time_ranges_key, and time_range) the
+                context_key: The (clone_num, and time_range) the
                     data was computed under.
                 value: The value at that context key.
         """
-        time_range = time_range if time_range else (None, None)
+        time_range = time_range if time_range else self.valid_time_range
+        time_range = to_datetimes(time_range)
+        if clone_nums is None:
+            clone_nums = self.valid_clone_nums
 
-        if sim_iter_nums is None:
-            sim_iter_nums = self.sim_iter_nums
         else:
-            sim_iter_nums = sorted(set(self.sim_iter_nums) & set(sim_iter_nums))
-
-        if time_ranges_keys is None:
-            time_ranges_keys = self.time_ranges_keys
-        else:
-            time_ranges_keys = sorted(
-                set(self.time_ranges_keys) & set(time_ranges_keys)
-            )
+            clone_nums = sorted(set(self.valid_clone_nums) & set(clone_nums))
 
         if use_cache:
             iterator = self.merged_iterator(
-                sim_iter_nums=sim_iter_nums,
-                time_ranges_keys=time_ranges_keys,
+                clone_nums=clone_nums,
                 time_range=time_range,
-                overriden=overriden,
+                lock_value=lock_value,
                 version=version,
             )
         else:
             iterator = self.firestore_iterator(
-                sim_iter_nums=sim_iter_nums,
-                time_ranges_keys=time_ranges_keys,
+                clone_nums=clone_nums,
                 time_range=time_range,
-                overriden=overriden,
+                lock_value=lock_value,
                 version=version,
             )
 
-        for key, group in groupby(iterator, key=itemgetter(0, 1, 2, 3, 4)):
+        for key, group in groupby(iterator, key=itemgetter(0, 1, 2, 3)):
             if self.chunked:
 
                 def value_chunk_gen(g=group):
-                    for _, _, _, _, _, chunk_num, _value_chunk in g:
+                    for _, _, _, _, chunk_num, _value_chunk in g:
                         _value_chunk = _cache.get((key, chunk_num), _value_chunk)
                         value_chunk, _, _ = attempt_deserialize(
                             _value_chunk, self.value_type
@@ -739,7 +770,7 @@ class RunnableAttribute(Attribute):
                 yield key, value_chunk_gen()
             else:
                 # If not chunked there is only one element in the group
-                _, _, _, _, _, _, _value = next(group)
+                _, _, _, _, _, _value = next(group)
                 _value = _cache.get((key, 0), _value)
                 value, output, _ = attempt_deserialize(_value, self.value_type)
                 if output.get("failed", False):
@@ -750,10 +781,9 @@ class RunnableAttribute(Attribute):
 
     def firestore_iterator(
         self,
-        sim_iter_nums: Optional[Text] = None,
-        time_ranges_keys: Optional[Text] = None,
+        clone_nums: Optional[Text] = None,
         time_range: Optional[TimeRange] = None,
-        overriden: Optional[bool] = None,
+        lock_value: Optional[bool] = None,
         version: Optional[Text] = None,
     ):
         """
@@ -765,30 +795,28 @@ class RunnableAttribute(Attribute):
 
         query = collection_ref
         # TODO: Take out one of the 'in' statements and loop.
-        if sim_iter_nums:
-            query = query.where("sim_iter_num", "in", sim_iter_nums[:30])
-        if time_ranges_keys:
-            query = query.where("time_ranges_key", "in", time_ranges_keys[:30])
+        if clone_nums:
+            query = query.where("clone_num", "in", clone_nums[:30])
+
         if time_range_start:
             query = query.where("time_range_start", ">=", time_range_start)
         if time_range_end:
             query = query.where("time_range_end", "<=", time_range_end)
         if version:
             query = query.where("version", "==", version)
-        if overriden is not None:
-            query = query.where("overriden", "==", overriden)
+        if lock_value is not None:
+            query = query.where("lock_value", "==", lock_value)
 
         query = (
-            query.order_by("sim_iter_num")
+            query.order_by("clone_num")
             .order_by("time_range_start")
             .order_by("time_range_end")
-            .order_by("time_ranges_key")
             .order_by("chunk_num")
         )
         for doc in query.stream():
             data = doc.to_dict()
             for k in ["time_range_start", "time_range_end", "version"]:
-                data[k] = normalize_datetime(data[k])
+                data[k] = to_datetimes(data[k])
             full_name = self.doc_full_name
             att = self.name
             chunk_num = data.get("chunk_num", 0)
@@ -800,9 +828,8 @@ class RunnableAttribute(Attribute):
             )
 
             yield (
-                data.get("sim_iter_num"),
+                data.get("clone_num"),
                 tr,
-                data.get("time_ranges_key"),
                 full_name,
                 att,
                 chunk_num,
@@ -811,10 +838,9 @@ class RunnableAttribute(Attribute):
 
     def merged_iterator(
         self,
-        sim_iter_nums: Optional[Text] = None,
-        time_ranges_keys: Optional[Text] = None,
+        clone_nums: Optional[Text] = None,
         time_range: Optional[TimeRange] = None,
-        overriden: Optional[bool] = None,
+        lock_value: Optional[bool] = None,
         version: Optional[Text] = None,
     ):
         """
@@ -828,12 +854,9 @@ class RunnableAttribute(Attribute):
         time_range_start = time_range[0] if time_range else None
         time_range_end = time_range[1] if time_range else None
         for key in self.full_space:
-            (s_num, tr, tr_key) = key
-            if sim_iter_nums is not None and s_num not in sim_iter_nums:
+            (s_num, tr) = key
+            if clone_nums is not None and s_num not in clone_nums:
                 continue
-            if time_ranges_keys is not None and tr_key not in time_ranges_keys:
-                continue
-
             if time_range_start is not None and time_range_start > tr[0]:
                 continue
             if time_range_end is not None and time_range_end < tr[1]:
@@ -842,7 +865,6 @@ class RunnableAttribute(Attribute):
             run_key = (
                 s_num,
                 tr,
-                tr_key,
                 self.doc_full_name,
                 self.name,
             )
@@ -865,10 +887,9 @@ class RunnableAttribute(Attribute):
                 try:
                     if fire_iter is None:
                         fire_iter = self.firestore_iterator(
-                            sim_iter_nums=sim_iter_nums,
-                            time_ranges_keys=time_ranges_keys,
+                            clone_nums=clone_nums,
                             time_range=time_range,
-                            overriden=overriden,
+                            lock_value=lock_value,
                             version=version,
                         )
                     next_flat = next(fire_iter)
@@ -892,7 +913,7 @@ class RunnableAttribute(Attribute):
 
     def val(
         self,
-        sim_iter_num: Optional[int] = None,
+        clone_num: Optional[int] = None,
         _time_range: Optional[TimeRange] = None,
     ) -> Any:
         """
@@ -900,19 +921,18 @@ class RunnableAttribute(Attribute):
         returned by that query corresponding to kwargs (up to that point)
         Args:
             Args:
-            sim_iter_num: Which simulation to pull the value from
-            time_ranges_key: Which time range collection to pull the data from
+            clone_num: Which simulation to pull the value from
             time_range: (NOTE: Do not use. For internal use only)
             max and min time range of the data. Defaults to full time
                 series (up to this point).
         Returns:
             value: The first value retrieved by the query
         """
-        if sim_iter_num is None and _time_range is None:
+        if clone_num is None and _time_range is None and self._val is not None:
             return self._val
 
         iterator = self.get_iterator(
-            sim_iter_nums=[sim_iter_num] if sim_iter_num is not None else None,
+            clone_nums=[clone_num] if clone_num is not None else None,
             time_range=_time_range,
         )
         try:
@@ -923,7 +943,7 @@ class RunnableAttribute(Attribute):
 
     @classmethod
     def get_method_documentation(cls) -> Text:
-        methods = [cls.time_series, cls.sims, cls.val, cls.get_iterator]
+        methods = [cls.time_series, cls.clones, cls.val, cls.get_iterator]
         r_str = []
         for method in methods:
             sig = inspect.signature(method)

@@ -5,7 +5,7 @@ from utils.serialize_utils import serialize_value
 from itertools import islice
 from google.cloud.firestore_v1 import FieldFilter, And
 import logging
-from utils.datetime_utils import normalize_datetime
+from utils.datetime_utils import to_datetimes
 
 _cache = {}
 _cache_order = []  # list for FIFO eviction
@@ -26,8 +26,7 @@ def pull_inputs_from_firestore(
     Args:
         fs_db: Firestore client.
         auth_data:
-        sim_iter_num: Simulation iteration identifier.
-        time_ranges_key: The key identifying the time range group.
+        clone_num: Simulation iteration identifier.
         doc_ids: List of document IDs to fetch blocks for.
         ref_dict: Reference metadata for determining which attributes belong to each doc.
 
@@ -37,7 +36,7 @@ def pull_inputs_from_firestore(
     user_id = auth_data.get("user_id")
     calc_graph_id = auth_data.get("calc_graph_id")
     data_dict = {}
-    sim_iter_num, (time_range_start, time_range_end), time_ranges_key = key
+    clone_num, (time_range_start, time_range_end) = key
 
     for doc_batch in batched(doc_ids, 30):
         query = (
@@ -45,23 +44,21 @@ def pull_inputs_from_firestore(
             .where(filter=FieldFilter("user_id", "==", user_id))
             .where(filter=FieldFilter("calc_graph_id", "==", calc_graph_id))
             .where(filter=FieldFilter("doc_id", "in", doc_batch))
-            .where(filter=FieldFilter("sim_iter_num", "==", sim_iter_num))
+            .where(filter=FieldFilter("clone_num", "==", clone_num))
             .where(filter=FieldFilter("time_range_start", "==", time_range_start))
             .where(filter=FieldFilter("time_range_end", "==", time_range_end))
-            .where(filter=FieldFilter("time_ranges_key", "==", time_ranges_key))
         )
         latest_versions = {}
         for doc_snap in query.stream():
             data = doc_snap.to_dict()
             for k in ["time_range_start", "time_range_end", "version"]:
-                data[k] = normalize_datetime(data[k])
+                data[k] = to_datetimes(data[k])
             full_name = data.get("full_name")
-            version = normalize_datetime(data.get("version"))
+            version = to_datetimes(data.get("version"))
             att = data.get("attribute_name")
             run_key = (
-                data.get("sim_iter_num"),
+                data.get("clone_num"),
                 (data.get("time_range_start"), data.get("time_range_end")),
-                data.get("time_ranges_key"),
                 full_name,
                 att,
             )
@@ -93,15 +90,14 @@ def prefetch(
     docs_to_run: List[str],
     ref_dict: Dict[str, Dict[str, Dict[str, Any]]],
     doc_id_to_full_name: Dict[str, str],
-    sim_iter_nums: Optional[List[str]] = None,
-    time_ranges_keys: Optional[List[str]] = None,
+    clone_nums: Optional[List[str]] = None,
 ) -> None:
     """
     Prefetch and locally cache latest Firestore value_file_blocks for all input nodes
-    of the given documents, filtered by sim_iter_nums and time_ranges_keys.
+    of the given documents, filtered by clone_nums.
 
     This respects Firestore’s 30-value limit for each 'in' filter by batching over
-    doc_ids, attribute_names, sim_iter_nums, and time_ranges_keys.
+    doc_ids, attribute_names, clone_nums.
 
     Args:
         fs_db: Firestore client
@@ -110,8 +106,7 @@ def prefetch(
         doc_to_runs: The doc_ids to prefetch inputs for
         ref_dict: Reference dictionary describing dependencies
         doc_id_to_full_name: Mapping of doc_id -> full_name
-        sim_iter_nums: Optional list of simulation iteration identifiers
-        time_ranges_keys: Optional list of time range keys
+        clone_nums: Optional list of simulation iteration identifiers
     """
     user_id = auth_data.get("user_id")
     calc_graph_id = auth_data.get("calc_graph_id")
@@ -140,47 +135,44 @@ def prefetch(
 
     latest_versions = {}
     for doc_batch in batched(sorted(input_doc_ids), 30):
-        for sim_iter_num in sim_iter_nums:
-            for time_ranges_key in time_ranges_keys:
+        for clone_num in clone_nums:
 
-                query = fs_db.collection_group("value_file_block").where(
-                    filter=And(
-                        filters=[
-                            FieldFilter("user_id", "==", user_id),
-                            FieldFilter("calc_graph_id", "==", calc_graph_id),
-                            FieldFilter("doc_id", "in", doc_batch),
-                            FieldFilter("sim_iter_num", "==", sim_iter_num),
-                            FieldFilter("time_ranges_key", "==", time_ranges_key),
-                        ]
-                    )
+            query = fs_db.collection_group("value_file_block").where(
+                filter=And(
+                    filters=[
+                        FieldFilter("user_id", "==", user_id),
+                        FieldFilter("calc_graph_id", "==", calc_graph_id),
+                        FieldFilter("doc_id", "in", doc_batch),
+                        FieldFilter("clone_num", "==", clone_num),
+                    ]
+                )
+            )
+
+            for doc_snap in query.stream():
+                data = doc_snap.to_dict()
+                for k in ["time_range_start", "time_range_end", "version"]:
+                    data[k] = to_datetimes(data[k])
+                input_full_name = data.get("full_name")
+                input_att = data.get("attribute_name")
+
+                _input_key = (
+                    data.get("clone_num"),
+                    (data.get("time_range_start"), data.get("time_range_end")),
+                    input_full_name,
+                    input_att,
                 )
 
-                for doc_snap in query.stream():
-                    data = doc_snap.to_dict()
-                    for k in ["time_range_start", "time_range_end", "version"]:
-                        data[k] = normalize_datetime(data[k])
-                    input_full_name = data.get("full_name")
-                    input_att = data.get("attribute_name")
+                if (input_full_name, input_att) not in inputs:
+                    continue
+                if (
+                    _input_key in latest_versions
+                    and data.get("version") <= latest_versions[_input_key]
+                ):
+                    continue
+                latest_versions[_input_key] = data.get("version")
 
-                    _input_key = (
-                        data.get("sim_iter_num"),
-                        (data.get("time_range_start"), data.get("time_range_end")),
-                        data.get("time_ranges_key"),
-                        input_full_name,
-                        input_att,
-                    )
-
-                    if (input_full_name, input_att) not in inputs:
-                        continue
-                    if (
-                        _input_key in latest_versions
-                        and data.get("version") <= latest_versions[_input_key]
-                    ):
-                        continue
-                    latest_versions[_input_key] = data.get("version")
-
-                    # Cache locally (latest version first)
-                    save_to_memory(_input_key, 0, data["_value_chunk"])
+                # Cache locally (latest version first)
+                save_to_memory(_input_key, 0, data["_value_chunk"])
 
 
 def cached_stream_subgraph_by_key(
@@ -189,8 +181,7 @@ def cached_stream_subgraph_by_key(
     full_space: List[Tuple],
     docs_to_run: List[Text],
     ref_dict: Dict[str, Dict[str, Dict[str, Any]]],
-    sim_iter_nums: Optional[List[str]] = None,
-    time_ranges_keys: Optional[List[str]] = None,
+    clone_nums: Optional[List[str]] = None,
     doc_id_to_full_name: Optional[Dict[Text, Text]] = None,
     doc_full_name_to_id: Optional[Dict[Text, Text]] = None,
 ):
@@ -202,13 +193,12 @@ def cached_stream_subgraph_by_key(
         full_space=full_space,
         docs_to_run=docs_to_run,
         ref_dict=ref_dict,
-        time_ranges_keys=time_ranges_keys,
-        sim_iter_nums=sim_iter_nums,
+        clone_nums=clone_nums,
         doc_id_to_full_name=doc_id_to_full_name,
     )
 
     for run_key in run_key_iterator:
-        sim_iter, (tr_start, tr_end), tr_key, full_name, att = run_key
+        sim_iter, (tr_start, tr_end), full_name, att = run_key
         data_dict = {}
         not_in_cache = set()
         for input_dict in ref_dict[full_name][att]["inputs"]:
@@ -217,7 +207,6 @@ def cached_stream_subgraph_by_key(
             _input_key = (
                 sim_iter,
                 (tr_start, tr_end),
-                tr_key,
                 input_full_name,
                 input_att,
             )
@@ -228,7 +217,7 @@ def cached_stream_subgraph_by_key(
                 not_in_cache.add((_input_key, 0))
 
         if not_in_cache:
-            not_found_ids = set([doc_full_name_to_id[k[0][3]] for k in not_in_cache])
+            not_found_ids = set([doc_full_name_to_id[k[0][2]] for k in not_in_cache])
             data_dict.update(
                 pull_inputs_from_firestore(
                     fs_db=fs_db,
@@ -238,7 +227,7 @@ def cached_stream_subgraph_by_key(
                 )
             )
             for _input_key, chunk_num in not_in_cache:
-                _, _, _, input_full_name, input_att = _input_key
+                _, _, input_full_name, input_att = _input_key
                 if (input_full_name, input_att) in data_dict:
                     continue
                 save_to_memory(_input_key, chunk_num, serialize_value(None))
@@ -274,17 +263,14 @@ def save_to_memory(run_key, chunk_num, chunk_bytes):
 def get_run_key_iterator(
     full_space: List[Tuple],
     docs_to_run: List[Text],
-    sim_iter_nums: List[str] = None,
-    time_ranges_keys: List[str] = None,
+    clone_nums: List[str] = None,
     ref_dict: Optional[Dict[str, Dict[str, Dict[str, Any]]]] = None,
     doc_id_to_full_name: Optional[Dict[Text, Text]] = None,
 ):
-    for sim_iter_num, time_range, time_ranges_key in full_space:
-        if sim_iter_nums and sim_iter_num not in sim_iter_nums:
-            continue
-        if time_ranges_keys and time_ranges_key not in time_ranges_keys:
+    for clone_num, time_range in full_space:
+        if clone_nums and clone_num not in clone_nums:
             continue
         for doc_id in docs_to_run:
             full_name = doc_id_to_full_name[doc_id]
             for att in ref_dict[full_name]:
-                yield sim_iter_num, time_range, time_ranges_key, full_name, att
+                yield clone_num, time_range, full_name, att
