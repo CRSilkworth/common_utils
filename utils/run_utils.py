@@ -4,8 +4,6 @@ from utils.function_utils import run_with_expected_type, run_with_generator
 from utils.downloader import cached_stream_subgraph_by_key, prefetch
 from utils.doc_obj import DocObj
 from utils.datetime_utils import to_isos, to_datetimes
-from utils.type_utils import TimeRanges
-import datetime
 import logging
 import requests
 import os
@@ -25,10 +23,8 @@ def run(
 ):
 
     time_ranges = [(to_datetimes(tr[0]), to_datetimes(tr[1])) for tr in time_ranges]
-    logging.warning(("time_ranges", time_ranges))
 
     key_dict = json.loads(auth_data["sa_key"])
-
     if key_dict:
         credentials = service_account.Credentials.from_service_account_info(key_dict)
         fs_kwargs = dict(credentials=credentials, project=key_dict["project_id"])
@@ -104,13 +100,11 @@ def run(
             clone_num=clone_num,
             time_range=time_range,
         )
-        logging.warning((time_range, attribute.valid_time_range))
         if (
             time_range[0] < attribute.valid_time_range[0]
             or time_range[1] > attribute.valid_time_range[1]
         ):
             continue
-        logging.warning((clone_num, attribute.valid_clone_nums))
         if clone_num not in attribute.valid_clone_nums:
             continue
 
@@ -216,7 +210,7 @@ def run(
         for att, attribute in doc.attributes.items():
             if not (attributes_to_run is None or att in attributes_to_run):
                 continue
-            if not attribute.runnable or attribute.no_function_body:
+            if not attribute.runnable:
                 continue
             outputs[doc.doc_id][att] = attribute._get_output()
 

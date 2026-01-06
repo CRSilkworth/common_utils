@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "common-utils"
-version = "1.0.0"
+version = "0.0.0"
 description = "Shared utilities for app and runner"
 authors = ["Christopher Silkworth"]
 packages = [{ include = "utils" }, { include = "exceptions" }]

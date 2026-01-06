@@ -1,0 +1,56 @@
+# Ignore Python cache files
+__pycache__
+*.pyc
+*.pyo
+
+# Ignore virtual environment directory
+venv*
+env
+.venv*
+
+# Ignore Docker-related files
+Dockerfile
+.dockerignore
+
+# Ignore Node modules (if you have any)
+node_modules
+
+# Ignore any local configuration or sensitive files
+*.env
+*.local
+
+# Ignore IDE/editor files
+.vscode
+.idea
+*.swp
+*.swo
+
+# Ignore logs
+*.log
+
+# Ignore build artifacts
+build
+dist
+*.egg-info
+
+# Ignore temporary files
+*.tmp
+*.bak
+
+# Ignore data files
+data/
+
+# Ignore files related to package management
+*.egg
+*.eggs
+*.pyc
+*.pyo
+*.pyd
+**/.buildx-cache/**
+# Ignore other potential directories/files
+tmp
+**/prof
+**/*zip
+**/*crdownload
+**pytest**
+**venv**

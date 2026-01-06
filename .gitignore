@@ -178,3 +178,4 @@ mongo/db/*
 **/*.zip
 **/*crdownload
 **/openlca/**/*.json
+**/.buildx-cache

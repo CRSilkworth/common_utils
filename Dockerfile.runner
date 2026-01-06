@@ -12,17 +12,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential gcc libffi-dev python3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
+# Install poetry
 RUN pip install --no-cache-dir poetry
 
-# ------------------------------------------------------------
-# STEP 1: Copy *only dependency files* first (cached layer)
-# ------------------------------------------------------------
-ARG PYPROJECT_FILE=pyproject.toml
-COPY ${PYPROJECT_FILE} pyproject.toml
-COPY poetry.lock .
 
-# Install dependencies system-wide (no venv)
+# Copy dependency files
+COPY pyproject.toml poetry.lock ./
+
+# Install dependencies (cached if files unchanged)
 RUN poetry config virtualenvs.create false \
     && poetry install --no-root --no-interaction --no-ansi
 

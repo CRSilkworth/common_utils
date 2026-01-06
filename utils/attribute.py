@@ -146,13 +146,14 @@ class Attribute:
         doc_id = self.doc_id
 
         # Send the attribute result back to the backend
+        output = self._get_output()
         data = {
             "docs_to_run": [doc_id],
-            "outputs": {doc_id: {self.name: self._get_output()}},
+            "outputs": {doc_id: {self.name: output}},
             "caller": caller,
             "auth_data": self.auth_data,
             "run_completed": False,
-            "run_output": {"failed": False, "message": ""},
+            "run_output": {"failed": output.get("failed", False), "message": ""},
         }
         requests.post(
             os.path.join(self.auth_data["dash_app_url"], "job-result"),
@@ -310,9 +311,7 @@ class RunnableAttribute(Attribute):
                     if value_chunk is None:
                         value_chunk = value_chunk_iter
                         continue
-                    logging.warning(f"FOUND {value_chunk}")
 
-                logging.warning(f"OVERRIDE {value_chunk}")
             except StopIteration:
                 logging.warning(
                     f"Overriden value not found: {self.run_key}, {self.old_version}"
@@ -524,7 +523,6 @@ class RunnableAttribute(Attribute):
         predict_type: Text = "regressor",
         window_size: int = 100,
     ):
-
         clone_num = train_data_domain.get("clone_num", None)
         time_range = train_data_domain.get("time_range", None)
 
@@ -544,7 +542,6 @@ class RunnableAttribute(Attribute):
             doc = self.doc_obj.doc_objs[full_name]
             if not hasattr(doc, "data") or input_doc_id == self.doc_id:
                 continue
-
             train_time_series[full_name] = [
                 v
                 for _, v in doc.data.time_series(
@@ -655,13 +652,11 @@ class RunnableAttribute(Attribute):
         if iterator_tr[1] > self.cur_time_range[0]:
             iterator_tr = (iterator_tr[0], self.cur_time_range[0])
 
-        print(clone_num, iterator_tr)
         iterator = self.get_iterator(
             clone_nums=[clone_num],
             time_range=iterator_tr,
         )
 
-        print(time_ranges)
         if time_ranges:
             exhausted = False
             att_time_range = None
@@ -822,9 +817,11 @@ class RunnableAttribute(Attribute):
             chunk_num = data.get("chunk_num", 0)
             _value_chunk = data["_value_chunk"]
 
-            tr = (
-                data.get("time_range_start"),
-                data.get("time_range_end"),
+            tr = to_datetimes(
+                (
+                    data.get("time_range_start"),
+                    data.get("time_range_end"),
+                )
             )
 
             yield (
@@ -886,6 +883,7 @@ class RunnableAttribute(Attribute):
             if next_flat is None:
                 try:
                     if fire_iter is None:
+
                         fire_iter = self.firestore_iterator(
                             clone_nums=clone_nums,
                             time_range=time_range,
