@@ -24,8 +24,8 @@ def run(
 
     time_ranges = [(to_datetimes(tr[0]), to_datetimes(tr[1])) for tr in time_ranges]
 
-    key_dict = json.loads(auth_data["sa_key"])
-    if key_dict:
+    if auth_data["sa_key"]:
+        key_dict = json.loads(auth_data["sa_key"])
         credentials = service_account.Credentials.from_service_account_info(key_dict)
         fs_kwargs = dict(credentials=credentials, project=key_dict["project_id"])
     else:

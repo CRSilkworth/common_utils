@@ -161,14 +161,14 @@ def describe_json_schema(obj, defs=None, max_len: int = 32):
                     "type": "object",
                     "x-type": "key-value-pair",
                     "properties": {
-                        "key": {"$ref": f"#/$defs/{key_schema_hash}"},
-                        "value": {"$ref": f"#/$defs/{val_schema_hash}"},
+                        "key": key_schema_hash,
+                        "value": val_schema_hash,
                     },
                     "required": ["key", "value"],
                 }
                 pair_schema_hash = hash_schema(pair_schema)
                 defs[pair_schema_hash] = pair_schema
-                properties[k] = {"$ref": f"#/$defs/{pair_schema_hash}"}
+                properties[k] = pair_schema_hash
                 required.append(k)
 
             schema = dict_schema(
@@ -183,8 +183,8 @@ def describe_json_schema(obj, defs=None, max_len: int = 32):
             val_schema_hash, defs = describe_json_schema(first_val, defs)
 
             properties = {
-                "key_schema": {"$ref": f"#/$defs/{key_schema_hash}"},
-                "value_schema": {"$ref": f"#/$defs/{val_schema_hash}"},
+                "key_schema": key_schema_hash,
+                "value_schema": val_schema_hash,
             }
             schema = dict_schema(
                 properties=properties,
@@ -245,4 +245,80 @@ def describe_json_schema(obj, defs=None, max_len: int = 32):
 
 
 def hash_schema(schema):
-    return hashlib.md5(str(schema).encode()).hexdigest()
+    canonical = json.dumps(
+        schema,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:8]
+
+
+def get_iterator_schema_and_defs(val_schema: Dict[Text, Any]) -> Dict[Text, Any]:
+    time_range_schema_hash, defs = time_range_schema_and_defs()
+    val_schema_hash = hash_schema(val_schema)
+    defs[val_schema_hash] = val_schema
+
+    int_schema = {"type": "integer"}
+    int_schema_hash = hash_schema(int_schema)
+
+    str_schema = {"type": "string"}
+    str_schema_hash = hash_schema(str_schema)
+
+    r_schema = iterable_schema(
+        item_schema=iterable_schema(
+            item_schema=[
+                iterable_schema(
+                    item_schema=[
+                        int_schema_hash,
+                        time_range_schema_hash,
+                        str_schema_hash,
+                        str_schema_hash,
+                        str_schema_hash,
+                    ],
+                    length=5,
+                    x_type="tuple",
+                ),
+                val_schema_hash,
+            ],
+            x_type="tuple",
+            length=2,
+        )
+    )
+    return r_schema, defs
+
+
+def get_clones_schema_and_defs(val_schema: Dict[Text, Any]) -> Dict[Text, Any]:
+    defs = {}
+    val_schema_hash = hash_schema(val_schema)
+    defs[val_schema_hash] = val_schema
+
+    int_schema = {"type": "integer"}
+    int_schema_hash = hash_schema(int_schema)
+
+    r_schema = iterable_schema(
+        item_schema=iterable_schema(
+            item_schema=[int_schema_hash, val_schema_hash],
+            x_type="tuple",
+            length=2,
+        )
+    )
+    return r_schema, defs
+
+
+def get_time_series_schema_and_defs(val_schema: Dict[Text, Any]) -> Dict[Text, Any]:
+    time_range_schema_hash, defs = time_range_schema_and_defs()
+    val_schema_hash = hash_schema(val_schema)
+    defs[val_schema_hash] = val_schema
+
+    r_schema = iterable_schema(
+        item_schema=iterable_schema(
+            item_schema=[
+                time_range_schema_hash,
+                val_schema_hash,
+            ],
+            x_type="tuple",
+            length=2,
+        )
+    )
+    return r_schema, defs

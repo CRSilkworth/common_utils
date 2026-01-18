@@ -615,9 +615,6 @@ class RunnableAttribute(Attribute):
                 "full" will use all of the time ranges, even when there is
                 no corresponding value. "valid" only uses the time ranges
                 that this attribute has set as valid.
-            _time_range: (NOTE: Do not use. For internal use only)
-                max and min time range of the data. Defaults to full time
-                series (up to this point).
         Returns:
             iterator of 2-tuples:
                 time_range: The time range at which that value was computed.
@@ -920,13 +917,16 @@ class RunnableAttribute(Attribute):
         Args:
             Args:
             clone_num: Which simulation to pull the value from
-            time_range: (NOTE: Do not use. For internal use only)
             max and min time range of the data. Defaults to full time
                 series (up to this point).
         Returns:
             value: The first value retrieved by the query
         """
-        if clone_num is None and _time_range is None and self._val is not None:
+        if (
+            (clone_num is None or clone_num == self.cur_clone_num)
+            and (_time_range is None or _time_range == self.cur_time_range)
+            and self._val is not None
+        ):
             return self._val
 
         iterator = self.get_iterator(
